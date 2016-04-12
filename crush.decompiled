@@ -1,0 +1,169 @@
+# begin crush map
+tunable choose_local_tries 0
+tunable choose_local_fallback_tries 0
+tunable choose_total_tries 50
+tunable chooseleaf_descend_once 1
+tunable straw_calc_version 1
+
+# devices
+device 0 osd.0
+device 1 osd.1
+device 2 osd.2
+device 3 osd.3
+device 4 osd.4
+device 5 osd.5
+device 6 osd.6
+device 7 osd.7
+device 8 osd.8
+device 9 osd.9
+device 10 osd.10
+device 11 osd.11
+device 12 osd.12
+device 13 osd.13
+device 14 osd.14
+device 15 osd.15
+device 16 osd.16
+device 17 osd.17
+device 18 osd.18
+device 19 osd.19
+device 20 osd.20
+device 21 osd.21
+device 22 osd.22
+device 23 osd.23
+device 24 osd.24
+device 25 osd.25
+device 26 osd.26
+device 27 osd.27
+
+# types
+type 0 osd
+type 1 host
+type 2 chassis
+type 3 rack
+type 4 row
+type 5 pdu
+type 6 pod
+type 7 room
+type 8 datacenter
+type 9 region
+type 10 root
+
+# buckets
+host VMCEPH1-DATA {
+        id -2           # do not change unnecessarily
+        # weight 6.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.0 weight 1.000
+        item osd.1 weight 1.000
+        item osd.2 weight 1.000
+        item osd.3 weight 1.000
+        item osd.4 weight 1.000
+        item osd.5 weight 1.000
+}
+host VMCEPH2-DATA {
+        id -3           # do not change unnecessarily
+        # weight 6.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.6 weight 1.000
+        item osd.7 weight 1.000
+        item osd.8 weight 1.000
+        item osd.9 weight 1.000
+        item osd.10 weight 1.000
+        item osd.11 weight 1.000
+}
+host VMCEPH3-DATA {
+        id -4           # do not change unnecessarily
+        # weight 6.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.12 weight 1.000
+        item osd.13 weight 1.000
+        item osd.14 weight 1.000
+        item osd.15 weight 1.000
+        item osd.16 weight 1.000
+        item osd.17 weight 1.000
+}
+host VMCEPH4-DATA {
+        id -5           # do not change unnecessarily
+        # weight 6.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.18 weight 1.000
+        item osd.19 weight 1.000
+        item osd.20 weight 1.000
+        item osd.21 weight 1.000
+        item osd.22 weight 1.000
+        item osd.23 weight 1.000
+}
+root data {
+        id -1           # do not change unnecessarily
+        # weight 24.000
+        alg straw
+        hash 0  # rjenkins1
+        item VMCEPH1-DATA weight 6.000
+        item VMCEPH2-DATA weight 6.000
+        item VMCEPH3-DATA weight 6.000
+        item VMCEPH4-DATA weight 6.000
+}
+host VMCEPH1-CACHE {
+        id -6           # do not change unnecessarily
+        # weight 1.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.24 weight 1.000
+}
+host VMCEPH2-CACHE {
+        id -7           # do not change unnecessarily
+        # weight 1.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.25 weight 1.000
+}
+host VMCEPH3-CACHE {
+        id -8           # do not change unnecessarily
+        # weight 1.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.26 weight 1.000
+}
+host VMCEPH4-CACHE {
+        id -9           # do not change unnecessarily
+        # weight 1.000
+        alg straw
+        hash 0  # rjenkins1
+        item osd.27 weight 1.000
+}
+root cache {
+        id -10          # do not change unnecessarily
+        # weight 4.000
+        alg straw
+        hash 0  # rjenkins1
+        item VMCEPH1-CACHE weight 1.000
+        item VMCEPH2-CACHE weight 1.000
+        item VMCEPH3-CACHE weight 1.000
+        item VMCEPH4-CACHE weight 1.000
+}
+
+# rules
+rule data_ruleset {
+        ruleset 0
+        type replicated
+        min_size 1
+        max_size 10
+        step take data
+        step chooseleaf firstn 0 type host
+        step emit
+}
+rule cache_ruleset {
+        ruleset 1
+        type replicated
+        min_size 1
+        max_size 10
+        step take cache
+        step chooseleaf firstn 0 type host
+        step emit
+}
+
+# end crush map
