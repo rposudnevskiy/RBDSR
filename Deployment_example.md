@@ -466,7 +466,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 			# crushtool -c /tmp/crush.decompiled -o /tmp/crush
 			# ceph osd setcrushmap -i /tmp/crush
 
-10. Create Ceph data poop that we will use as XenServer Storage Repository
+10. Create Ceph data pool that we will use as XenServer Storage Repository
 
 		# uuidgen
 		5aab7115-2d2c-466d-818c-909cff689467
