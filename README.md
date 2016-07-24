@@ -5,7 +5,7 @@ It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi
 
 ## Installation 
 
-This plugin uses ****rbd**** utility for manipulating RBD devices, so you need to install ceph-common package from ceph repository on your XenServer hosts.
+This plugin uses **rbd** add **rbd-fuse** utilities for manipulating RBD devices, so you need to install ceph-common and rbd-fuse packages from ceph repository on your XenServer hosts.
 
 1. Make backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
  
@@ -47,7 +47,7 @@ This plugin uses ****rbd**** utility for manipulating RBD devices, so you need t
 
 	replace ```$releasever``` in uncommented lines with 7.2.1511
 
-3. disable Citrix.repo
+3. Disable Citrix.repo
 
 		[citrix]
 		enabled=0
@@ -93,7 +93,8 @@ This plugin uses ****rbd**** utility for manipulating RBD devices, so you need t
 		# yum install epel-release	
 		# yum install yum-plugin-priorities.noarch
 		# yum install snappy leveldb gdisk python-argparse gperftools-libs
-		# yum install ceph-common
+		# yum install fuse fuse-libs
+		# yum install ceph-common rbd-fuse
 
 7. Restore backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
 
@@ -143,15 +144,11 @@ This plugin uses ****rbd**** utility for manipulating RBD devices, so you need t
 		# Whitelist of SM plugins
 		sm-plugins= rbd cifs ext nfs iscsi lvmoiscsi dummy file hba rawhba udev iso lvm lvmohba lvmofcoe
 
-14. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easyest way is just copy it from your Ceph cluster node
+14. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
-15. Create a ```client.xenserver``` key, and save a copy of the key for your client host (should be executed on Ceph cluster node):
+15. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
 
-		# ceph auth get-or-create client.xenserver mon 'allow *' osd 'allow *' -o /etc/ceph/ceph.client.xenserver.keyring
-
-16. Copy ```/etc/ceph/ceph.client.xenserver.keyring``` to XenServer hosts. 
-
-17. Restart XAPI tool-stack on XenServer hosts
+16. Restart XAPI tool-stack on XenServer hosts
 
 		# xe-toolstack-restart 
 

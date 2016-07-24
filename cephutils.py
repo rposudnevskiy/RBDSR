@@ -23,6 +23,7 @@ import sys
 import os
 
 RBDPOOL_PREFIX = "RBD_XenStorage-"
+SR_MOUNT_PREFIX ="/run/sr-mount"
 VDI_PREFIX = "VHD-"
 SXM_PREFIX = "SXM-"
 SNAPSHOT_PREFIX = "SNAP-"
@@ -30,7 +31,23 @@ CLONE_PREFIX = "VHD-"
 DEV_RBD_ROOT = "/dev/rbd"
 BLOCK_SIZE = 21 #2097152 bytes
 
-def dm_setup_mirror(sr_uuid, vdi_uuid, size):
+def pool_mount(sr_uuid):
+    POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+    POOL_MOUNT_PATH = "%s/%s" % (SR_MOUNT_PREFIX, sr_uuid)
+    cmd = ["mkdir", "-p", POOL_MOUNT_PATH]
+    cmdout = util.pread2(cmd)
+    cmd = ["rbd-fuse", "-p", POOL_NAME, POOL_MOUNT_PATH]
+    cmdout = util.pread2(cmd)
+
+def pool_umount(sr_uuid):
+    POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+    POOL_MOUNT_PATH = "%s/%s" % (SR_MOUNT_PREFIX, sr_uuid)
+    cmd = ["fusermount", "-u", POOL_MOUNT_PATH]
+    cmdout = util.pread2(cmd)
+    cmd = ["rm", "-rf", POOL_MOUNT_PATH]
+    cmdout = util.pread2(cmd)
+
+def dm_setup_mirror_kernel(sr_uuid, vdi_uuid, size):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     RBD_VDI_MIRROR_DEVNAME = "/dev/rbd/%s/%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
     RBD_SXM_MIRROR_DEVNAME = "/dev/rbd/%s/%s%s" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
@@ -47,7 +64,25 @@ def dm_setup_mirror(sr_uuid, vdi_uuid, size):
     cmd = ["ln", "-s", DM_MIRROR_DEVNAME, RBD_VDI_MIRROR_DEVNAME]
     cmdout = util.pread2(cmd)
 
-def dm_setup_base(sr_uuid, vdi_uuid, size):
+def dm_setup_mirror_fuse(sr_uuid, vdi_uuid, size):
+    POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+    POOL_MOUNT_PATH = "%s/%s" % (SR_MOUNT_PREFIX, sr_uuid)
+    RBD_VDI_MIRROR_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, VDI_PREFIX, vdi_uuid)
+    RBD_SXM_MIRROR_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, SXM_PREFIX, vdi_uuid)
+    DM_ZERO_NAME = "%s-%s%s-zero" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
+    DM_ZERO_DEVNAME = "/dev/mapper/%s-%s%s-zero" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
+    DM_MIRROR_NAME = "%s-%s%s" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
+    DM_MIRROR_DEVNAME = "/dev/mapper/%s-%s%s" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
+    change_image_prefix_sxm(sr_uuid, vdi_uuid)
+    #map_sxm_blkdev(sr_uuid, vdi_uuid)
+    cmd = ["dmsetup", "create", DM_ZERO_NAME, "--table", "0 %s zero" % str(int(size)/512)]
+    cmdout = util.pread2(cmd)
+    cmd = ["dmsetup", "create", DM_MIRROR_NAME, "--table", "0 %s snapshot %s %s P 1" % (str(int(size)/512), DM_ZERO_DEVNAME, RBD_SXM_MIRROR_DEVNAME)]
+    cmdout = util.pread2(cmd)
+    cmd = ["ln", "-s", DM_MIRROR_DEVNAME, RBD_VDI_MIRROR_DEVNAME]
+    cmdout = util.pread2(cmd)
+
+def dm_setup_base_kernel(sr_uuid, vdi_uuid, size):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     RBD_VDI_BASE_DEVNAME = "/dev/rbd/%s/%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
     DM_BASE_NAME = "%s-%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
@@ -55,7 +90,16 @@ def dm_setup_base(sr_uuid, vdi_uuid, size):
     cmd = ["dmsetup", "create", DM_BASE_NAME, "--table", "0 %s snapshot-origin %s" % (str(int(size)/512), RBD_VDI_BASE_DEVNAME)]
     cmdout = util.pread2(cmd)
 
-def merge_diff(sr_uuid, mirror_uuid, snap_uuid, base_uuid, size):
+def dm_setup_base_fuse(sr_uuid, vdi_uuid, size):
+    POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+    POOL_MOUNT_PATH = "%s/%s" % (SR_MOUNT_PREFIX, sr_uuid)
+    RBD_VDI_BASE_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, VDI_PREFIX, vdi_uuid)
+    DM_BASE_NAME = "%s-%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
+    DM_BASE_DEVNAME = "/dev/mapper/%s-%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
+    cmd = ["dmsetup", "create", DM_BASE_NAME, "--table", "0 %s snapshot-origin %s" % (str(int(size)/512), RBD_VDI_BASE_DEVNAME)]
+    cmdout = util.pread2(cmd)
+
+def merge_diff_kernel(sr_uuid, mirror_uuid, snap_uuid, base_uuid, size):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     DM_ZERO_NAME = "%s-%s%s-zero" % (POOL_NAME, SXM_PREFIX, mirror_uuid)
     RBD_VDI_BASE_DEVNAME = "/dev/rbd/%s/%s%s" % (POOL_NAME, VDI_PREFIX, base_uuid)
@@ -73,7 +117,7 @@ def merge_diff(sr_uuid, mirror_uuid, snap_uuid, base_uuid, size):
     cmd = ["dmsetup", "remove", DM_ZERO_NAME]
     cmdout = util.pread2(cmd)
     map_rbd_blkdev(sr_uuid, base_uuid)
-    dm_setup_base(sr_uuid, base_uuid, size)
+    dm_setup_base_kernel(sr_uuid, base_uuid, size)
     cmd = ["dmsetup", "suspend", DM_BASE_NAME]
     cmdout = util.pread2(cmd)
     cmd = ["dmsetup", "reload", DM_BASE_NAME, "--table", "0 %s snapshot-merge %s %s P 1" % (str(int(size)/512), RBD_VDI_BASE_DEVNAME, RBD_SXM_MIRROR_DEVNAME)]
@@ -96,6 +140,49 @@ def merge_diff(sr_uuid, mirror_uuid, snap_uuid, base_uuid, size):
     rename_image(sr_uuid, tmp_uuid, base_uuid)
     #-----
     map_rbd_blkdev(sr_uuid, mirror_uuid)
+
+def merge_diff_fuse(sr_uuid, mirror_uuid, snap_uuid, base_uuid, size):
+    POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+    POOL_MOUNT_PATH = "%s/%s" % (SR_MOUNT_PREFIX, sr_uuid)
+    DM_ZERO_NAME = "%s-%s%s-zero" % (POOL_NAME, SXM_PREFIX, mirror_uuid)
+    RBD_VDI_BASE_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, VDI_PREFIX, base_uuid)
+    RBD_VDI_MIRROR_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, VDI_PREFIX, mirror_uuid)
+    RBD_SXM_MIRROR_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, SXM_PREFIX, mirror_uuid)
+    DM_BASE_NAME = "%s-%s%s" % (POOL_NAME, VDI_PREFIX, base_uuid)
+    DM_BASE_DEVNAME = "/dev/mapper/%s-%s%s" % (POOL_NAME, VDI_PREFIX, base_uuid)
+    DM_MIRROR_NAME = "%s-%s%s" % (POOL_NAME, SXM_PREFIX, mirror_uuid)
+    DM_MIRROR_DEVNAME = "/dev/mapper/%s-%s%s" % (POOL_NAME, SXM_PREFIX, mirror_uuid)
+    RBD_BASE_DEVNAME = "%s/%s%s" % (POOL_MOUNT_PATH, VDI_PREFIX, base_uuid)
+    cmd = ["unlink", RBD_VDI_MIRROR_DEVNAME]
+    cmdout = util.pread2(cmd)
+    cmd = ["dmsetup", "remove", DM_MIRROR_NAME]
+    cmdout = util.pread2(cmd)
+    cmd = ["dmsetup", "remove", DM_ZERO_NAME]
+    cmdout = util.pread2(cmd)
+    #map_rbd_blkdev(sr_uuid, base_uuid)
+    dm_setup_base_fuse(sr_uuid, base_uuid, size)
+    cmd = ["dmsetup", "suspend", DM_BASE_NAME]
+    cmdout = util.pread2(cmd)
+    cmd = ["dmsetup", "reload", DM_BASE_NAME, "--table", "0 %s snapshot-merge %s %s P 1" % (str(int(size)/512), RBD_VDI_BASE_DEVNAME, RBD_SXM_MIRROR_DEVNAME)]
+    cmdout = util.pread2(cmd)
+    cmd = ["dmsetup", "resume", DM_BASE_NAME]
+    cmdout = util.pread2(cmd)
+    # we should wait until the merge is completed
+    cmd = ["waitdmmerging.sh", DM_BASE_NAME]
+    # -------------------------------------------
+    cmdout = util.pread2(cmd)
+    cmd = ["dmsetup", "remove", DM_BASE_NAME]
+    cmdout = util.pread2(cmd)
+    #unmap_rbd_blkdev(sr_uuid, base_uuid)
+    #unmap_sxm_blkdev(sr_uuid, mirror_uuid)
+    revert_image_prefix_sxm(sr_uuid, mirror_uuid)
+    #-----
+    tmp_uuid = "temporary" #util.gen_uuid()
+    rename_image(sr_uuid, mirror_uuid, tmp_uuid)
+    rename_image(sr_uuid, base_uuid, mirror_uuid)
+    rename_image(sr_uuid, tmp_uuid, base_uuid)
+    #-----
+    #map_rbd_blkdev(sr_uuid, mirror_uuid)
 
 def change_image_prefix_sxm(sr_uuid, vdi_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
@@ -172,24 +259,40 @@ def resize(sr_uuid, vdi_uuid, size):
     cmd = ["rbd", "resize", "--size", NEW_SIZE, "--allow-shrink", VDI_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
     cmdout = util.pread2(cmd)
 
-def get_snap_path(sr_uuid, vdi_uuid, snap_uuid):
+def get_snap_path_kernel(sr_uuid, vdi_uuid, snap_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     SNAPSHOT_NAME = "%s@%s%s" % (VDI_NAME, SNAPSHOT_PREFIX, snap_uuid)
     blkdev_path = os.path.join(DEV_RBD_ROOT, POOL_NAME, SNAPSHOT_NAME)
     return blkdev_path
 
-def get_clone_path(sr_uuid, vdi_uuid):
+def get_snap_path_fuse(sr_uuid, vdi_uuid, snap_uuid):
+    VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
+    SNAPSHOT_NAME = "%s@%s%s" % (VDI_NAME, SNAPSHOT_PREFIX, snap_uuid)
+    fuse_path = os.path.join(SR_MOUNT_PREFIX, sr_uuid, SNAPSHOT_NAME)
+    return fuse_path
+
+def get_clone_path_kernel(sr_uuid, vdi_uuid):
     CLONE_NAME = "%s%s" % (CLONE_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     blkdev_path = os.path.join(DEV_RBD_ROOT, POOL_NAME, CLONE_NAME)
     return blkdev_path
+
+def get_clone_path_fuse(sr_uuid, vdi_uuid):
+    CLONE_NAME = "%s%s" % (CLONE_PREFIX, vdi_uuid)
+    fuse_path = os.path.join(SR_MOUNT_PREFIX, sr_uuid, CLONE_NAME)
+    return fuse_path
 
 def get_sxm_blkdev_path(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (SXM_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     blkdev_path = os.path.join(DEV_RBD_ROOT, POOL_NAME, VDI_NAME)
     return blkdev_path
+
+def get_sxm_fuse_path(sr_uuid, vdi_uuid):
+    VDI_NAME = "%s%s" % (SXM_PREFIX, vdi_uuid)
+    fuse_path = os.path.join(SR_MOUNT_PREFIX, sr_uuid, VDI_NAME)
+    return fuse_path
 
 def map_sxm_blkdev(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (SXM_PREFIX, vdi_uuid)
@@ -207,6 +310,11 @@ def get_blkdev_path(sr_uuid, vdi_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     blkdev_path = os.path.join(DEV_RBD_ROOT, POOL_NAME, VDI_NAME)
     return blkdev_path
+
+def get_fuse_path(sr_uuid, vdi_uuid):
+    VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
+    fuse_path = os.path.join(SR_MOUNT_PREFIX, sr_uuid, VDI_NAME)
+    return fuse_path
 
 def map_rbd_blkdev(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -240,7 +348,7 @@ def _get_pool_info(pool,info):
     cmdout = util.pread2(cmd)
     decoded = json.loads(cmdout)
     for poolinfo in decoded['pools']:
-        regex = re.compile(RBDPOOL_PREFIX)
+        regex = re.compile(pool)
         if regex.search(poolinfo['name']):
             if info == 'size':
                 return poolinfo['stats']['max_avail']
@@ -371,10 +479,16 @@ def create_vdi(sr_uuid, vdi_uuid, vdi_label, vdi_description, size):
     cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
     cmdout = util.pread2(cmd)
 
-def delete_vdi(sr_uuid, vdi_uuid):
+def delete_vdi_kernel(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     cmd = ["rbd", "rm", VDI_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmdout = util.pread2(cmd)
+
+def delete_vdi_fuse(sr_uuid, vdi_uuid):
+    POOL_MOUNT_PATH = "%s/%s" % (SR_MOUNT_PREFIX, sr_uuid)
+    RBD_VDI_PATH = "%s/%s%s" % (POOL_MOUNT_PATH, VDI_PREFIX, vdi_uuid)
+    cmd = ["rm", "-f", RBD_VDI_PATH]
     cmdout = util.pread2(cmd)
 
 def _get_vdi_info(sr_uuid, vdi_uuid):
