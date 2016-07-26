@@ -94,7 +94,7 @@ This plugin uses **rbd** add **rbd-fuse** utilities for manipulating RBD devices
 		# yum install yum-plugin-priorities.noarch
 		# yum install snappy leveldb gdisk python-argparse gperftools-libs
 		# yum install fuse fuse-libs
-		# yum install ceph-common rbd-fuse
+		# yum install ceph-common rbd-fuse rbd-nbd
 
 7. Restore backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
 

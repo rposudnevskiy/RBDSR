@@ -47,7 +47,7 @@ TYPE = "rbd"
 PROVISIONING_TYPES = ["thin", "thick"]
 PROVISIONING_DEFAULT = "thick"
 
-MODE_TYPES = ["kernel", "fuse"]
+MODE_TYPES = ["kernel", "fuse", "nbd"]
 MODE_DEFAULT = "fuse"
 
 class RBDSR(SR.SR):
@@ -108,6 +108,8 @@ class RBDSR(SR.SR):
                         self.vdis[vdi_uuid].path = cephutils.get_snap_path_kernel(self.uuid, base_vdi_uuid, vdi_uuid)
                     elif self.mode == "fuse":
                         self.vdis[vdi_uuid].path = cephutils.get_snap_path_fuse(self.uuid, base_vdi_uuid, vdi_uuid)
+                    elif self.mode == "nbd":
+                        self.vdis[vdi_uuid].path = cephutils.get_snap_path_nbd(self.uuid, base_vdi_uuid, vdi_uuid)
                 else:
                     #VDI exists
                     vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
@@ -190,7 +192,9 @@ class RBDSR(SR.SR):
                     opterr='no pool with uuid: %s' % sr_uuid)
 
         if self.mode == "fuse":
-            cephutils.pool_mount(sr_uuid)
+            cephutils.fuse_pool_mount(sr_uuid)
+        elif self.mode == "nbd":
+            cephutils.nbd_pool_mount(sr_uuid)
     
     def update(self, sr_uuid):
         self.scan(sr_uuid)
@@ -198,7 +202,9 @@ class RBDSR(SR.SR):
     def detach(self, sr_uuid):
         """Std. detach"""
         if self.mode == "fuse":
-            cephutils.pool_umount(sr_uuid)
+            cephutils.fuse_pool_umount(sr_uuid)
+        elif self.mode == "nbd":
+            cephutils.nbd_pool_umount(sr_uuid)
     
     def scan(self, sr_uuid):
         """Scan"""
@@ -249,6 +255,8 @@ class RBDVDI(VDI.VDI):
             self.path = cephutils.get_blkdev_path(self.sr.uuid, vdi_uuid)
         elif self.mode == "fuse":
             self.path = cephutils.get_fuse_path(self.sr.uuid, vdi_uuid)
+        elif self.mode == "nbd":
+            self.path = cephutils.get_nbddev_path(self.sr.uuid, vdi_uuid)
         
         self.exists = False
         try:
@@ -317,6 +325,8 @@ class RBDVDI(VDI.VDI):
                 self.path = cephutils.get_blkdev_path(self.sr.uuid, self.uuid)
             elif self.mode == "fuse":
                 self.path = cephutils.get_fuse_path(self.sr.uuid, self.uuid)
+            elif self.mode == "nbd":
+                self.path = cephutils.get_nbddev_path(self.sr.uuid, self.uuid)
             new_vdi_ref = self._db_introduce()
             self.session.xenapi.VDI.set_sm_config(new_vdi_ref, self.session.xenapi.VDI.get_sm_config(self_vdi_ref))
             self.session.xenapi.VDI.add_to_sm_config(new_vdi_ref, 'rollback', 'true')
@@ -347,6 +357,8 @@ class RBDVDI(VDI.VDI):
                         cephutils.delete_vdi_kernel(sr_uuid, self_sm_config["compose_vdi1"])
                     elif self.mode == "fuse":
                         cephutils.delete_vdi_fuse(sr_uuid, self_sm_config["compose_vdi1"])
+                    elif self.mode == "nbd":
+                        cephutils.delete_vdi_kernel(sr_uuid, self_sm_config["compose_vdi1"])
                     self.sr.forget_vdi(self_sm_config["compose_vdi1"])
                 else:
                     cephutils.delete_snapshot(sr_uuid, self_sm_config["snapshot-of"], vdi_uuid)
@@ -355,6 +367,8 @@ class RBDVDI(VDI.VDI):
                     cephutils.delete_vdi_kernel(sr_uuid, vdi_uuid)
                 elif self.mode == "fuse":
                     cephutils.delete_vdi_fuse(sr_uuid, vdi_uuid)
+                elif self.mode == "nbd":
+                    cephutils.delete_vdi_kernel(sr_uuid, vdi_uuid)
             self.size = int(self.session.xenapi.VDI.get_virtual_size(self_vdi_ref))
             self.sr._updateStats(self.sr.uuid, -self.size)
             self._db_forget()
@@ -401,16 +415,22 @@ class RBDVDI(VDI.VDI):
                     cephutils.dm_setup_mirror_kernel(sr_uuid, vdi_uuid, self.size)
                 elif self.mode == "fuse":
                     cephutils.dm_setup_mirror_fuse(sr_uuid, vdi_uuid, self.size)
+                elif self.mode == "nbd":
+                    cephutils.dm_setup_mirror_nbd(sr_uuid, vdi_uuid, self.size)
             else:
                 # it's a base vdi of storage migrating VM
                 # it's attached after mirror VDI and mirror snapshot VDI has been created
                 if self.mode == "kernel":
                     cephutils.map_rbd_blkdev(sr_uuid, vdi_uuid)
+                elif self.mode == "nbd":
+                    cephutils.map_nbd_blkdev(sr_uuid, vdi_uuid)
         ########## not SXM VDIs
         else:
             # it's not SXM VDI, just attach it
             if self.mode == "kernel":
                 cephutils.map_rbd_blkdev(sr_uuid, vdi_uuid)
+            elif self.mode == "nbd":
+                cephutils.map_nbd_blkdev(sr_uuid, vdi_uuid)
         
         if not util.pathexists(self.path):
             raise xs_errors.XenError('VDIUnavailable', \
@@ -421,6 +441,8 @@ class RBDVDI(VDI.VDI):
     def detach(self, sr_uuid, vdi_uuid):
         if self.mode == "kernel":
             cephutils.unmap_rbd_blkdev(sr_uuid, vdi_uuid)
+        elif self.mode == "nbd":
+            cephutils.unmap_nbd_blkdev(sr_uuid, vdi_uuid)
         self.attached = False
         vdi_ref = self.sr.srcmd.params['vdi_ref']
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
@@ -489,6 +511,8 @@ class RBDVDI(VDI.VDI):
                 cloneVDI.path = cephutils.get_blkdev_path(sr_uuid, clone_uuid)
             elif self.mode == "fuse":
                 cloneVDI.path = cephutils.get_fuse_path(sr_uuid, clone_uuid)
+            elif self.mode == "nbd":
+                cloneVDI.path = cephutils.get_nbddev_path(sr_uuid, clone_uuid)
             cloneVDI.location = cloneVDI.uuid
             cloneVDI.sm_config["vdi_type"] = 'aio'
             cloneVDI.sm_config["clone-of"] = snap_uuid
@@ -530,6 +554,8 @@ class RBDVDI(VDI.VDI):
             snapVDI.path = cephutils.get_snap_path_kernel(self.sr.uuid, base_uuid, snap_uuid)
         elif self.mode == "fuse":
             snapVDI.path = cephutils.get_snap_path_fuse(self.sr.uuid, base_uuid, snap_uuid)
+        elif self.mode == "nbd":
+            snapVDI.path = cephutils.get_snap_path_nbd(self.sr.uuid, base_uuid, snap_uuid)
         snapVDI.issnap = True
         snapVDI.read_only = True
         snapVDI.location = snapVDI.uuid
@@ -612,6 +638,8 @@ class RBDVDI(VDI.VDI):
             cephutils.merge_diff_kernel(sr_uuid, vdi2_uuid, snap_uuid, vdi1_uuid, self.size)
         elif self.mode == "fuse":
             cephutils.merge_diff_fuse(sr_uuid, vdi2_uuid, snap_uuid, vdi1_uuid, self.size)
+        elif self.mode == "nbd":
+            cephutils.merge_diff_nbd(sr_uuid, vdi2_uuid, snap_uuid, vdi1_uuid, self.size)
         
         self.session.xenapi.VDI.remove_from_sm_config(snap_vdi_ref, 'snapshot-of')
         self.session.xenapi.VDI.add_to_sm_config(snap_vdi_ref, 'snapshot-of', vdi1_uuid)
