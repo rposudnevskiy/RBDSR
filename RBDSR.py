@@ -51,10 +51,10 @@ MODE_TYPES = ["kernel", "fuse", "nbd"]
 MODE_DEFAULT = "fuse"
 
 class RBDSR(SR.SR):
-    """Shared memory storage repository"""
+    """Ceph Block Devices storage repository"""
     
     def _loadvdis(self):
-        """Scan the location directory."""
+        
         if self.vdis:
             return
         
