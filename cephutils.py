@@ -269,27 +269,27 @@ def change_image_prefix_sxm(sr_uuid, vdi_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     ORIG_NAME = "%s/%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
     NEW_NAME = "%s/%s%s" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
-    cmd = ["rbd", "mv", ORIG_NAME, NEW_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "mv", ORIG_NAME, NEW_NAME]
     cmdout = util.pread2(cmd)
 
 def revert_image_prefix_sxm(sr_uuid, vdi_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     ORIG_NAME = "%s/%s%s" % (POOL_NAME, SXM_PREFIX, vdi_uuid)
     NEW_NAME = "%s/%s%s" % (POOL_NAME, VDI_PREFIX, vdi_uuid)
-    cmd = ["rbd", "mv", ORIG_NAME, NEW_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "mv", ORIG_NAME, NEW_NAME]
     cmdout = util.pread2(cmd)
 
 def rename_image(sr_uuid, orig_uuid, new_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     ORIG_NAME = "%s/%s%s" % (POOL_NAME, VDI_PREFIX, orig_uuid)
     NEW_NAME = "%s/%s%s" % (POOL_NAME, VDI_PREFIX, new_uuid)
-    cmd = ["rbd", "mv", ORIG_NAME, NEW_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "mv", ORIG_NAME, NEW_NAME]
     cmdout = util.pread2(cmd)
 
 def flatten_clone(sr_uuid, clone_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     CLONE_NAME = "%s/%s%s" % (POOL_NAME, CLONE_PREFIX, clone_uuid)
-    cmd = ["rbd", "flatten", CLONE_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "flatten", CLONE_NAME]
     cmdout = util.pread2(cmd)
 
 def do_clone(sr_uuid, vdi_uuid, snap_uuid, clone_uuid, vdi_label):
@@ -297,27 +297,27 @@ def do_clone(sr_uuid, vdi_uuid, snap_uuid, clone_uuid, vdi_label):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     SNAPSHOT_NAME = "%s/%s@%s%s" % (POOL_NAME, VDI_NAME, SNAPSHOT_PREFIX, snap_uuid)
     CLONE_NAME = "%s/%s%s" % (POOL_NAME, CLONE_PREFIX, clone_uuid)
-    cmd = ["rbd", "clone", SNAPSHOT_NAME, CLONE_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "clone", SNAPSHOT_NAME, CLONE_NAME]
     cmdout = util.pread2(cmd)
-    cmd = ["rbd", "image-meta", "set", CLONE_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "image-meta", "set", CLONE_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
-    cmd = ["rbd", "image-meta", "set", CLONE_NAME, "CLONE_OF", snap_uuid, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "image-meta", "set", CLONE_NAME, "CLONE_OF", snap_uuid, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def rollback_snapshot(sr_uuid, base_uuid, snap_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, base_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     SNAPSHOT_NAME = "%s@%s%s" % (VDI_NAME, SNAPSHOT_PREFIX, snap_uuid)
-    cmd = ["rbd", "snap", "rollback", SNAPSHOT_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "snap", "rollback", SNAPSHOT_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def do_snapshot(sr_uuid, vdi_uuid, snap_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     SNAPSHOT_NAME = "%s@%s%s" % (VDI_NAME, SNAPSHOT_PREFIX, snap_uuid)
-    cmd = ["rbd", "snap", "create", SNAPSHOT_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "snap", "create", SNAPSHOT_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
-    cmd = ["rbd", "snap", "protect", SNAPSHOT_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "snap", "protect", SNAPSHOT_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def delete_snapshot(sr_uuid, vdi_uuid, snap_uuid):
@@ -325,11 +325,11 @@ def delete_snapshot(sr_uuid, vdi_uuid, snap_uuid):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     SNAPSHOT_NAME = "%s@%s%s" % (VDI_NAME, SNAPSHOT_PREFIX, snap_uuid)
     SHORT_SNAP_NAME = "%s%s" % (SNAPSHOT_PREFIX, snap_uuid)
-    cmd = ["rbd", "snap", "unprotect", SNAPSHOT_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "snap", "unprotect", SNAPSHOT_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
-    cmd = ["rbd", "snap", "rm", SNAPSHOT_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "snap", "rm", SNAPSHOT_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
-    cmd = ["rbd", "image-meta", "remove", VDI_NAME, SHORT_SNAP_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "image-meta", "remove", VDI_NAME, SHORT_SNAP_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def resize(sr_uuid, vdi_uuid, size):
@@ -337,7 +337,7 @@ def resize(sr_uuid, vdi_uuid, size):
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     image_size = size/1024/1024
     NEW_SIZE = "%s" % (image_size)
-    cmd = ["rbd", "resize", "--size", NEW_SIZE, "--allow-shrink", VDI_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "resize", "--size", NEW_SIZE, "--allow-shrink", VDI_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def get_snap_path_kernel(sr_uuid, vdi_uuid, snap_uuid):
@@ -397,7 +397,7 @@ def get_sxm_fuse_path(sr_uuid, vdi_uuid):
 def map_sxm_blkdev(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (SXM_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
-    cmd = ["rbd", "map", VDI_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "map", VDI_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
     
 def map_sxm_nbddev(sr_uuid, vdi_uuid):
@@ -411,7 +411,7 @@ def map_sxm_nbddev(sr_uuid, vdi_uuid):
 
 def unmap_sxm_blkdev(sr_uuid, vdi_uuid):
     dev_path=get_sxm_blkdev_path(sr_uuid, vdi_uuid)
-    cmd = ["rbd", "unmap", dev_path, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "unmap", dev_path]
     cmdout = util.pread2(cmd)
     
 def unmap_sxm_nbddev(sr_uuid, vdi_uuid):
@@ -443,7 +443,7 @@ def get_fuse_path(sr_uuid, vdi_uuid):
 def map_rbd_blkdev(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
-    cmd = ["rbd", "map", VDI_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "map", VDI_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def map_nbd_blkdev(sr_uuid, vdi_uuid):
@@ -460,7 +460,7 @@ def map_nbd_blkdev(sr_uuid, vdi_uuid):
 
 def unmap_rbd_blkdev(sr_uuid, vdi_uuid):
     dev_path=get_blkdev_path(sr_uuid, vdi_uuid)
-    cmd = ["rbd", "unmap", dev_path, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "unmap", dev_path]
     cmdout = util.pread2(cmd)
     
 def unmap_nbd_blkdev(sr_uuid, vdi_uuid):
@@ -474,7 +474,7 @@ def unmap_nbd_blkdev(sr_uuid, vdi_uuid):
 
 def check_uuid(uuid):
     RBDPOOLs = {}
-    cmd = ["ceph", "osd", "pool", "ls", "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["ceph", "osd", "pool", "ls"]
     cmdout = util.pread2(cmd)[:-1]
     if len(cmdout) == 0:
         return []
@@ -489,7 +489,7 @@ def check_uuid(uuid):
     return False
 
 def _get_pool_info(pool,info):
-    cmd = ["ceph", "df", "-f", "json", "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["ceph", "df", "-f", "json"]
     cmdout = util.pread2(cmd)
     decoded = json.loads(cmdout)
     for poolinfo in decoded['pools']:
@@ -530,7 +530,7 @@ def get_allocated_size(RBDVDIs):
 
 def scan_vdilist(pool):
     RBDVDIs = {}
-    cmd = ["rbd", "ls", "-l", "--format", "json", "--pool", pool, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "ls", "-l", "--format", "json", "--pool", pool]
     cmdout = util.pread2(cmd)
     decoded = json.loads(cmdout)
     for vdi in decoded:
@@ -545,7 +545,7 @@ def scan_vdilist(pool):
 
 def scan_srlist():
     RBDPOOLs = {}
-    cmd = ["ceph", "osd", "pool", "ls", "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["ceph", "osd", "pool", "ls"]
     cmdout = util.pread2(cmd)[:-1]
     if len(cmdout) == 0:
         return []
@@ -605,33 +605,33 @@ def update_vdi(sr_uuid, vdi_uuid, vdi_label, vdi_description, snapshots):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     if vdi_label:
-        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME]
         cmdout = util.pread2(cmd)
     if vdi_description:
-        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME]
         cmdout = util.pread2(cmd)
     for snapshot_uuid in snapshots.keys():
         SNAPSHOT_NAME = "%s%s" % (SNAPSHOT_PREFIX, snapshot_uuid)
-        cmd = ["rbd", "image-meta", "set", VDI_NAME, SNAPSHOT_NAME, str(snapshots[snapshot_uuid]), "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, SNAPSHOT_NAME, str(snapshots[snapshot_uuid]), "--pool", POOL_NAME]
         cmdout = util.pread2(cmd)
 
 def create_vdi(sr_uuid, vdi_uuid, vdi_label, vdi_description, size):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
     image_size = size/1024/1024
-    cmd = ["rbd", "create", VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "create", VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
     if vdi_label:
-        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME]
         cmdout = util.pread2(cmd)
     if vdi_description:
-        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME]
         cmdout = util.pread2(cmd)
 
 def delete_vdi_kernel(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
-    cmd = ["rbd", "rm", VDI_NAME, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "rm", VDI_NAME, "--pool", POOL_NAME]
     cmdout = util.pread2(cmd)
 
 def delete_vdi_fuse(sr_uuid, vdi_uuid):
@@ -643,7 +643,7 @@ def delete_vdi_fuse(sr_uuid, vdi_uuid):
 def _get_vdi_info(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
-    cmd = ["rbd", "image-meta", "list", VDI_NAME, "--pool", POOL_NAME, "--format", "json", "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+    cmd = ["rbd", "image-meta", "list", VDI_NAME, "--pool", POOL_NAME, "--format", "json"]
     cmdout = util.pread2(cmd)
     if len(cmdout) != 0:
         decoded = json.loads(cmdout)
