@@ -604,10 +604,12 @@ def srlist_toxml(RBDPOOLs):
 def update_vdi(sr_uuid, vdi_uuid, vdi_label, vdi_description, snapshots):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
-    cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
-    cmdout = util.pread2(cmd)
-    cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
-    cmdout = util.pread2(cmd)
+    if vdi_label:
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmdout = util.pread2(cmd)
+    if vdi_description:
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmdout = util.pread2(cmd)
     for snapshot_uuid in snapshots.keys():
         SNAPSHOT_NAME = "%s%s" % (SNAPSHOT_PREFIX, snapshot_uuid)
         cmd = ["rbd", "image-meta", "set", VDI_NAME, SNAPSHOT_NAME, str(snapshots[snapshot_uuid]), "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
@@ -619,10 +621,12 @@ def create_vdi(sr_uuid, vdi_uuid, vdi_label, vdi_description, size):
     image_size = size/1024/1024
     cmd = ["rbd", "create", VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
     cmdout = util.pread2(cmd)
-    cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
-    cmdout = util.pread2(cmd)
-    cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
-    cmdout = util.pread2(cmd)
+    if vdi_label:
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_LABEL", vdi_label, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmdout = util.pread2(cmd)
+    if vdi_description:
+        cmd = ["rbd", "image-meta", "set", VDI_NAME, "VDI_DESCRIPTION", vdi_description, "--pool", POOL_NAME, "--id", "xenserver", "--keyring", "/etc/ceph/ceph.client.xenserver.keyring"]
+        cmdout = util.pread2(cmd)
 
 def delete_vdi_kernel(sr_uuid, vdi_uuid):
     VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
