@@ -5,7 +5,7 @@ It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi
 
 ## Installation 
 
-This plugin uses **rbd** add **rbd-fuse** utilities for manipulating RBD devices, so you need to install ceph-common and rbd-fuse packages from ceph repository on your XenServer hosts.
+This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so you need to install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
 
 1. Make backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
  
