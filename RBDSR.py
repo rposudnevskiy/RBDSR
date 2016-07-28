@@ -164,7 +164,6 @@ class RBDSR(SR.SR):
     def content_type(self, sr_uuid):
         """Returns the content_type XML""" 
         return super(RBDSR, self).content_type(sr_uuid)
-        #return 'rbd'
     
     def vdi(self, uuid):
         """Create a VDI class"""
