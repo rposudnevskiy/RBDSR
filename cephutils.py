@@ -273,8 +273,12 @@ class VDI:
     def _do_snapshot(self, vdi_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
+        if self.mode == "nbd":
+            self._unmap_VHD(vdi_uuid)
         util.pread2(["rbd", "snap", "create", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
         util.pread2(["rbd", "snap", "protect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
+        if self.mode == "nbd":
+            self._map_VHD(vdi_uuid)
 
     def _rollback_snapshot(self, base_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, base_uuid)
