@@ -21,6 +21,7 @@ import re
 import json
 import sys
 import os
+import blktap2
 
 RBDPOOL_PREFIX = "RBD_XenStorage-"
 VDI_PREFIX = "VHD-"
@@ -42,15 +43,15 @@ class SR:
         self.mode = ''
         self.uuid = ''
         self.SR_ROOT = ''
-
+    
     def _get_vdi_uuid(self, vdi):
         regex = re.compile(VDI_PREFIX)
         return regex.sub('', vdi)
-
+    
     def _get_snap_uuid(self, vdi):
         regex = re.compile(SNAPSHOT_PREFIX)
         return regex.sub('', vdi)
-
+    
     def _get_vdi_info(self, vdi_uuid):
         VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
         cmdout = util.pread2(["rbd", "image-meta", "list", VDI_NAME, "--pool", self.CEPH_POOL_NAME, "--format", "json"])
@@ -59,7 +60,7 @@ class SR:
             return decoded
         else:
             return {}
-
+    
     def _get_vdilist(self, pool):
         RBDVDIs = {}
         cmd = ["rbd", "ls", "-l", "--format", "json", "--pool", pool]
@@ -74,79 +75,79 @@ class SR:
                     vdi_uuid = self._get_vdi_uuid(vdi['image'])
                     RBDVDIs[vdi_uuid] = vdi
         return RBDVDIs
-
+    
     def _srlist_toxml(self):
         self.RBDPOOLs = self._get_srlist()
         dom = xml.dom.minidom.Document()
         element = dom.createElement("SRlist")
         dom.appendChild(element)
-
+        
         for sr_uuid in self.RBDPOOLs.keys():
             entry = dom.createElement('SR')
             element.appendChild(entry)
-
+            
             subentry = dom.createElement("UUID")
             entry.appendChild(subentry)
             textnode = dom.createTextNode(sr_uuid)
             subentry.appendChild(textnode)
-
+            
             subentry = dom.createElement("PoolName")
             entry.appendChild(subentry)
             textnode = dom.createTextNode(self.RBDPOOLs[sr_uuid]["name"])
             subentry.appendChild(textnode)
-
+            
             subentry = dom.createElement("Size")
             entry.appendChild(subentry)
             size = str(self.RBDPOOLs[sr_uuid]["stats"]["max_avail"] + self.RBDPOOLs[sr_uuid]["stats"]["bytes_used"])
             textnode = dom.createTextNode(size)
             subentry.appendChild(textnode)
-
+            
             subentry = dom.createElement("BytesUses")
             entry.appendChild(subentry)
             bytesused = str(self.RBDPOOLs[sr_uuid]["stats"]["bytes_used"])
             textnode = dom.createTextNode(bytesused)
             subentry.appendChild(textnode)
-
+            
             subentry = dom.createElement("Objects")
             entry.appendChild(subentry)
             objects = str(self.RBDPOOLs[sr_uuid]["stats"]["objects"])
             textnode = dom.createTextNode(objects)
             subentry.appendChild(textnode)
-
+            
         return dom.toprettyxml()
-
+    
     def _get_path(self, vdi_uuid):
         ceph_vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         return os.path.join(self.SR_ROOT, ceph_vdi_name)
-
+    
     def _get_snap_path(self, vdi_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         return os.path.join(self.SR_ROOT, snapshot_name)
-
+    
     def _get_sr_uuid_by_name(self, pool):
         regex = re.compile(RBDPOOL_PREFIX)
         return regex.sub('', pool)
-
+    
     def _get_allocated_size(self):
         allocated_bytes = 0
-
+    
         rbdvdis = self._get_vdilist(self.CEPH_POOL_NAME)
         for vdi_uuid in rbdvdis.keys():
             allocated_bytes += rbdvdis[vdi_uuid]['size']
         return allocated_bytes
-
+    
     def _isSpaceAvailable(self, size):
-
+    
         sr_free_space = self.RBDPOOLs[self.uuid]['stats']['max_avail']
         if size > sr_free_space:
             return False
         else:
             return True
-
+    
     def _get_srlist(self):
         RBDPOOLs = {}
-
+        
         cmdout = util.pread2(["ceph", "df", "-f", "json"])
         decoded = json.loads(cmdout)
         for poolinfo in decoded['pools']:
@@ -155,45 +156,45 @@ class SR:
                 sr_uuid = self._get_sr_uuid_by_name(poolinfo['name'])
                 RBDPOOLs[sr_uuid] = poolinfo
         return RBDPOOLs
-
+    
     def load(self, sr_uuid):
-	self.CEPH_POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
-        self.RBDVDIs = self._get_vdilist(self.CEPH_POOL_NAME)
+        self.CEPH_POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
         self.RBDPOOLs = self._get_srlist()
-	
-	if self.mode == "kernel":
+        
+        if self.mode == "kernel":
              self.SR_ROOT = "%s/%s" % (RBD_PREFIX, self.CEPH_POOL_NAME)
         elif self.mode == "fuse":
              self.SR_ROOT = "%s/%s" % (FUSE_PREFIX, sr_uuid)
         elif self.mode == "nbd":
              self.SR_ROOT = "%s/%s" % (NBD_PREFIX, self.CEPH_POOL_NAME)
-
+    
     def scan(self, sr_uuid):
-	self.load(sr_uuid)
-
+        self.load(sr_uuid)
+    
     def attach(self, sr_uuid):
-
-	self.load(sr_uuid)
-
+        
+        #self.RBDVDIs = self._get_vdilist(self.CEPH_POOL_NAME)
+        self.load(sr_uuid)
+        
         if self.mode != "kernel":
             util.pread2(["mkdir", "-p", self.SR_ROOT])
-
+        
         if self.mode == "kernel":
             pass
         elif self.mode == "fuse":
             util.pread2(["rbd-fuse", "-p", self.CEPH_POOL_NAME, self.SR_ROOT])
         elif self.mode == "nbd":
             pass
-
+    
     def detach(self, sr_uuid):
-
+        
         if self.mode == "kernel":
             pass
         elif self.mode == "fuse":
             util.pread2(["fusermount", "-u", self.SR_ROOT])
         elif self.mode == "nbd":
             pass
-
+        
         if self.mode != "kernel":
             util.pread2(["rm", "-rf", self.SR_ROOT])
 
@@ -202,7 +203,7 @@ class VDI:
     def load(self, vdi_uuid):
         self.CEPH_VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
         self.path = os.path.join(self.sr.SR_ROOT, self.CEPH_VDI_NAME)
-
+    
     def create(self, sr_uuid, vdi_uuid, size):
         image_size = size / 1024 / 1024
         util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--pool", self.sr.CEPH_POOL_NAME])
@@ -210,11 +211,18 @@ class VDI:
             util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_LABEL", self.label, "--pool", self.sr.CEPH_POOL_NAME])
         if self.description:
             util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_DESCRIPTION", self.description, "--pool", self.sr.CEPH_POOL_NAME])
-
+    
     def resize(self, sr_uuid, vdi_uuid, size):
+        if not blktap2.VDI.tap_pause(self.session, self,sr.uuid, vdi_uuid):
+            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+        self._unmap_VHD(vdi_uuid)
+        #---
         image_size = size / 1024 / 1024
         util.pread2(["rbd", "resize", "--size", str(image_size), "--allow-shrink", self.CEPH_VDI_NAME, "--pool", self.sr.CEPH_POOL_NAME])
-
+        #---
+        self._map_VHD(vdi_uuid)
+        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+    
     def update(self, sr_uuid, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         if self.label:
@@ -224,19 +232,33 @@ class VDI:
         for snapshot_uuid in self.snaps.keys():
             snapshot_name = "%s%s" % (SNAPSHOT_PREFIX, snapshot_uuid)
             util.pread2(["rbd", "image-meta", "set", vdi_name, snapshot_name, str(self.snaps[snapshot_uuid]), "--pool",self.sr.CEPH_POOL_NAME])
-
+    
     def _flatten_clone(self, clone_uuid):
+        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, clone_uuid):
+            raise util.SMException("failed to pause VDI %s" % clone_uuid)
+        self._unmap_VHD(clone_uuid)
+        #--- ?????? CHECK For running VM. What if flattening takes a long time and vdi is paused during this process
         clone_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, CLONE_PREFIX, clone_uuid)
         util.pread2(["rbd", "flatten", clone_name])
-
+        #--- ??????
+        self._map_VHD(clone_uuid)
+        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, clone_uuid, None)
+    
     def _delete_snapshot(self, vdi_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         short_snap_name = "%s%s" % (SNAPSHOT_PREFIX, snap_uuid)
+        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+        self._unmap_VHD(vdi_uuid)
+        #---
         util.pread2(["rbd", "snap", "unprotect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
         util.pread2(["rbd", "snap", "rm", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
         util.pread2(["rbd", "image-meta", "remove", vdi_name, short_snap_name, "--pool", self.sr.CEPH_POOL_NAME])
-
+        #---
+        self._map_VHD(vdi_uuid)
+        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+    
     def _delete_vdi(self, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         vdi_path = "%s/%s%s" % (self.sr.SR_ROOT, VDI_PREFIX, vdi_uuid)
@@ -246,45 +268,55 @@ class VDI:
             util.pread2(["rm", "-f", vdi_path])
         elif self.mode == "nbd":
             util.pread2(["rbd", "rm", vdi_name, "--pool", self.sr.CEPH_POOL_NAME])
-
+    
     def _change_image_prefix_to_SXM(self, vdi_uuid):
         orig_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, VDI_PREFIX, vdi_uuid)
         new_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, SXM_PREFIX, vdi_uuid)
         util.pread2(["rbd", "mv", orig_name, new_name])
-
+    
     def _change_image_prefix_to_VHD(self, vdi_uuid):
         orig_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, SXM_PREFIX, vdi_uuid)
         new_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, VDI_PREFIX, vdi_uuid)
         util.pread2(["rbd", "mv", orig_name, new_name])
-
+    
     def _rename_image(self, orig_uuid, new_uuid):
         orig_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, VDI_PREFIX, orig_uuid)
         new_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, VDI_PREFIX, new_uuid)
         util.pread2(["rbd", "mv", orig_name, new_name])
-
+    
     def _do_clone(self, vdi_uuid, snap_uuid, clone_uuid, vdi_label):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s/%s@%s%s" % (self.sr.CEPH_POOL_NAME, vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         clone_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, CLONE_PREFIX, clone_uuid)
+        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+        self._unmap_VHD(vdi_uuid)
+        #---
         util.pread2(["rbd", "clone", snapshot_name, clone_name])
         util.pread2(["rbd", "image-meta", "set", clone_name, "VDI_LABEL", vdi_label, "--pool", self.sr.CEPH_POOL_NAME])
         util.pread2(["rbd", "image-meta", "set", clone_name, "CLONE_OF", snap_uuid, "--pool", self.sr.CEPH_POOL_NAME])
+        #---
+        self._map_VHD(vdi_uuid)
+        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
 
     def _do_snapshot(self, vdi_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
-        if self.mode == "nbd":
-            self._unmap_VHD(vdi_uuid)
+        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+        self._unmap_VHD(vdi_uuid)
+        #---
         util.pread2(["rbd", "snap", "create", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
         util.pread2(["rbd", "snap", "protect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
-        if self.mode == "nbd":
-            self._map_VHD(vdi_uuid)
-
+        #---
+        self._map_VHD(vdi_uuid)
+        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+    
     def _rollback_snapshot(self, base_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, base_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         util.pread2(["rbd", "snap", "rollback", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME])
-
+    
     def _get_vdi_info(self, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         cmdout = util.pread2(["rbd", "image-meta", "list", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--format", "json"])
@@ -293,7 +325,7 @@ class VDI:
             return decoded
         else:
             return {}
-
+    
     def _map_SXM(self, vdi_uuid):
         vdi_name = "%s%s" % (SXM_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
@@ -304,7 +336,7 @@ class VDI:
         elif self.mode == "nbd":
             cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(NBDS_MAX), "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name)]).rstrip('\n')
             util.pread2(["ln", "-s", cmdout, dev_name])
-
+    
     def _map_VHD(self, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
@@ -315,7 +347,7 @@ class VDI:
         elif self.mode == "nbd":
             cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(NBDS_MAX), "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name)]).rstrip('\n')
             util.pread2(["ln", "-s", cmdout, dev_name])
-
+    
     def _unmap_VHD(self, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
@@ -327,7 +359,7 @@ class VDI:
             nbddev = util.pread2(["realpath", dev_name]).rstrip('\n')
             util.pread2(["unlink", dev_name])
             util.pread2(["rbd-nbd", "unmap", nbddev])
-
+    
     def _unmap_SXM(self, vdi_uuid):
         vdi_name = "%s%s" % (SXM_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
@@ -339,42 +371,45 @@ class VDI:
             nbddev = util.pread2(["realpath", dev_name]).rstrip('\n')
             util.pread2(["unlink", dev_name])
             util.pread2(["rbd-nbd", "unmap", nbddev])
-
+    
     def _setup_mirror (self, vdi_uuid, size):
-
+        
         self.RBD_VDI_MIRROR_DEV = "%s/%s%s" % (self.sr.SR_ROOT, VDI_PREFIX, vdi_uuid)
         self.RBD_SXM_MIRROR_DEV = "%s/%s%s" % (self.sr.SR_ROOT, SXM_PREFIX, vdi_uuid)
-
+        
         self.DM_ZERO_NAME = "%s-%s%s-zero" % (self.sr.CEPH_POOL_NAME, SXM_PREFIX, vdi_uuid)
         self.DM_ZERO_DEV = "%s/%s" % (DM_PREFIX, self.DM_ZERO_NAME)
-
+        
         self.DM_MIRROR_NAME = "%s-%s%s" % (self.sr.CEPH_POOL_NAME, SXM_PREFIX, vdi_uuid)
         self.DM_MIRROR_DEV = "%s/%s" % (DM_PREFIX, self.DM_MIRROR_NAME)
-
+        
         self._change_image_prefix_to_SXM(vdi_uuid)
-
+        
         self._map_SXM(vdi_uuid)
-
+        
         util.pread2(["dmsetup", "create", self.DM_ZERO_NAME, "--table", "0 %s zero" % str(int(size) / 512)])
         util.pread2(["dmsetup", "create", slef.DM_MIRROR_NAME, "--table", "0 %s snapshot %s %s P 1" % (str(int(size) / 512), self.DM_ZERO_DEV, self.RBD_SXM_MIRROR_DEV)])
         util.pread2(["ln", "-s", self.DM_MIRROR_DEV, self.RBD_VDI_MIRROR_DEV])
 
     def _setup_base (self, vdi_uuid, size):
-
+        
         self.RBD_VDI_BASE_DEV = "%s/%s%s" % (self.sr.SR_ROOT, VDI_PREFIX, vdi_uuid)
         self.DM_BASE_NAME = "%s-%s%s" % (self.sr.CEPH_POOL_NAME, VDI_PREFIX, vdi_uuid)
         self.DM_BASE_DEV = "%s/%s" % (DM_PREFIX, self.DM_BASE_NAME)
         util.pread2(["dmsetup", "create", self.DM_BASE_NAME, "--table", "0 %s snapshot-origin %s" % (str(int(size) / 512), self.RBD_VDI_BASE_DEV)])
 
     def _merge_diffs (self, mirror_uuid, snap_uuid, base_uuid, size):
-
+        
+        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
+            raise util.SMException("failed to pause VDI %s" % mirror_uuid)
+        #---
         util.pread2(["unlink", self.RBD_VDI_MIRROR_DEV])
         util.pread2(["dmsetup", "remove", self.DM_MIRROR_NAME])
         util.pread2(["dmsetup", "remove", self.DM_ZERO_NAME])
-
+        
         self._map_VHD(base_uuid)
         self._setup_base(base_uuid, size)
-
+        
         util.pread2(["dmsetup", "suspend", self.DM_BASE_NAME])
         util.pread2(["dmsetup", "reload", self.DM_BASE_NAME, "--table", "0 %s snapshot-merge %s %s P 1" % (str(int(size) / 512), self.RBD_VDI_BASE_DEV, self.RBD_SXM_MIRROR_DEV)])
         util.pread2(["dmsetup", "resume", self.DM_BASE_NAME])
@@ -382,10 +417,10 @@ class VDI:
         util.pread2(["waitdmmerging.sh", self.DM_BASE_NAME])
         # -------------------------------------------
         util.pread2(["dmsetup", "remove", self.DM_BASE_NAME])
-
+        
         self._unmap_VHD(base_uuid)
         self._unmap_SXM(mirror_uuid)
-
+        
         self._change_image_prefix_to_VHD(mirror_uuid)
         # -----
         tmp_uuid = "temporary"  # util.gen_uuid()
@@ -394,3 +429,5 @@ class VDI:
         self._rename_image(tmp_uuid, base_uuid)
         # -----
         self._map_VHD(mirror_uuid)
+        #---
+        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_uuid, None)

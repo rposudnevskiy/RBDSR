@@ -50,7 +50,7 @@ PROVISIONING_TYPES = ["thin", "thick"]
 PROVISIONING_DEFAULT = "thick"
 
 MODE_TYPES = ["kernel", "fuse", "nbd"]
-MODE_DEFAULT = "fuse"
+MODE_DEFAULT = "nbd"
 
 class RBDSR(SR.SR, cephutils.SR):
     """Ceph Block Devices storage repository"""
@@ -68,7 +68,7 @@ class RBDSR(SR.SR, cephutils.SR):
         vdi_uuids = set([])
         for vdi in vdis:
             vdi_uuids.add(self.session.xenapi.VDI.get_uuid(vdi))
-
+        
         for vdi_uuid in RBDVDIs.keys():
             #name = RBDVDIs[vdi_uuid]['image']
             if RBDVDIs[vdi_uuid].has_key('snapshot'):
@@ -175,11 +175,11 @@ class RBDSR(SR.SR, cephutils.SR):
     def attach(self, sr_uuid):
         """Std. attach"""
         util.SMlog("RBDSR.attach for %s" % self.uuid)
-
+        
         if not self.RBDPOOLs.has_key(self.uuid):
             raise xs_errors.XenError('SRUnavailable',opterr='no pool with uuid: %s' % sr_uuid)
-
-	cephutils.SR.attach(self, sr_uuid)
+        
+        cephutils.SR.attach(self, sr_uuid)
     
     def update(self, sr_uuid):
         self.scan(sr_uuid)
@@ -191,10 +191,10 @@ class RBDSR(SR.SR, cephutils.SR):
     def scan(self, sr_uuid):
         """Scan"""
         cephutils.SR.scan(self, sr_uuid)
-
+        
         self.physical_size = self.RBDPOOLs[sr_uuid]['stats']['max_avail'] + self.RBDPOOLs[sr_uuid]['stats']['bytes_used']
         self.physical_utilisation = self.RBDPOOLs[sr_uuid]['stats']['bytes_used']
-
+        
         self.virtual_allocation = self._get_allocated_size()
         self._loadvdis()
         self._db_update()
@@ -213,7 +213,7 @@ class RBDSR(SR.SR, cephutils.SR):
         valloc = int(self.session.xenapi.SR.get_virtual_allocation(self.sr_ref))
         self.virtual_allocation = valloc + int(virtAllocDelta)
         self.session.xenapi.SR.set_virtual_allocation(self.sr_ref, str(self.virtual_allocation))
-
+        
         self.session.xenapi.SR.set_physical_utilisation(self.sr_ref, str(self.RBDPOOLs[sr_uuid]['stats']['bytes_used']))
 
 class RBDVDI(VDI.VDI, cephutils.VDI):
@@ -225,8 +225,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.location = vdi_uuid
         self.mode = self.sr.mode
         self.exists = False
-	cephutils.VDI.load(self, vdi_uuid)
-
+        cephutils.VDI.load(self, vdi_uuid)
+    
     def __init__(self, mysr, uuid, label):
         self.uuid = uuid
         VDI.VDI.__init__(self, mysr, uuid)
@@ -324,7 +324,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         
         self.xenstore_data['storage-type']='rbd'
         self.xenstore_data['vdi-type']=self.vdi_type
-
+        
         self.attached = True
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
         
@@ -362,7 +362,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
         
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
-
+    
     def detach(self, sr_uuid, vdi_uuid):
         self._unmap_VHD(vdi_uuid)
         self.attached = False
@@ -393,7 +393,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                 # executing rollback of snapshot (reverting VM to snapshot)
                 new_uuid = snap_sm_config["new_uuid"]
                 self._rollback_snapshot(new_uuid, snap_uuid)
-
+                
                 baseVDI = RBDVDI(self.sr, new_uuid, self.session.xenapi.VDI.get_name_label(snap_vdi_ref))
                 baseVDI.path = self.sr._get_path(new_uuid)
                 baseVDI.location = baseVDI.uuid
@@ -401,7 +401,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                 baseVDI.sm_config["vdi_type"] = 'aio'
                 baseVDI.sm_config["reverted"] = 'true'
                 base_vdi_ref = baseVDI._db_introduce()
-
+                
                 vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
                 for tmp_vdi in vdis:
                     tmp_vdi_uuid = self.session.xenapi.VDI.get_uuid(tmp_vdi)
@@ -415,7 +415,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                                 del sm_config['rollback']
                                 del sm_config['new_uuid']
                                 self.session.xenapi.VDI.set_sm_config(tmp_vdi, sm_config)
-
+                
                 return baseVDI.get_params()
         else:
             base_vdi_info = self._get_vdi_info(base_uuid)
@@ -429,7 +429,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             
             cloneVDI = RBDVDI(self.sr, clone_uuid, base_vdi_label)
             self._do_clone(base_uuid, snap_uuid, clone_uuid, base_vdi_label)
-
+            
             cloneVDI.path = self.sr._get_path(clone_uuid)
             cloneVDI.location = cloneVDI.uuid
             cloneVDI.sm_config["vdi_type"] = 'aio'
@@ -441,17 +441,17 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             self.sr._updateStats(self.sr.uuid, self.session.xenapi.VDI.get_virtual_size(base_vdi_ref))
             
             return cloneVDI.get_params()
-
+    
     def snapshot(self, sr_uuid, vdi_uuid):
         return self._snapshot(sr_uuid, vdi_uuid).get_params()
     
     def _snapshot(self, sr_uuid, vdi_uuid):
         util.SMlog("RBDVDI.snapshot for %s" % (vdi_uuid))
         
-        secondary = None
+        #secondary = None
         
-        if not blktap2.VDI.tap_pause(self.session, sr_uuid, vdi_uuid):
-            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+        #if not blktap2.VDI.tap_pause(self.session, sr_uuid, vdi_uuid):
+        #    raise util.SMException("failed to pause VDI %s" % vdi_uuid)
         
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -483,7 +483,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
         self.sr._updateStats(self.sr.uuid, self.size)
         
-        blktap2.VDI.tap_unpause(self.session, sr_uuid, vdi_uuid, secondary)
+        #blktap2.VDI.tap_unpause(self.session, sr_uuid, vdi_uuid, secondary)
         
         return snapVDI
     
@@ -527,8 +527,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
     def compose(self, sr_uuid, vdi1_uuid, vdi2_uuid):
         util.SMlog("RBDSR.compose for %s -> %s" % (vdi2_uuid, vdi1_uuid))
         
-        if not blktap2.VDI.tap_pause(self.session, sr_uuid, vdi2_uuid):
-            raise util.SMException("failed to pause VDI %s" % vdi2_uuid)
+        #if not blktap2.VDI.tap_pause(self.session, sr_uuid, vdi2_uuid):
+        #    raise util.SMException("failed to pause VDI %s" % vdi2_uuid)
         
         vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
         for tmp_vdi in vdis:
@@ -551,7 +551,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.session.xenapi.VDI.remove_from_sm_config(snap_vdi_ref, 'snapshot-of')
         self.session.xenapi.VDI.add_to_sm_config(snap_vdi_ref, 'snapshot-of', vdi1_uuid)
         
-        blktap2.VDI.tap_unpause(self.session, sr_uuid, vdi2_uuid, None)
+        #blktap2.VDI.tap_unpause(self.session, sr_uuid, vdi2_uuid, None)
     
     def update(self, sr_uuid, vdi_uuid):
         util.SMlog("RBDSR.update for %s" % vdi_uuid)
@@ -575,7 +575,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             self.description = self.session.xenapi.VDI.get_name_description(self_vdi_ref)
             
             cephutils.VDI.update(self, sr_uuid, vdi_uuid)
-
+            
             sm_config = self.session.xenapi.VDI.get_sm_config(self_vdi_ref)
             if sm_config.has_key('reverted'):
                  if sm_config['reverted'] == 'true':
