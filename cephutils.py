@@ -36,6 +36,7 @@ DM_PREFIX = "/dev/mapper"
 
 NBDS_MAX = 64
 BLOCK_SIZE = 21 #2097152 bytes
+OBJECT_SIZE_IN_B = 2097152
 
 IMAGE_FORMAT = 2
 
@@ -211,7 +212,8 @@ class VDI:
     
     def create(self, sr_uuid, vdi_uuid, size):
         image_size = size / 1024 / 1024
-        util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        # before JEWEL: util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--object-size", str(OBJECT_SIZE_IN_B), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         if self.label:
             util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_LABEL", self.label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         if self.description:
