@@ -170,7 +170,11 @@ class RBDSR(SR.SR, cephutils.SR):
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
         self.uuid = sr_uuid
-        cephutils.SR.load(self,sr_uuid)
+        other_config = self.session.xenapi.SR.get_other_config(self.sr_ref)
+        if other_config:
+        	ceph_user = other_config.get('user')
+        	util.SMlog("RBDSR.load using cephx user %s" % ceph_user)
+        cephutils.SR.load(self,sr_uuid, ceph_user)
     
     def attach(self, sr_uuid):
         """Std. attach"""

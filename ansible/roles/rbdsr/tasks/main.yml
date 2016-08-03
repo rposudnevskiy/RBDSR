@@ -21,13 +21,13 @@
   action: copy src={{ rbdsr_file_source_dir }}waitdmmerging.sh dest=/usr/bin/waitdmmerging.sh owner=root group=root mode=755
 
 - name: configure xs plugin
-  action: copy src={{ rbdsr_file_source_dir }}{{ item }} dest=/opt/xensource/sm owner=root group=root
+  action: copy src={{ rbdsr_file_source_dir }}{{ item }} dest=/opt/xensource/sm owner=root group=root mode=755
   with_items:
     - RBDSR.py
     - cephutils.py
 
 - name: compile xs plugin
-  command: python -m compileall {{ item }} && python -O -m compileall {{ item }} 
+  shell: python -m compileall {{ item }} && python -O -m compileall {{ item }} 
   args:
     chdir: /opt/xensource/sm
   with_items:
@@ -48,7 +48,7 @@
   register: sr_exists
 
 - name: add sr to xenserver
-  command: xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid={{ xen_sr_uuid }} shared=true content-type=user
+  command: xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid={{ xen_sr_uuid }} shared=true content-type=user other-config:user=xenserver
   when: not sr_exists.stdout
 
 
@@ -56,11 +56,18 @@
   command: xe pbd-list host-uuid={{ host_uuid }} sr-uuid={{ xen_sr_uuid }} --minimal
   register: pbd_exists
 
+- name: plug existing pbd in host
+  command: xe pbd-plug uuid={{ pbd_exists.stdout }}
+  when: pbd_exists.stdout
+
+
 - name: create pbd in host
   command: xe pbd-create sr-uuid={{ xen_sr_uuid }} host-uuid={{ host_uuid }}
   when: not pbd_exists.stdout
-  register: pbd_exists
-
-- name: plug pbd in host
-  command: xe pbd-plug uuid={{ pbd_exists.stdout }}
-  when: pbd_exists.stdout
+  register: pbd_created
+    
+- name: plug created pbd in host
+  command: xe pbd-plug uuid={{ pbd_created.stdout }}
+  when: 
+    - pbd_created is defined
+    - pbd_created.stdout is defined
