@@ -7,7 +7,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 
 1. Install XenServer on each server.
 
-2. Download and install RBDSR plugin [http://github.com](http://github.com)  on each server. This plugin uses ****rbd**** utility for manipulating RBD devices, so you need to install ceph-common package from ceph repository.
+2. Download and install RBDSR plugin [https://github.com/rposudnevskiy/RBDSR](https://github.com/rposudnevskiy/RBDSR)  on each server. This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so you need to install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository.
 
 	- Make backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
  
@@ -95,7 +95,11 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 			# yum install epel-release	
 			# yum install yum-plugin-priorities.noarch
 			# yum install snappy leveldb gdisk python-argparse gperftools-libs
-			# yum install ceph-common
+			# yum install fuse fuse-libs
+			# yum install ceph-common rbd-fuse rbd-nbd
+
+----------
+
 
 	- Restore backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
 
@@ -124,7 +128,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 			[ceph-source]
 			enabled=0
 
-	- Download RBDSR plugin [http://github.com](http://github.com)
+	- Download RBDSR plugin [https://github.com/rposudnevskiy/RBDSR](https://github.com/rposudnevskiy/RBDSR)
 
 	- Put the ```waitdmmerging.sh``` into ```/usr/bin/``` and change permission: 
 
@@ -294,7 +298,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
         			host = VMCEPH4
         			mon addr = 10.126.70.17:6789
 
-		you can find the full  ```/etc/ceph/ceph.conf``` for my configuration here [http://github.com](http://github.com)
+		you can find the full  ```/etc/ceph/ceph.conf``` for my configuration here [https://github.com/rposudnevskiy/RBDSR/blob/master/ceph_config_examples/ceph.conf](https://github.com/rposudnevskiy/RBDSR/blob/master/ceph_config_examples/ceph.conf)
 
 	- Create a keyring for your cluster, generate a monitor secret key, generate an administrator keyring, generate a ```client.admin``` user and add the user to the keyring, add the client.admin key to the ```ceph.mon.keyring```. Do it only on first Ceph node:
 
@@ -458,7 +462,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 			# ceph osd getcrushmap -o /tmp/crush
 			# crushtool -d /tmp/crush -o /tmp/crush.decompiled
 
-	- edit ```/tmp/crush.decompiled```. Here crushmap that i use [http://github.com](http://github.com)         
+	- edit ```/tmp/crush.decompiled```. Here crushmap that I used [https://github.com/rposudnevskiy/RBDSR/blob/master/ceph_config_examples/crush.decompiled](https://github.com/rposudnevskiy/RBDSR/blob/master/ceph_config_examples/crush.decompiled)         
 
 	- compile and set new crushmap
 
@@ -486,29 +490,25 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 
 1. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easyest way is just copy it from your Ceph cluster VM
 
-2. Create a ```client.xenserver``` key, and save a copy of the key for your XenServer host (should be executed on Ceph cluster VM):
+2. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
 
-		# ceph auth get-or-create client.xenserver mon 'allow *' osd 'allow *' -o /etc/ceph/ceph.client.xenserver.keyring
-
-3. Copy ```/etc/ceph/ceph.client.xenserver.keyring``` to XenServer hosts. 
-
-4. Introduce the Ceph pool created earlier as Storage Repository on XenServer hosts:
+3. Introduce the Ceph pool created earlier as Storage Repository on XenServer hosts:
 
 		  xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
 
-5. Run the ```xe host-list``` command to find out the host UUID for Xenserer host:
+4. Run the ```xe host-list``` command to find out the host UUID for Xenserer host:
 
 		# xe host-list
 		uuid ( RO) : 83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
 		name-label ( RW): xenserver1
 		name-description ( RO): Default install of XenServer
 
-6. Create the PBD using the device SCSI ID, host UUID and SR UUID detected above:
+5. Create the PBD using the device SCSI ID, host UUID and SR UUID detected above:
 
 		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
 		aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
-7. Attach the PBD created with xe pbd-plug command:
+6. Attach the PBD created with xe pbd-plug command:
 
 		# xe pbd-plug uuid=aec2c6fc-e1fb-0a27-2437-9862cffe213e
 		
