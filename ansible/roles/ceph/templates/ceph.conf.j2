@@ -1,0 +1,9 @@
+[global]
+fsid = {{ ceph_cluster_fsid }}
+mon host = {{ ceph_mon_hosts }}
+
+auth cluster required = cephx
+auth service required = cephx
+auth client required = cephx
+
+rbd_default_format = 2

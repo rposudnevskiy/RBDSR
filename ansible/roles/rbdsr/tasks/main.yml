@@ -1,0 +1,58 @@
+---
+- name: get current xs host uuid
+  shell: cat /etc/xensource-inventory | grep -iPo "(?<=installation_uuid=).*"
+  register: host_uuid_res
+  
+- set_fact:
+    host_uuid: "{{ host_uuid_res.stdout | replace(\"'\", '')  }}"
+
+- name: install packages
+  yum: name={{ item }} state=present enablerepo=base-rbdsr,updates-rbdsr,extras-rbdsr,centosplus-rbdsr
+  with_items:
+    - epel-release
+    - yum-plugin-priorities.noarch
+    - snappy
+    - leveldb
+    - gdisk
+    - python-argparse
+    - gperftools-libs
+
+- name: configure waitdmmerging
+  action: copy src={{ rbdsr_file_source_dir }}waitdmmerging.sh dest=/usr/bin/waitdmmerging.sh owner=root group=root mode=755
+
+- name: configure xs plugin
+  action: copy src={{ rbdsr_file_source_dir }}{{ item }} dest=/opt/xensource/sm owner=root group=root
+  with_items:
+    - RBDSR.py
+    - cephutils.py
+
+- name: compile xs plugin
+  command: python -m compileall {{ item }} && python -O -m compileall {{ item }} 
+  args:
+    chdir: /opt/xensource/sm
+  with_items:
+    - RBDSR.py
+    - cephutils.py
+
+- name: create RBDSR symlink    
+  file: src=/opt/xensource/sm/RBDSR.py dest=/opt/xensource/sm/RBDSR state=link
+  
+- name: allow rbd SM plugin
+  lineinfile: dest=/etc/xapi.conf regexp='^sm-plugins=\s*(?!rbd)(.*)' line='sm-plugins= rbd \1' backrefs=yes
+  notify: restart xe-toolstack
+
+
+## prepare the SR within XenServer
+  
+- name: add sr to xenserver
+  command: xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid={{ xen_sr_uuid }} shared=true content-type=user
+  ignore_errors: yes
+
+- name: create pbd in host
+  command: xe pbd-create sr-uuid={{ xen_sr_uuid }} host-uuid={{ host_uuid }}
+  register: pbd_uuid
+  ignore_errors: yes
+
+- name: plug pbd in host
+  command: xe pbd-plug uuid={{ pbd_uuid.stdout }}
+  ignore_errors: yes
