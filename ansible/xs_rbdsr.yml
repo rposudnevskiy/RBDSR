@@ -1,0 +1,8 @@
+---
+- hosts: xs-nodes
+  user: root
+  roles:
+    - preconf
+#    - { role: ceph, upgrade_kernel: true}
+    - ceph
+    - rbdsr

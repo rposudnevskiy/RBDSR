@@ -1,0 +1,12 @@
+[elrepo-kernel]
+name=ELRepo.org Community Enterprise Linux Kernel Repository - {{ ceph_distro }}
+baseurl=http://elrepo.org/linux/kernel/{{ ceph_distro }}/$basearch/
+	http://mirrors.coreix.net/elrepo/kernel/{{ ceph_distro }}/$basearch/
+	http://jur-linux.org/download/elrepo/kernel/{{ ceph_distro }}/$basearch/
+	http://repos.lax-noc.com/elrepo/kernel/{{ ceph_distro }}/$basearch/
+	http://mirror.ventraip.net.au/elrepo/kernel/{{ ceph_distro }}/$basearch/
+mirrorlist=http://mirrors.elrepo.org/mirrors-elrepo-kernel.{{ ceph_distro }}
+enabled=1
+gpgcheck=1
+gpgkey=https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+protect=0

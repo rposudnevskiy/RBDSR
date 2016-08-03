@@ -1,0 +1,17 @@
+---
+project_name: "ceph"
+
+
+####################
+# Ceph
+####################
+
+ceph_release: jewel
+ceph_cluster_fsid:
+ceph_mon_hosts:
+# ceph_keys:
+#  xenserver: <cephxkey>
+# To create the cephx key, run as admin (create repo + allow access): 
+#  ceph osd pool create RBD_XenStorage-<xen_sr_uuid> 512 512 replicated
+#  ceph auth get-or-create client.xenserver mon 'allow r' osd 'allow rwx pool=RBD_XenStorage-<xen_sr_uuid>'
+ceph_keys:
