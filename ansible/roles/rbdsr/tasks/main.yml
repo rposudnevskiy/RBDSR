@@ -38,21 +38,29 @@
   file: src=/opt/xensource/sm/RBDSR.py dest=/opt/xensource/sm/RBDSR state=link
   
 - name: allow rbd SM plugin
-  lineinfile: dest=/etc/xapi.conf regexp='^sm-plugins=\s*(?!rbd)(.*)' line='sm-plugins= rbd \1' backrefs=yes
+  lineinfile: dest=/etc/xapi.conf regexp='^sm-plugins= (?!rbd)(.*)' line='sm-plugins= rbd \1' backrefs=yes
   notify: restart xe-toolstack
 
 
 ## prepare the SR within XenServer
-  
+- name: check if sr exists
+  command: xe sr-list uuid={{ xen_sr_uuid }} --minimal
+  register: sr_exists
+
 - name: add sr to xenserver
   command: xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid={{ xen_sr_uuid }} shared=true content-type=user
-  ignore_errors: yes
+  when: not sr_exists.stdout
+
+
+- name: check if pbd exists
+  command: xe pbd-list host-uuid={{ host_uuid }} sr-uuid={{ xen_sr_uuid }} --minimal
+  register: pbd_exists
 
 - name: create pbd in host
   command: xe pbd-create sr-uuid={{ xen_sr_uuid }} host-uuid={{ host_uuid }}
-  register: pbd_uuid
-  ignore_errors: yes
+  when: not pbd_exists.stdout
+  register: pbd_exists
 
 - name: plug pbd in host
-  command: xe pbd-plug uuid={{ pbd_uuid.stdout }}
-  ignore_errors: yes
+  command: xe pbd-plug uuid={{ pbd_exists.stdout }}
+  when: pbd_exists.stdout

@@ -6,3 +6,5 @@
 
 - name: enable base centos repos
   action: template src="CentOS.repo.j2" dest="/etc/yum.repos.d/CentOS-Base-rbdsr.repo" owner=root group=root mode=644
+
+  
