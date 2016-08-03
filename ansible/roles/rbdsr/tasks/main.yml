@@ -38,9 +38,12 @@
   file: src=/opt/xensource/sm/RBDSR.py dest=/opt/xensource/sm/RBDSR state=link
   
 - name: allow rbd SM plugin
-  lineinfile: dest=/etc/xapi.conf regexp='^sm-plugins= (?!rbd)(.*)' line='sm-plugins= rbd \1' backrefs=yes
-  notify: restart xe-toolstack
+  lineinfile: dest=/etc/xapi.conf regexp='^sm-plugins=(?!rbd)(.*)' line='sm-plugins=rbd \1' backrefs=yes
+  register: sm_plugins_modified
 
+- name: restart xe-toolstack
+  command: xe-toolstack-restart
+  when: sm_plugins_modified | changed
 
 ## prepare the SR within XenServer
 - name: check if sr exists

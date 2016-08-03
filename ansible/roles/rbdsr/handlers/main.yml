@@ -1,2 +1,0 @@
-- name: restart xe-toolstack
-  command: xe-toolstack-restart
