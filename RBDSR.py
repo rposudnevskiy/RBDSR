@@ -171,6 +171,7 @@ class RBDSR(SR.SR, cephutils.SR):
         self.mode = MODE_DEFAULT
         self.uuid = sr_uuid
         other_config = self.session.xenapi.SR.get_other_config(self.sr_ref)
+        ceph_user = None
         if other_config:
         	ceph_user = other_config.get('user')
         	util.SMlog("RBDSR.load using cephx user %s" % ceph_user)
@@ -330,6 +331,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.xenstore_data['vdi-type']=self.vdi_type
         
         self.attached = True
+        self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
         
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
