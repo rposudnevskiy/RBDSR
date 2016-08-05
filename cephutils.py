@@ -167,6 +167,11 @@ class SR:
         self.CEPH_POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
         self.RBDPOOLs = self._get_srlist()
         
+        # Fallback to kernel mode if mode is fuse with different than admin
+        # => --name arg not compatible with fuse mode
+        if self.CEPH_USER != "client.admin" and self.mode == "fuse":
+        	self.mode = "kernel"
+        
         if self.mode == "kernel":
              self.SR_ROOT = "%s/%s" % (RBD_PREFIX, self.CEPH_POOL_NAME)
         elif self.mode == "fuse":
@@ -188,7 +193,7 @@ class SR:
         if self.mode == "kernel":
             pass
         elif self.mode == "fuse":
-            util.pread2(["rbd-fuse", "-p", self.CEPH_POOL_NAME, self.SR_ROOT, "--name", self.CEPH_USER])
+            util.pread2(["rbd-fuse", "-p", self.CEPH_POOL_NAME, self.SR_ROOT])
         elif self.mode == "nbd":
             pass
     
