@@ -22,6 +22,9 @@ import json
 import sys
 import os
 import blktap2
+import XenAPI
+import inventory
+
 
 RBDPOOL_PREFIX = "RBD_XenStorage-"
 VDI_PREFIX = "VHD-"
@@ -338,51 +341,62 @@ class VDI:
         else:
             return {}
     
+    def _call_plugin(self, op, args):
+        vdi_uuid = args['vdi_uuid']
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        util.SMlog("Calling ceph_plugin")
+        
+        if filter(lambda x: x.startswith('host_'), sm_config.keys()):
+            for key in filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                host_ref = key[len('host_'):]
+                util.SMlog("Calling rbd/nbd map on host %s" % host_ref)
+                if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
+                    # Failed to pause node
+                    raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
+        else:
+            host_uuid = inventory.get_localhost_uuid()
+            host_ref = session.xenapi.host.get_by_uuid(host_uuid)
+            util.SMlog("Calling rbd/nbd map on localhost %s" % host_ref)
+            if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
+                # Failed to pause node
+                raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
+    
     def _map_SXM(self, vdi_uuid):
+        util.SMlog("Calling _map_SXM")
         vdi_name = "%s%s" % (SXM_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
-        if self.mode == "kernel":
-            util.pread2(["rbd", "map", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        elif self.mode == "fuse":
-            pass
-        elif self.mode == "nbd":
-            cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(NBDS_MAX), "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
-            util.pread2(["ln", "-s", cmdout, dev_name])
+        args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+                "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
+                "CEPH_USER":self.sr.CEPH_USER}
+        self._call_plugin('map',args)
     
     def _map_VHD(self, vdi_uuid):
+        util.SMlog("Calling _map_VHD")
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
-        if self.mode == "kernel":
-            util.pread2(["rbd", "map", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        elif self.mode == "fuse":
-            pass
-        elif self.mode == "nbd":
-            cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(NBDS_MAX), "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
-            util.pread2(["ln", "-s", cmdout, dev_name])
+        args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+                "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
+                "CEPH_USER":self.sr.CEPH_USER}
+        self._call_plugin('map',args)
     
     def _unmap_VHD(self, vdi_uuid):
+        util.SMlog("Calling _unmap_VHD")
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
-        if self.mode == "kernel":
-            util.pread2(["rbd", "unmap", dev_name, "--name", self.sr.CEPH_USER])
-        elif self.mode == "fuse":
-            pass
-        elif self.mode == "nbd":
-            nbddev = util.pread2(["realpath", dev_name]).rstrip('\n')
-            util.pread2(["unlink", dev_name])
-            util.pread2(["rbd-nbd", "unmap", nbddev, "--name", self.sr.CEPH_USER])
+        args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+                "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
+                "CEPH_USER":self.sr.CEPH_USER}
+        self._call_plugin('unmap',args)
     
     def _unmap_SXM(self, vdi_uuid):
+        util.SMlog("Calling _unmap_SXM")
         vdi_name = "%s%s" % (SXM_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
-        if self.mode == "kernel":
-            util.pread2(["rbd", "unmap", dev_name, "--name", self.sr.CEPH_USER])
-        elif self.mode == "fuse":
-            pass
-        elif self.mode == "nbd":
-            nbddev = util.pread2(["realpath", dev_name]).rstrip('\n')
-            util.pread2(["unlink", dev_name])
-            util.pread2(["rbd-nbd", "unmap", nbddev, "--name", self.sr.CEPH_USER])
+        args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+                "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
+                "CEPH_USER":self.sr.CEPH_USER}
+        self._call_plugin('unmap',args)
     
     def _setup_mirror (self, vdi_uuid, size):
         
