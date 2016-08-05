@@ -40,13 +40,14 @@ OBJECT_SIZE_IN_B = 2097152
 
 IMAGE_FORMAT = 2
 
+DEFAULT_CEPH_USER = 'client.admin'
+
 class SR:
 
     def __init__(self):
         self.mode = ''
         self.uuid = ''
         self.SR_ROOT = ''
-        self.CEPH_USER = 'client.admin'
     
     def _get_vdi_uuid(self, vdi):
         regex = re.compile(VDI_PREFIX)
@@ -162,8 +163,7 @@ class SR:
         return RBDPOOLs
     
     def load(self, sr_uuid, ceph_user):
-    	if ceph_user:
-    		self.CEPH_USER = "client.%s" % ceph_user
+    	self.CEPH_USER = ( "client.%s" % ceph_user ) if ceph_user else DEFAULT_CEPH_USER
         self.CEPH_POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
         self.RBDPOOLs = self._get_srlist()
         
