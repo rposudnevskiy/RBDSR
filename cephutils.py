@@ -188,7 +188,7 @@ class SR:
         if self.mode == "kernel":
             pass
         elif self.mode == "fuse":
-            util.pread2(["rbd-fuse", "-p", self.CEPH_POOL_NAME, self.SR_ROOT, "--name", self.CEPH_USER])
+            util.pread2(["rbd-fuse", "-p", self.CEPH_POOL_NAME, self.SR_ROOT])
         elif self.mode == "nbd":
             pass
     
