@@ -125,30 +125,41 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 
 10. Put the ```waitdmmerging.sh``` into ```/usr/bin/``` and change permission: 
 
+		# cp waitdmmerging.sh /usr/bin
 		# chmod 755 /usr/bin/waitdmmerging.sh
 
-11. Put the ```RBDSR.py``` and ```cephutils.py``` into  ```/opt/xensource/sm``` and compile them:
+11. Copy ```ceph_plugin.py``` to ```/etc/xapi.d/plugins``` and rename it to ```ceph_plugin``` 
 
+		# cp ceph_plugin.py /etc/xapi.d/plugins/ceph_plugin
+
+12. Set execute permissions on all python scripts
+
+		# chmod +x *.py
+		
+13. Put the ```RBDSR.py``` and ```cephutils.py``` into  ```/opt/xensource/sm``` and compile them:
+
+		# cp cephutils.py RBDSR.py /opt/xensource/sm
+		# cd /opt/xensource/sm
 		# python -m compileall RBDSR.py
 		# python -O -m compileall RBDSR.py
 		# python -m compileall cephutils.py
 		# python -O -m compileall cephutils.py
 
-12. Make softlink to ```RBDSR.py``` in ```/opt/xensource/sm```
+14. Make softlink to ```RBDSR.py``` in ```/opt/xensource/sm```
 	
 		# ln -s RBDSR.py RBDSR 
 
 
-13. Add RBDSR plugin to whitelist of SM plugins in ```/etc/xapi.conf```
+14. Add RBDSR plugin to whitelist of SM plugins in ```/etc/xapi.conf```
 
 		# Whitelist of SM plugins
 		sm-plugins= rbd cifs ext nfs iscsi lvmoiscsi dummy file hba rawhba udev iso lvm lvmohba lvmofcoe
 
-14. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
+15. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
-15. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
+16. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
 
-16. Restart XAPI tool-stack on XenServer hosts
+17. Restart XAPI tool-stack on XenServer hosts
 
 		# xe-toolstack-restart 
 
