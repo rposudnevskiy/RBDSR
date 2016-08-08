@@ -6,6 +6,7 @@ project_name: "ceph"
 # Ceph
 ####################
 
+ceph_update: false
 ceph_release: jewel
 ceph_cluster_fsid:
 ceph_mon_hosts:

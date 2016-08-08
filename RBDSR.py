@@ -32,7 +32,10 @@ CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLO
                 "VDI_SNAPSHOT", "VDI_INTRODUCE", "VDI_RESIZE", "VDI_RESIZE_ONLINE",
                 "ATOMIC_PAUSE", "VDI_UPDATE", "SR_SCAN", "SR_UPDATE", "SR_ATTACH",
                 "SR_DETACH", "SR_PROBE", "SR_METADATA"]
-CONFIGURATION = []
+
+CONFIGURATION = [['rbd-mode', 'SR mount mode (optional): kernel, fuse, nbd (default)'],
+                 ['cephx-id', 'Cephx id to be used (optional): default is admin'],
+                ]
 DRIVER_INFO = {
     'name': 'RBD',
     'description': 'Handles virtual disks on CEPH RBD devices',
@@ -51,6 +54,8 @@ PROVISIONING_DEFAULT = "thick"
 
 MODE_TYPES = ["kernel", "fuse", "nbd"]
 MODE_DEFAULT = "nbd"
+
+DEFAULT_CEPH_USER = 'admin'
 
 class RBDSR(SR.SR, cephutils.SR):
     """Ceph Block Devices storage repository"""
@@ -170,11 +175,14 @@ class RBDSR(SR.SR, cephutils.SR):
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
         self.uuid = sr_uuid
-        other_config = self.session.xenapi.SR.get_other_config(self.sr_ref)
-        ceph_user = None
-        if other_config:
-        	ceph_user = other_config.get('user')
-        	util.SMlog("RBDSR.load using cephx user %s" % ceph_user)
+        ceph_user = 'xenserver'#DEFAULT_CEPH_USER
+        if self.dconf.has_key('cephx-id'):
+        	ceph_user = self.dconf.get('cephx-id')
+        	util.SMlog("RBDSR.load using cephx id %s" % ceph_user)
+        
+        if self.dconf.has_key('rbd-mode'):
+            self.mode = self.dconf['rbd-mode']
+		
         cephutils.SR.load(self,sr_uuid, ceph_user)
     
     def attach(self, sr_uuid):
