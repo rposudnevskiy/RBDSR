@@ -34,6 +34,11 @@
     - RBDSR.py
     - cephutils.py
 
+- name: configure xapi plugin
+  action: copy src={{ rbdsr_file_source_dir }}{{ item }} dest=/etc/xapi.d/plugins/{{ item | replace('.py','') }} owner=root group=root mode=755
+  with_items:
+    - ceph_plugin.py
+    
 - name: create RBDSR symlink    
   file: src=/opt/xensource/sm/RBDSR.py dest=/opt/xensource/sm/RBDSR state=link
   
