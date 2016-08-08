@@ -25,7 +25,7 @@
     - epel-release
     
 - name: install the latest version of ceph client {{ ceph_release }}
-  yum: name={{ item }} state=latest enablerepo=base-rbdsr,updates-rbdsr,extras-rbdsr,centosplus-rbdsr
+  yum: name={{ item }} state={{ ceph_update | ternary('latest','present') }} enablerepo=base-rbdsr,updates-rbdsr,extras-rbdsr,centosplus-rbdsr
   with_items:
     - ceph-common
     - fuse
