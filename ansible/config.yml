@@ -14,3 +14,4 @@ ceph_keys:
   
 # optional:
 # ceph_update: true
+# sr_device_mode: kernel or fuse or nbd (default)

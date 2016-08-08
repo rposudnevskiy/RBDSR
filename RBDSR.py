@@ -176,7 +176,7 @@ class RBDSR(SR.SR, cephutils.SR):
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
         self.uuid = sr_uuid
-        ceph_user = 'xenserver'#DEFAULT_CEPH_USER
+        ceph_user = DEFAULT_CEPH_USER
         if self.dconf.has_key('cephx-id'):
         	ceph_user = self.dconf.get('cephx-id')
         	util.SMlog("RBDSR.load using cephx id %s" % ceph_user)

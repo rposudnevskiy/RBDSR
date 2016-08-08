@@ -180,11 +180,6 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 2. Introduce the pool created in previous step as Storage Repository on XenServer hosts:
 
 		  xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
-
-		If you would like to use a different cephx user or rbd mode, use the follwing device-config:
-		
-		  xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user device-config:cephx-id=xenserver,rbd-mode=kernel
-		
 		
 3. Run the ```xe host-list``` command to find out the host UUID for Xenserer host:
 
@@ -197,6 +192,11 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 
 		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
 		aec2c6fc-e1fb-0a27-2437-9862cffe213e
+
+If you would like to use a different cephx user or rbd mode, use the follwing device-config:
+		
+		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5 device-config:cephx-id=xenserver device-config:rbd-mode=kernel
+		
 
 5. Attach the PBD created with xe pbd-plug command:
 

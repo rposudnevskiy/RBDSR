@@ -56,7 +56,7 @@
   register: sr_exists
 
 - name: add sr to xenserver
-  command: xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid={{ xen_sr_uuid }} shared=true content-type=user device-config:cephx-id=xenserver
+  command: xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid={{ xen_sr_uuid }} shared=true content-type=user
   when: not sr_exists.stdout
   run_once: true
 
@@ -70,7 +70,7 @@
 
 
 - name: create pbd in host
-  command: xe pbd-create sr-uuid={{ xen_sr_uuid }} host-uuid={{ host_uuid }}
+  command: xe pbd-create sr-uuid={{ xen_sr_uuid }} host-uuid={{ host_uuid }} device-config:rbd-mode={{ sr_device_mode }} device-config:cephx-id={{ ceph_keys.keys() | first }}
   when: not pbd_exists.stdout
   register: pbd_created
     

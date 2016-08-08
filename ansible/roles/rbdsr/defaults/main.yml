@@ -8,3 +8,4 @@ ansible_ssh_port: 22
 rbdsr_file_source_dir: "../"
 
 xen_sr_uuid:
+sr_device_mode: "nbd"
