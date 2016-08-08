@@ -36,6 +36,7 @@ CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLO
 CONFIGURATION = [['rbd-mode', 'SR mount mode (optional): kernel, fuse, nbd (default)'],
                  ['cephx-id', 'Cephx id to be used (optional): default is admin'],
                 ]
+
 DRIVER_INFO = {
     'name': 'RBD',
     'description': 'Handles virtual disks on CEPH RBD devices',
