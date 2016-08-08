@@ -3,7 +3,7 @@ This plugin adds support of Ceph block devices into XenServer.
 It supports creation of VDI as RBD device in Ceph pool. 
 It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi Storage Migration (XSM).
 
-You can change the following device configs using device-config args:
+You can change the following device configs using device-config args when creating PBDs on each hosts:
 - cephx-id: the cephx user id to be used. Default is admin for the client.admin user.
 - rbd-mode: can be kernel, fuse or nbd. Default is nbd.
 
@@ -193,7 +193,7 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
 		aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
-If you would like to use a different cephx user or rbd mode, use the follwing device-config:
+	If you would like to use a different cephx user or rbd mode, use the follwing device-config:
 		
 		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5 device-config:cephx-id=xenserver device-config:rbd-mode=kernel
 		
