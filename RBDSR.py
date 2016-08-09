@@ -519,7 +519,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         the current value."""
         util.SMlog("RBDVDI.resize for %s" % self.uuid)
         
-        if not self.sr._isSpaceAvailable(sr_uuid, size):
+        if not self.sr._isSpaceAvailable(size):
             util.SMlog('vdi_resize: vdi size is too big: ' + \
                     '(vdi size: %d, sr free space size: %d)' % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
             raise xs_errors.XenError('VDISize', opterr='vdi size is too big')
