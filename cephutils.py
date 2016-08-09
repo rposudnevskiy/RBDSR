@@ -226,15 +226,19 @@ class VDI:
             util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_DESCRIPTION", self.description, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
     
     def resize(self, sr_uuid, vdi_uuid, size):
-        if not blktap2.VDI.tap_pause(self.session, self,sr.uuid, vdi_uuid):
-            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
-        self._unmap_VHD(vdi_uuid)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if sm_config.has_key('attached'):
+            if not blktap2.VDI.tap_pause(self.session, self,sr.uuid, vdi_uuid):
+                raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+            self._unmap_VHD(vdi_uuid)
         #---
         image_size = size / 1024 / 1024
         util.pread2(["rbd", "resize", "--size", str(image_size), "--allow-shrink", self.CEPH_VDI_NAME, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         #---
-        self._map_VHD(vdi_uuid)
-        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+        if sm_config.has_key('attached'):
+            self._map_VHD(vdi_uuid)
+            blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
     
     def update(self, sr_uuid, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -247,30 +251,38 @@ class VDI:
             util.pread2(["rbd", "image-meta", "set", vdi_name, snapshot_name, str(self.snaps[snapshot_uuid]), "--pool",self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
     
     def _flatten_clone(self, clone_uuid):
-        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, clone_uuid):
-            raise util.SMException("failed to pause VDI %s" % clone_uuid)
-        self._unmap_VHD(clone_uuid)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if sm_config.has_key('attached'):
+            if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, clone_uuid):
+                raise util.SMException("failed to pause VDI %s" % clone_uuid)
+            self._unmap_VHD(clone_uuid)
         #--- ?????? CHECK For running VM. What if flattening takes a long time and vdi is paused during this process
         clone_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, CLONE_PREFIX, clone_uuid)
         util.pread2(["rbd", "flatten", clone_name, "--name", self.sr.CEPH_USER])
         #--- ??????
-        self._map_VHD(clone_uuid)
-        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, clone_uuid, None)
+        if sm_config.has_key('attached'):
+            self._map_VHD(clone_uuid)
+            blktap2.VDI.tap_unpause(self.session, self.sr.uuid, clone_uuid, None)
     
     def _delete_snapshot(self, vdi_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         short_snap_name = "%s%s" % (SNAPSHOT_PREFIX, snap_uuid)
-        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
-            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
-        self._unmap_VHD(vdi_uuid)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if sm_config.has_key('attached'):
+            if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+                raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+            self._unmap_VHD(vdi_uuid)
         #---
         util.pread2(["rbd", "snap", "unprotect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "snap", "rm", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "image-meta", "remove", vdi_name, short_snap_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         #---
-        self._map_VHD(vdi_uuid)
-        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+        if sm_config.has_key('attached'):
+            self._map_VHD(vdi_uuid)
+            blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
     
     def _delete_vdi(self, vdi_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -301,29 +313,37 @@ class VDI:
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s/%s@%s%s" % (self.sr.CEPH_POOL_NAME, vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         clone_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, CLONE_PREFIX, clone_uuid)
-        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
-            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
-        self._unmap_VHD(vdi_uuid)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if sm_config.has_key('attached'):
+            if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+                raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+            self._unmap_VHD(vdi_uuid)
         #---
         util.pread2(["rbd", "clone", snapshot_name, clone_name, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "image-meta", "set", clone_name, "VDI_LABEL", vdi_label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "image-meta", "set", clone_name, "CLONE_OF", snap_uuid, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         #---
-        self._map_VHD(vdi_uuid)
-        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+        if sm_config.has_key('attached'):
+            self._map_VHD(vdi_uuid)
+            blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
 
     def _do_snapshot(self, vdi_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
-        if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
-            raise util.SMException("failed to pause VDI %s" % vdi_uuid)
-        self._unmap_VHD(vdi_uuid)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if sm_config.has_key('attached'):
+            if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+                raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+            self._unmap_VHD(vdi_uuid)
         #---
         util.pread2(["rbd", "snap", "create", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "snap", "protect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         #---
-        self._map_VHD(vdi_uuid)
-        blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+        if sm_config.has_key('attached'):
+            self._map_VHD(vdi_uuid)
+            blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
     
     def _rollback_snapshot(self, base_uuid, snap_uuid):
         vdi_name = "%s%s" % (VDI_PREFIX, base_uuid)
@@ -354,7 +374,7 @@ class VDI:
                     raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
         else:
             host_uuid = inventory.get_localhost_uuid()
-            host_ref = session.xenapi.host.get_by_uuid(host_uuid)
+            host_ref = self.session.xenapi.host.get_by_uuid(host_uuid)
             util.SMlog("Calling rbd/nbd map on localhost %s" % host_ref)
             if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
                 # Failed to pause node

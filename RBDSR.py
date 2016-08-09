@@ -115,7 +115,17 @@ class RBDSR(SR.SR, cephutils.SR):
                     vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
                     self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
                     self.session.xenapi.VDI.set_physical_utilisation(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
-                    parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_vdi_uuid)
+                    if not self.vdis.has_key(parent_vdi_uuid):
+                        self.vdis[parent_vdi_uuid] = RBDVDI(self, parent_vdi_uuid, label)
+                        self.vdis[parent_vdi_uuid].description = description
+                        self.vdis[parent_vdi_uuid].size = str(RBDVDIs[parent_vdi_uuid]['size'])
+                        self.vdis[parent_vdi_uuid].sm_config["vdi_type"] = 'aio'
+                        try:
+                            parent_vdi_ref = self.vdis[parent_vdi_uuid]._db_introduce()
+                        except Exception:
+                            continue
+                    else:
+                        parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_vdi_uuid)
                     self.session.xenapi.VDI.set_is_a_snapshot(vdi_ref, True)
                     self.session.xenapi.VDI.set_name_description(vdi_ref, description)
                     self.session.xenapi.VDI.set_snapshot_of(vdi_ref, parent_vdi_ref)
@@ -178,12 +188,12 @@ class RBDSR(SR.SR, cephutils.SR):
         self.uuid = sr_uuid
         ceph_user = DEFAULT_CEPH_USER
         if self.dconf.has_key('cephx-id'):
-        	ceph_user = self.dconf.get('cephx-id')
-        	util.SMlog("RBDSR.load using cephx id %s" % ceph_user)
+            ceph_user = self.dconf.get('cephx-id')
+            util.SMlog("RBDSR.load using cephx id %s" % ceph_user)
         
         if self.dconf.has_key('rbd-mode'):
             self.mode = self.dconf['rbd-mode']
-		
+        
         cephutils.SR.load(self,sr_uuid, ceph_user)
     
     def attach(self, sr_uuid):
@@ -243,6 +253,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
     
     def __init__(self, mysr, uuid, label):
         self.uuid = uuid
+        self.location = uuid
         VDI.VDI.__init__(self, mysr, uuid)
         self.label = label
         self.vdi_type = 'aio'
@@ -300,7 +311,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             # renaming base image
             self._rename_image(vdi_uuid, new_uuid)
             for snap in self.snaps:
-                util.SMlog("RBDVDI.delete set snapshot_of = %s for %s" % (self.uuid, self.session.xenapi.VDI.get_uuid(snap)))
+                util.SMlog("RBDVDI.delete set rollback for %s" % self.session.xenapi.VDI.get_uuid(snap))
                 self.session.xenapi.VDI.add_to_sm_config(snap, 'new_uuid', new_uuid)
                 self.session.xenapi.VDI.add_to_sm_config(snap, 'rollback', 'true')
         else:
@@ -606,7 +617,10 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                         util.SMlog("RBDVDI.update finish setting snapshots")
         else:
             self_vdi_sm_config = self.session.xenapi.VDI.get_sm_config(self_vdi_ref)
-            base_vdi_uuid = self_vdi_sm_config["snapshot-of"]
+            if self_vdi_sm_config.has_key("new_uuid"):
+                base_vdi_uuid = self_vdi_sm_config["new_uuid"]
+            else:
+                base_vdi_uuid = self_vdi_sm_config["snapshot-of"]
             base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_vdi_uuid)
             self.label=self.session.xenapi.VDI.get_name_label(base_vdi_ref)
             self.description=self.session.xenapi.VDI.get_name_description(base_vdi_ref)
