@@ -115,7 +115,7 @@ class RBDSR(SR.SR, cephutils.SR):
                     vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
                     self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
                     self.session.xenapi.VDI.set_physical_utilisation(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
-                    if not self.vdis.has_key(parent_vdi_uuid):
+                    if parent_vdi_uuid not in vdi_uuids:
                         self.vdis[parent_vdi_uuid] = RBDVDI(self, parent_vdi_uuid, label)
                         self.vdis[parent_vdi_uuid].description = description
                         self.vdis[parent_vdi_uuid].size = str(RBDVDIs[parent_vdi_uuid]['size'])
@@ -498,6 +498,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         snapVDI.issnap = True
         snapVDI.read_only = True
         snapVDI.location = snapVDI.uuid
+        snapVDI.snapshot_of = vdi_ref
         snapVDI.size = self.session.xenapi.VDI.get_virtual_size(vdi_ref)
         snapVDI.sm_config["vdi_type"] = 'aio'
         snapVDI.sm_config["snapshot-of"] = base_uuid
@@ -619,6 +620,9 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             self_vdi_sm_config = self.session.xenapi.VDI.get_sm_config(self_vdi_ref)
             if self_vdi_sm_config.has_key("new_uuid"):
                 base_vdi_uuid = self_vdi_sm_config["new_uuid"]
+                del self_vdi_sm_config['rollback']
+                del self_vdi_sm_config['new_uuid']
+                self.session.xenapi.VDI.set_sm_config(self_vdi_ref, self_vdi_sm_config)
             else:
                 base_vdi_uuid = self_vdi_sm_config["snapshot-of"]
             base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_vdi_uuid)
