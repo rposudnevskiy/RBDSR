@@ -31,7 +31,7 @@ import blktap2
 CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLONE",
                 "VDI_SNAPSHOT", "VDI_INTRODUCE", "VDI_RESIZE", "VDI_RESIZE_ONLINE",
                 "ATOMIC_PAUSE", "VDI_UPDATE", "SR_SCAN", "SR_UPDATE", "SR_ATTACH",
-                "SR_DETACH", "SR_PROBE", "SR_METADATA"]
+                "SR_DETACH", "SR_PROBE", "SR_METADATA", "VDI_GENERATE_CONFIG"]
 
 CONFIGURATION = [['rbd-mode', 'SR mount mode (optional): kernel, fuse, nbd (default)'],
                  ['cephx-id', 'Cephx id to be used (optional): default is admin'],
@@ -631,6 +631,33 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             self.snaps = {}
             self.snaps[vdi_uuid]=self.session.xenapi.VDI.get_snapshot_time(self_vdi_ref)
             cephutils.VDI.update(self, sr_uuid, base_vdi_uuid)
+
+    def generate_config(self, sr_uuid, vdi_uuid):
+        util.SMlog("RBDVDI.generate_config")
+        if not util.pathexists(self.path):
+            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+        dict = {}
+        #self.sr.dconf['multipathing'] = self.sr.mpath
+        #self.sr.dconf['multipathhandle'] = self.sr.mpathhandle
+        #dict['device_config'] = self.sr.dconf
+        dict['sr_uuid'] = sr_uuid
+        dict['vdi_uuid'] = vdi_uuid
+        #dict['allocation'] =  self.sr.sm_config['allocation']
+        dict['command'] = 'vdi_attach_from_config'
+        # Return the 'config' encoded within a normal XMLRPC response so that
+        # we can use the regular response/error parsing code.
+        config = xmlrpclib.dumps(tuple([dict]), "vdi_attach_from_config")
+        return xmlrpclib.dumps((config,), "", True)
+
+    def attach_from_config(self, sr_uuid, vdi_uuid):
+        util.SMlog("LVHDoHBAVDI.attach_from_config")
+        #self.sr.attach(sr_uuid)
+        try:
+            return self.attach(sr_uuid, vdi_uuid)
+        except:
+            util.logException("LVHDoHBAVDI.attach_from_config")
+            raise xs_errors.XenError('SRUnavailable', \
+                        opterr='Unable to attach the heartbeat disk')
 
 if __name__ == '__main__':
     SRCommand.run(RBDSR, DRIVER_INFO)
