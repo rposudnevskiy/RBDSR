@@ -214,7 +214,6 @@ class VDI:
 
     def load(self, vdi_uuid):
         self.CEPH_VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
-        self.path = os.path.join(self.sr.SR_ROOT, self.CEPH_VDI_NAME)
     
     def create(self, sr_uuid, vdi_uuid, size):
         image_size = size / 1024 / 1024
@@ -412,6 +411,24 @@ class VDI:
         vdi_name = "%s%s" % (SXM_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
         args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+                "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
+                "CEPH_USER":self.sr.CEPH_USER}
+        self._call_plugin('unmap',args)
+    
+    def _map_SNAP(self, vdi_uuid, snap_uuid):
+        util.SMlog("Calling _map_VHD")
+        snap_name = "%s%s@%s%s" % (VDI_PREFIX, vdi_uuid, SNAPSHOT_PREFIX, snap_uuid)
+        dev_name = "%s/%s" % (self.sr.SR_ROOT, snap_name)
+        args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+                "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
+                "CEPH_USER":self.sr.CEPH_USER}
+        self._call_plugin('map',args)
+    
+    def _unmap_SNAP(self, vdi_uuid, snap_uuid):
+        util.SMlog("Calling _unmap_VHD")
+        snap_name = "%s%s@%s%s" % (VDI_PREFIX, vdi_uuid, SNAPSHOT_PREFIX, snap_uuid)
+        dev_name = "%s/%s" % (self.sr.SR_ROOT, snap_name)
+        args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER}
         self._call_plugin('unmap',args)

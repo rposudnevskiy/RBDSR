@@ -342,6 +342,13 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         vdi_ref = self.sr.srcmd.params['vdi_ref']
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         
+        if sm_config.has_key("snapshot-of"):
+            base_uuid = sm_config["snapshot-of"]
+            # it's a snapshot VDI
+            self.path = self.sr._get_snap_path(base_uuid, vdi_uuid)
+        else:
+            self.path = self.sr._get_path(vdi_uuid)
+        
         if not hasattr(self,'xenstore_data'):
             self.xenstore_data = {}
         
@@ -380,6 +387,10 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                 # it's attached after mirror VDI and mirror snapshot VDI has been created
                 self._map_VHD(vdi_uuid)
         ########## not SXM VDIs
+        elif sm_config.has_key("snapshot-of"):
+            base_uuid = sm_config["snapshot-of"]
+            # it's a snapshot VDI, attach it as snapshot
+            self._map_SNAP(base_uuid, vdi_uuid)
         else:
             # it's not SXM VDI, just attach it
             self._map_VHD(vdi_uuid)
@@ -390,9 +401,15 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
     
     def detach(self, sr_uuid, vdi_uuid):
-        self._unmap_VHD(vdi_uuid)
-        self.attached = False
         vdi_ref = self.sr.srcmd.params['vdi_ref']
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if sm_config.has_key("snapshot-of"):
+            base_uuid = sm_config["snapshot-of"]
+            # it's a snapshot VDI, detach it as snapshot
+            self._unmap_SNAP(base_uuid, vdi_uuid)
+        else:
+            self._unmap_VHD(vdi_uuid)
+        self.attached = False
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
     
     def clone(self, sr_uuid, snap_uuid):

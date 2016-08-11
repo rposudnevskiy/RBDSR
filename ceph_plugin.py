@@ -23,12 +23,16 @@ import util
 
 def _map(session, arg_dict):
     mode = arg_dict['mode']
-    vdi_name = arg_dict['vdi_name']
     dev_name = arg_dict['dev_name']
     CEPH_POOL_NAME = arg_dict['CEPH_POOL_NAME']
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
     
+    if arg_dict.has_key("snap_name"):
+        vdi_name = arg_dict["snap_name"]
+    else:
+        vdi_name = arg_dict['vdi_name']
+        
     if mode == "kernel":
         util.pread2(["rbd", "map", vdi_name, "--pool", CEPH_POOL_NAME, "--name", CEPH_USER])
     elif mode == "fuse":
@@ -40,11 +44,15 @@ def _map(session, arg_dict):
 
 def _unmap(session, arg_dict):
     mode = arg_dict['mode']
-    vdi_name = arg_dict['vdi_name']
     dev_name = arg_dict['dev_name']
     CEPH_POOL_NAME = arg_dict['CEPH_POOL_NAME']
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
+    
+    if arg_dict.has_key("snap_name"):
+        vdi_name = arg_dict["snap_name"]
+    else:
+        vdi_name = arg_dict['vdi_name']
     
     if mode == "kernel":
         util.pread2(["rbd", "unmap", dev_name, "--name", CEPH_USER])
