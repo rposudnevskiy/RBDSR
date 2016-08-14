@@ -349,6 +349,9 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         else:
             self.path = self.sr._get_path(vdi_uuid)
         
+        if not util.pathexists(self.path):
+            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+        
         if not hasattr(self,'xenstore_data'):
             self.xenstore_data = {}
         
@@ -394,9 +397,6 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         else:
             # it's not SXM VDI, just attach it
             self._map_VHD(vdi_uuid)
-        
-        if not util.pathexists(self.path):
-            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
         
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
     
@@ -651,8 +651,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
 
     def generate_config(self, sr_uuid, vdi_uuid):
         util.SMlog("RBDVDI.generate_config")
-        if not util.pathexists(self.path):
-            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+        #if not util.pathexists(self.path):
+        #    raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
         dict = {}
         #self.sr.dconf['multipathing'] = self.sr.mpath
         #self.sr.dconf['multipathhandle'] = self.sr.mpathhandle
