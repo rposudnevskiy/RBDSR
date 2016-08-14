@@ -339,7 +339,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
     def attach(self, sr_uuid, vdi_uuid):
         util.SMlog("RBDVDI.attach for %s" % self.uuid)
         
-        vdi_ref = self.sr.srcmd.params['vdi_ref']
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         
         if sm_config.has_key("snapshot-of"):
@@ -656,7 +656,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         dict = {}
         #self.sr.dconf['multipathing'] = self.sr.mpath
         #self.sr.dconf['multipathhandle'] = self.sr.mpathhandle
-        #dict['device_config'] = self.sr.dconf
+        dict['device_config'] = self.sr.dconf
         dict['sr_uuid'] = sr_uuid
         dict['vdi_uuid'] = vdi_uuid
         #dict['allocation'] =  self.sr.sm_config['allocation']
@@ -667,12 +667,22 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         return xmlrpclib.dumps((config,), "", True)
 
     def attach_from_config(self, sr_uuid, vdi_uuid):
-        util.SMlog("LVHDoHBAVDI.attach_from_config")
-        #self.sr.attach(sr_uuid)
+        util.SMlog("RBDVDI.attach_from_config")
+        self.sr.attach(sr_uuid)
         try:
-            return self.attach(sr_uuid, vdi_uuid)
+            vdi_name = "%s%s" % (cephutils.VDI_PREFIX, vdi_uuid)
+            dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
+            self.path = self.sr._get_path(vdi_uuid)
+            if self.mode == "kernel":
+                util.pread2(["rbd", "map", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+            elif self.mode == "fuse":
+                pass
+            elif self.mode == "nbd":
+                cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(cephutils.NBDS_MAX), "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
+                util.pread2(["ln", "-s", cmdout, dev_name])
+            return VDI.VDI.attach(self, sr_uuid, vdi_uuid)
         except:
-            util.logException("LVHDoHBAVDI.attach_from_config")
+            util.logException("RBDVDI.attach_from_config")
             raise xs_errors.XenError('SRUnavailable', \
                         opterr='Unable to attach the heartbeat disk')
 
