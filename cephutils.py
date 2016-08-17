@@ -216,9 +216,7 @@ class VDI:
         self.CEPH_VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
     
     def create(self, sr_uuid, vdi_uuid, size):
-        image_size = size / 1024 / 1024
-        if image_size < 2:
-            image_size = 2
+        image_size = (size + OBJECT_SIZE_IN_B)/ 1024 / 1024
         # before JEWEL: util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--object-size", str(OBJECT_SIZE_IN_B), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         if self.label:
