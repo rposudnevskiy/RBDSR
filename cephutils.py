@@ -419,7 +419,7 @@ class VDI:
         util.SMlog("Calling _map_VHD")
         snap_name = "%s%s@%s%s" % (VDI_PREFIX, vdi_uuid, SNAPSHOT_PREFIX, snap_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, snap_name)
-        args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+        args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":snap_uuid, "dev_name":dev_name,
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER}
         self._call_plugin('map',args)
@@ -428,7 +428,7 @@ class VDI:
         util.SMlog("Calling _unmap_VHD")
         snap_name = "%s%s@%s%s" % (VDI_PREFIX, vdi_uuid, SNAPSHOT_PREFIX, snap_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, snap_name)
-        args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
+        args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":snap_uuid, "dev_name":dev_name,
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER}
         self._call_plugin('unmap',args)
