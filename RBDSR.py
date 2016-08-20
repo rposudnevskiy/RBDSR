@@ -27,6 +27,7 @@ import cephutils
 import scsiutil
 import xml.dom.minidom
 import blktap2
+import vhdutil
 
 CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLONE",
                 "VDI_SNAPSHOT", "VDI_INTRODUCE", "VDI_RESIZE", "VDI_RESIZE_ONLINE",
@@ -60,6 +61,15 @@ DEFAULT_CEPH_USER = 'admin'
 
 class RBDSR(SR.SR, cephutils.SR):
     """Ceph Block Devices storage repository"""
+    
+    def handles(type):
+        """Do we handle this type?"""
+        util.SMlog("RBDSR.handles type %s" % type)
+        if type == "rbd":
+            return True
+        else:
+            return False
+    handles = staticmethod(handles)
     
     def _loadvdis(self):
         
@@ -159,13 +169,6 @@ class RBDSR(SR.SR, cephutils.SR):
                     self.session.xenapi.VDI.set_name_description(vdi_ref, description)
                     #self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'vdi_type', 'aio')
     
-    def handles(type):
-        """Do we handle this type?"""
-        if type == TYPE:
-            return True
-        return False
-    handles = staticmethod(handles)
-    
     def content_type(self, sr_uuid):
         """Returns the content_type XML""" 
         return SR.SR.content_type(self, sr_uuid)
@@ -182,7 +185,6 @@ class RBDSR(SR.SR, cephutils.SR):
 
     def load(self, sr_uuid):
         """Initialises the SR"""
-        self.sr_vditype = 'rbd'
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
         self.uuid = sr_uuid
@@ -249,6 +251,17 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.location = vdi_uuid
         self.mode = self.sr.mode
         self.exists = False
+        #---
+        RBDVDIs=self.sr._get_vdilist(self.sr.CEPH_POOL_NAME)
+        if RBDVDIs.has_key(vdi_uuid):
+            if RBDVDIs[vdi_uuid].has_key("snapshot"):
+                base_image_name=RBDVDIs[vdi_uuid]["image"]
+                base_uuid=self.sr._get_vdi_uuid(base_image_name)
+                # it's a snapshot VDI
+                self.path = self.sr._get_snap_path(base_uuid, vdi_uuid)
+            else:
+                self.path = self.sr._get_path(vdi_uuid)
+        #---
         cephutils.VDI.load(self, vdi_uuid)
     
     def __init__(self, mysr, uuid, label):

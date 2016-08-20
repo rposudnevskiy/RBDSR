@@ -1,0 +1,152 @@
+#!/bin/bash
+#
+# Copyright (C) Roman V. Posudnevskiy (ramzes_r@yahoo.com)
+#
+# This program is free software; you can redistribute it and/or modify 
+# it under the terms of the GNU Lesser General Public License as published 
+# by the Free Software Foundation; version 2.1 only.
+#
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+ARGC=$#  # Number of args, not counting $0
+i=1  # Used as argument index
+cmd=${!i}
+while [ $i -le $ARGC ];
+do
+	case ${!i} in
+                --source-protocol)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            srcproto=${!i}
+                        fi
+                        ;;
+                --source-format)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            srcfmt=${!i}
+                        fi
+                        ;;
+                --destination-protocol)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            dstproto=${!i}
+                        fi
+                        ;;
+                --destination-format)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            dstfmt=${!i}
+                        fi
+                        ;;
+                --tar-filename-prefix)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            tarpfx=${!i}
+                        fi
+                        ;;
+                --progress)
+                        ARGS+=("${!i}")
+                        prgs=1
+                        ;;
+                --machine)
+                        ARGS+=("${!i}")
+                        machine=1
+                        ;;
+                --direct)
+                        ARGS+=("${!i}")
+                        direct=1
+                        ;;
+                --prezeroed)
+                        ARGS+=("${!i}")
+                        zero=1
+                        ;;
+                --path)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            path=${!i}
+                        fi
+                        ;;
+		--source)
+			i=$((i+1))
+                        if [ -n "${!i}" ]; then
+			    src=${!i}
+                        fi
+			;;
+                --source-fd)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            srcfd=${!i}
+                            let "srcfd = $srcfd - 2"
+                        fi
+                        ;;
+                --destination)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            dst=${!i}
+                        fi
+                        ;;
+		--destination-fd)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            dstfd=${!i}
+                            let "dstfd = $dstfd - 1"
+                        fi
+			;;
+                --destination-size)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            dstsz=${!i}
+                        fi
+                        ;;
+		--relative-to)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            base=${!i}
+                        fi
+			;;
+	esac
+	i=$((i+1))	
+done
+rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
+case "$src|$dst" in
+	*$rbdsrs*)
+                if [ -z $dst ]; then
+                    to_export=`echo $src | awk -F: '{print $2}' | sed 's/\/dev\/nbd\///g'`
+                    from_snap=`echo $base | awk -F@ '{print $2}'`
+                    xe_pid=`pidof xe`
+                    dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
+                    if [ -z "$base" ]; then
+                        rbd export-diff $to_export - >$dst_file_name 2>/dev/null
+                    else
+                        if [ -z "$from_snap" ]; then
+                            rbd export-diff $to_export - >$dst_file_name 2>/dev/null
+                        else
+                            rbd export-diff --from-snap $from_snap $to_export - >$dst_file_name 2>/dev/null
+                        fi
+                    fi
+                else
+                    import_to=`echo $dst | awk -F/ '{print "RBD_XenStorage-"$7"/VHD-"$8}'`
+                    xe_pid=`pidof xe`
+                    src_file_name=`readlink /proc/$xe_pid/fd/$srcfd`
+                    rbd import-diff $src_file_name $import_to 2>/dev/null
+                    #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix " " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
+                fi
+		;;
+	*)
+                IFS=""
+                if [ -z $dst ]; then
+                    #/bin/vhd-tool-orig $cmd --source-protocol $srcproto --source-format $srcfmt --source $src --destination-protocol $dstproto --destination-format $dstfmt --destination-fd $dstfd --tar-filename-prefix "$tarpfx " --progress --machine --direct --path $path
+                    /bin/vhd-tool-orig "$@"
+                else
+		    #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix "$tarpfx " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
+                    /bin/vhd-tool-orig "$@"
+                fi
+		;;
+esac
