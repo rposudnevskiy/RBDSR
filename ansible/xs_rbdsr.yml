@@ -1,5 +1,6 @@
 ---
 - hosts: xs-nodes
+  gather_facts: False
   user: root
   roles:
     - preconf
