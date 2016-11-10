@@ -450,7 +450,7 @@ class VDI:
         self._map_SXM(vdi_uuid)
 
         util.pread2(["dmsetup", "create", self.DM_ZERO_NAME, "--table", "0 %s zero" % str(int(size) / 512)])
-        util.pread2(["dmsetup", "create", slef.DM_MIRROR_NAME, "--table", "0 %s snapshot %s %s P 1" % (str(int(size) / 512), self.DM_ZERO_DEV, self.RBD_SXM_MIRROR_DEV)])
+        util.pread2(["dmsetup", "create", self.DM_MIRROR_NAME, "--table", "0 %s snapshot %s %s P 1" % (str(int(size) / 512), self.DM_ZERO_DEV, self.RBD_SXM_MIRROR_DEV)])
         util.pread2(["ln", "-s", self.DM_MIRROR_DEV, self.RBD_VDI_MIRROR_DEV])
 
     def _setup_base (self, vdi_uuid, size):
