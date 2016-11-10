@@ -7,3 +7,7 @@ auth service required = cephx
 auth client required = cephx
 
 rbd_default_format = 2
+rbd_default_features = {{ rbd_default_features }}
+
+[client]
+rbd_cache=false
