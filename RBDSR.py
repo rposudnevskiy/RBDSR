@@ -388,7 +388,11 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             if tmp_sm_config.has_key("sxm_mirror"):
                     sxm_mirror_vdi = vdi_uuid
         ########## SXM VDIs
-        if sm_config.has_key("base_mirror"):
+        if sm_config.has_key("snapshot-of"):
+            base_uuid = sm_config["snapshot-of"]
+            # it's a snapshot VDI, attach it as snapshot
+            self._map_SNAP(base_uuid, vdi_uuid)
+        elif sm_config.has_key("base_mirror"):
             if has_a_snapshot:
                 # it's a mirror vdi of storage migrating VM
                 # it's attached first
@@ -400,10 +404,6 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                 # it's attached after mirror VDI and mirror snapshot VDI has been created
                 self._map_VHD(vdi_uuid)
         ########## not SXM VDIs
-        elif sm_config.has_key("snapshot-of"):
-            base_uuid = sm_config["snapshot-of"]
-            # it's a snapshot VDI, attach it as snapshot
-            self._map_SNAP(base_uuid, vdi_uuid)
         else:
             # it's not SXM VDI, just attach it
             self._map_VHD(vdi_uuid)
