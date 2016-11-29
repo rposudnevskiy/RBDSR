@@ -691,7 +691,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             elif self.mode == "fuse":
                 pass
             elif self.mode == "nbd":
-                cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(cephutils.NBDS_MAX), "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
+                self._disable_rbd_caching()
+                cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(cephutils.NBDS_MAX), "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
                 util.pread2(["ln", "-s", cmdout, dev_name])
             return VDI.VDI.attach(self, sr_uuid, vdi_uuid)
         except:

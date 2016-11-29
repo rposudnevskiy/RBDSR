@@ -20,6 +20,12 @@ import sys
 import XenAPIPlugin
 sys.path.append("/opt/xensource/sm/")
 import util
+import os.path
+
+def _disable_rbd_caching():
+    if not os.path.isfile("/etc/ceph/ceph.conf.nocaching"):
+        os.system("printf \"[client]\\n\\trbd cache = false\\n\\n\" > /etc/ceph/ceph.conf.nocaching")
+        os.system("cat /etc/ceph/ceph.conf >> /etc/ceph/ceph.conf.nocaching")
 
 def _map(session, arg_dict):
     mode = arg_dict['mode']
@@ -27,6 +33,7 @@ def _map(session, arg_dict):
     CEPH_POOL_NAME = arg_dict['CEPH_POOL_NAME']
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
+    sharable = arg_dict['sharable']
     
     if arg_dict.has_key("snap_name"):
         vdi_name = arg_dict["snap_name"]
@@ -38,7 +45,11 @@ def _map(session, arg_dict):
     elif mode == "fuse":
         pass
     elif mode == "nbd":
-        cmdout = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, vdi_name), "--name", CEPH_USER]).rstrip('\n')
+        if sharable == "true":
+            _disable_rbd_caching()
+            cmdout = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, vdi_name), "--name", CEPH_USER]).rstrip('\n')
+        else:
+            cmdout = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, vdi_name), "--name", CEPH_USER]).rstrip('\n')
         util.pread2(["ln", "-s", cmdout, dev_name])
     return "mapped"
 
@@ -48,6 +59,7 @@ def _unmap(session, arg_dict):
     CEPH_POOL_NAME = arg_dict['CEPH_POOL_NAME']
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
+    sharable = arg_dict['sharable']
     
     if arg_dict.has_key("snap_name"):
         vdi_name = arg_dict["snap_name"]

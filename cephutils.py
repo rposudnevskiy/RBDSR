@@ -212,6 +212,11 @@ class SR:
             util.pread2(["rm", "-rf", self.SR_ROOT])
 
 class VDI:
+    
+    def _disable_rbd_caching(self):
+        if not os.path.isfile("/etc/ceph/ceph.conf.nocaching"):
+            os.system("printf \"[client]\\n\\trbd cache = false\\n\\n\" > /etc/ceph/ceph.conf.nocaching")
+            os.system("cat /etc/ceph/ceph.conf >> /etc/ceph/ceph.conf.nocaching")
 
     def load(self, vdi_uuid):
         self.CEPH_VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -384,18 +389,28 @@ class VDI:
         util.SMlog("Calling _map_SXM")
         vdi_name = "%s%s" % (SXM_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        if self.session.xenapi.VDI.get_sharable(vdi_ref):
+            sharable="true"
+        else:
+            sharable="false"
         args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
-                "CEPH_USER":self.sr.CEPH_USER}
+                "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable}
         self._call_plugin('map',args)
 
     def _map_VHD(self, vdi_uuid):
         util.SMlog("Calling _map_VHD")
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        if self.session.xenapi.VDI.get_sharable(vdi_ref):
+            sharable="true"
+        else:
+            sharable="false"
         args = {"mode":self.mode, "vdi_name":vdi_name, "vdi_uuid":vdi_uuid, "dev_name":dev_name,
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
-                "CEPH_USER":self.sr.CEPH_USER}
+                "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable}
         self._call_plugin('map',args)
 
     def _unmap_VHD(self, vdi_uuid):
@@ -420,9 +435,14 @@ class VDI:
         util.SMlog("Calling _map_VHD")
         snap_name = "%s%s@%s%s" % (VDI_PREFIX, vdi_uuid, SNAPSHOT_PREFIX, snap_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, snap_name)
+        snap_ref = self.session.xenapi.VDI.get_by_uuid(snap_uuid)
+        if self.session.xenapi.VDI.get_sharable(snap_ref):
+            sharable="true"
+        else:
+            sharable="false"
         args = {"mode":self.mode, "snap_name":snap_name, "vdi_uuid":snap_uuid, "dev_name":dev_name,
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME, "NBDS_MAX":str(NBDS_MAX),
-                "CEPH_USER":self.sr.CEPH_USER}
+                "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable}
         self._call_plugin('map',args)
 
     def _unmap_SNAP(self, vdi_uuid, snap_uuid):
