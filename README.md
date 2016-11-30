@@ -1,7 +1,7 @@
 # RBDSR - XenServer Storage Manager plugin for CEPH
 This plugin adds support of Ceph block devices into XenServer.
 It supports creation of VDI as RBD device in Ceph pool. 
-It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi Storage Migration (XSM).
+It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi Storage Migration (XSM) and XenServer High Availability (HA).
 
 You can change the following device configs using device-config args when creating PBDs on each hosts:
 - cephx-id: the cephx user id to be used. Default is admin for the client.admin user.
@@ -132,15 +132,11 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 		# cp waitdmmerging.sh /usr/bin
 		# chmod 755 /usr/bin/waitdmmerging.sh
 
-11. Copy ```ceph_plugin.py``` to ```/etc/xapi.d/plugins``` and rename it to ```ceph_plugin``` 
+11. Copy ```ceph_plugin.py``` into ```/etc/xapi.d/plugins``` and rename it to ```ceph_plugin``` 
 
 		# cp ceph_plugin.py /etc/xapi.d/plugins/ceph_plugin
 
-12. Set execute permissions on all python scripts
-
-		# chmod +x *.py
-		
-13. Put the ```RBDSR.py``` and ```cephutils.py``` into  ```/opt/xensource/sm``` and compile them:
+12. Copy the ```RBDSR.py``` and ```cephutils.py``` into  ```/opt/xensource/sm``` and compile them:
 
 		# cp cephutils.py RBDSR.py /opt/xensource/sm
 		# cd /opt/xensource/sm
@@ -149,10 +145,15 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 		# python -m compileall cephutils.py
 		# python -O -m compileall cephutils.py
 
+12. Set execute permissions on all python scripts
+
+		# chmod +x /etc/xapi.d/plugins/ceph_plugin
+		# chmod +x /opt/xensource/sm/RBDSR.py
+		# chmod +x /opt/xensource/sm/cephutils.py
+
 14. Make softlink to ```RBDSR.py``` in ```/opt/xensource/sm```
 	
 		# ln -s RBDSR.py RBDSR 
-
 
 14. Add RBDSR plugin to whitelist of SM plugins in ```/etc/xapi.conf```
 
