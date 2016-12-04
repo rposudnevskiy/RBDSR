@@ -59,7 +59,6 @@ def _unmap(session, arg_dict):
     CEPH_POOL_NAME = arg_dict['CEPH_POOL_NAME']
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
-    sharable = arg_dict['sharable']
     
     if arg_dict.has_key("snap_name"):
         vdi_name = arg_dict["snap_name"]
