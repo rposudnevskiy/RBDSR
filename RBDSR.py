@@ -282,7 +282,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             raise xs_errors.XenError('VDISize', opterr='vdi size is too big: vdi size: %d, sr free space size: %d'  % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
         
         if size < cephutils.OBJECT_SIZE_IN_B:
-            image_size_M = OBJECT_SIZE_IN_B // 1024 // 1024
+            image_size_M = cephutils.OBJECT_SIZE_IN_B // 1024 // 1024
         else:
             image_size_M = size // 1024 // 1024
         
@@ -697,19 +697,24 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         util.SMlog("RBDVDI.attach_from_config: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         self.sr.attach(sr_uuid)
         try:
-            vdi_name = "%s%s" % (cephutils.VDI_PREFIX, vdi_uuid)
+            _vdi_name = "%s%s" % (cephutils.VDI_PREFIX, vdi_uuid)
+            _dev_name = "%s/%s" % (self.sr.DEV_ROOT, _vdi_name)
+            vdi_name = "%s" % (vdi_uuid)
             dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
-            self.path = self.sr._get_path(vdi_uuid)
-            if not util.pathexists(self.path):
-                raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
             if self.mode == "kernel":
-                util.pread2(["rbd", "map", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+                cmdout = util.pread2(["rbd", "map", _vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
             elif self.mode == "fuse":
                 pass
             elif self.mode == "nbd":
                 self._disable_rbd_caching()
-                cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(cephutils.NBDS_MAX), "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
-                util.pread2(["ln", "-s", cmdout, dev_name])
+                cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(cephutils.NBDS_MAX), "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, _vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
+                util.pread2(["ln", "-s", cmdout, _dev_name])
+            util.pread2(["ln", "-s", cmdout, dev_name])
+            
+            self.path = self.sr._get_path(vdi_uuid)
+            if not util.pathexists(self.path):
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+            
             return VDI.VDI.attach(self, sr_uuid, vdi_uuid)
         except:
             util.logException("RBDVDI.attach_from_config")
