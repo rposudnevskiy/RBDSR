@@ -72,7 +72,7 @@ class RBDSR(SR.SR, cephutils.SR):
     handles = staticmethod(handles)
     
     def _loadvdis(self):
-        
+        util.SMlog("RBDSR._loadvdis")
         if self.vdis:
             return
         
@@ -184,6 +184,7 @@ class RBDSR(SR.SR, cephutils.SR):
         return self._srlist_toxml()
 
     def load(self, sr_uuid):
+        util.SMlog("RBDSR.load: sr_uuid=%s" % sr_uuid)
         """Initialises the SR"""
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
@@ -199,8 +200,7 @@ class RBDSR(SR.SR, cephutils.SR):
         cephutils.SR.load(self,sr_uuid, ceph_user)
     
     def attach(self, sr_uuid):
-        """Std. attach"""
-        util.SMlog("RBDSR.attach for %s" % self.uuid)
+        util.SMlog("RBDSR.attach: sr_uuid=%s" % sr_uuid)
         
         if not self.RBDPOOLs.has_key(self.uuid):
             raise xs_errors.XenError('SRUnavailable',opterr='no pool with uuid: %s' % sr_uuid)
@@ -208,14 +208,15 @@ class RBDSR(SR.SR, cephutils.SR):
         cephutils.SR.attach(self, sr_uuid)
     
     def update(self, sr_uuid):
+        util.SMlog("RBDSR.update: sr_uuid=%s" % sr_uuid)
         self.scan(sr_uuid)
     
     def detach(self, sr_uuid):
-        """Std. detach"""
+        util.SMlog("RBDSR.detach: sr_uuid=%s" % sr_uuid)
         cephutils.SR.detach(self, sr_uuid)
     
     def scan(self, sr_uuid):
-        """Scan"""
+        util.SMlog("RBDSR.load: sr_uuid=%s" % sr_uuid)
         cephutils.SR.scan(self, sr_uuid)
         
         self.physical_size = self.RBDPOOLs[sr_uuid]['stats']['max_avail'] + self.RBDPOOLs[sr_uuid]['stats']['bytes_used']
@@ -229,13 +230,16 @@ class RBDSR(SR.SR, cephutils.SR):
         scanrecord.synchronise_new()
     
     def create(self, sr_uuid, size):
+        util.SMlog("RBDSR.create: sr_uuid=%s, size=%s" % (sr_uuid, size))
         self.attach(sr_uuid)
         self.detach(sr_uuid)
     
     def delete(self, sr_uuid):
+        util.SMlog("RBDSR.delete: sr_uuid=%s" % sr_uuid)
         pass
     
     def _updateStats(self, sr_uuid, virtAllocDelta):
+        util.SMlog("RBDSR._updateStats: sr_uuid=%s, virtAllocDelta=%s" % (sr_uuid, virtAllocDelta))
         valloc = int(self.session.xenapi.SR.get_virtual_allocation(self.sr_ref))
         self.virtual_allocation = valloc + int(virtAllocDelta)
         self.session.xenapi.SR.set_virtual_allocation(self.sr_ref, str(self.virtual_allocation))
@@ -245,23 +249,14 @@ class RBDSR(SR.SR, cephutils.SR):
 class RBDVDI(VDI.VDI, cephutils.VDI):
 
     def load(self, vdi_uuid):
+        util.SMlog("RBDVDI.load: vdi_uuid=%s" % vdi_uuid)
         self.loaded   = False
         self.vdi_type = 'aio'
         self.uuid     = vdi_uuid
         self.location = vdi_uuid
         self.mode = self.sr.mode
         self.exists = False
-        #---
-        RBDVDIs=self.sr._get_vdilist(self.sr.CEPH_POOL_NAME)
-        if RBDVDIs.has_key(vdi_uuid):
-            if RBDVDIs[vdi_uuid].has_key("snapshot"):
-                base_image_name=RBDVDIs[vdi_uuid]["image"]
-                base_uuid=self.sr._get_vdi_uuid(base_image_name)
-                # it's a snapshot VDI
-                self.path = self.sr._get_snap_path(base_uuid, vdi_uuid)
-            else:
-                self.path = self.sr._get_path(vdi_uuid)
-        #---
+        self.path = self.sr._get_path(vdi_uuid)
         cephutils.VDI.load(self, vdi_uuid)
     
     def __init__(self, mysr, uuid, label):
@@ -277,7 +272,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.sm_config = {}
     
     def create(self, sr_uuid, vdi_uuid, size):
-        util.SMlog("RBDVDI.create for %s" % self.uuid)
+        util.SMlog("RBDVDI.create: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
         if self.exists:
             raise xs_errors.XenError('VDIExists')
         
@@ -286,10 +281,15 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                     '(vdi size: %d, sr free space size: %d)' % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
             raise xs_errors.XenError('VDISize', opterr='vdi size is too big: vdi size: %d, sr free space size: %d'  % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
         
-        cephutils.VDI.create(self, sr_uuid, vdi_uuid, size)
+        if size < cephutils.OBJECT_SIZE_IN_B:
+            image_size_M = OBJECT_SIZE_IN_B // 1024 // 1024
+        else:
+            image_size_M = size // 1024 // 1024
         
-        self.size = size
-        self.utilisation = size
+        cephutils.VDI.create(self, sr_uuid, vdi_uuid, image_size_M)
+        
+        self.size = image_size_M * 1024 * 1024
+        self.utilisation = size * 1024 * 1024
         self.sm_config["vdi_type"] = 'aio'
         
         self.ref = self._db_introduce()
@@ -298,7 +298,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         return VDI.VDI.get_params(self)
     
     def delete(self, sr_uuid, vdi_uuid):
-        util.SMlog("RBDVDI.delete for %s" % self.uuid)
+        util.SMlog("RBDVDI.delete: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         
         vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
         clones_uuids = set([])
@@ -350,17 +350,18 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             self._db_forget()
     
     def attach(self, sr_uuid, vdi_uuid):
-        util.SMlog("RBDVDI.attach for %s" % self.uuid)
+        util.SMlog("RBDVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
         
-        if sm_config.has_key("snapshot-of"):
-            base_uuid = sm_config["snapshot-of"]
-            # it's a snapshot VDI
-            self.path = self.sr._get_snap_path(base_uuid, vdi_uuid)
-        else:
-            self.path = self.sr._get_path(vdi_uuid)
+        #if sm_config.has_key("snapshot-of"):
+        #    base_uuid = sm_config["snapshot-of"]
+        #    # it's a snapshot VDI
+        #    self.path = self.sr._get_snap_path(base_uuid, vdi_uuid)
+        #else:
+        self.path = self.sr._get_path(vdi_uuid)
         
         if not hasattr(self,'xenstore_data'):
             self.xenstore_data = {}
@@ -373,9 +374,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.attached = True
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
-        
-        self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
-        
+      
         ##########
         vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
         has_a_snapshot = False
@@ -385,28 +384,28 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             if tmp_sm_config.has_key("snapshot-of"):
                 if tmp_sm_config["snapshot-of"] == vdi_uuid:
                     has_a_snapshot = True
-            if tmp_sm_config.has_key("sxm_mirror"):
-                    sxm_mirror_vdi = vdi_uuid
+        #    if tmp_sm_config.has_key("sxm_mirror"):
+        #            sxm_mirror_vdi = vdi_uuid
         ########## SXM VDIs
         if sm_config.has_key("snapshot-of"):
             base_uuid = sm_config["snapshot-of"]
             # it's a snapshot VDI, attach it as snapshot
-            self._map_SNAP(base_uuid, vdi_uuid)
+            self._map_SNAP(base_uuid, vdi_uuid, self.size, "none")
         elif sm_config.has_key("base_mirror"):
             if has_a_snapshot:
                 # it's a mirror vdi of storage migrating VM
                 # it's attached first
                 self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'sxm_mirror', 'true')
                 # creating dm snapshot dev
-                self._setup_mirror(vdi_uuid, self.size)
+                self._map_sxm_mirror(vdi_uuid, self.size)
             else:
                 # it's a base vdi of storage migrating VM
                 # it's attached after mirror VDI and mirror snapshot VDI has been created
-                self._map_VHD(vdi_uuid)
+                self._map_VHD(vdi_uuid, self.size, "none")
         ########## not SXM VDIs
         else:
             # it's not SXM VDI, just attach it
-            self._map_VHD(vdi_uuid)
+            self._map_VHD(vdi_uuid, self.size, "none")
         
         if not util.pathexists(self.path):
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
@@ -414,19 +413,26 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
     
     def detach(self, sr_uuid, vdi_uuid):
+        util.SMlog("RBDVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         vdi_ref = self.sr.srcmd.params['vdi_ref']
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        
+        self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
+        
+        if sm_config.has_key("sxm_mirror"):
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'sxm_mirror')
+        
         if sm_config.has_key("snapshot-of"):
             base_uuid = sm_config["snapshot-of"]
             # it's a snapshot VDI, detach it as snapshot
-            self._unmap_SNAP(base_uuid, vdi_uuid)
+            self._unmap_SNAP(base_uuid, vdi_uuid, self.size)
         else:
-            self._unmap_VHD(vdi_uuid)
+            self._unmap_VHD(vdi_uuid, self.size)
         self.attached = False
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
     
     def clone(self, sr_uuid, snap_uuid):
-        util.SMlog("RBDVDI.clone for %s snapshot"% (snap_uuid))
+        util.SMlog("RBDVDI.clone: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, snap_uuid))
         
         snap_vdi_ref = self.session.xenapi.VDI.get_by_uuid(snap_uuid)
         if self.session.xenapi.VDI.get_sharable(snap_vdi_ref):
@@ -499,10 +505,11 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             return cloneVDI.get_params()
     
     def snapshot(self, sr_uuid, vdi_uuid):
+        util.SMlog("RBDVDI.snapshot: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         return self._snapshot(sr_uuid, vdi_uuid).get_params()
     
     def _snapshot(self, sr_uuid, vdi_uuid):
-        util.SMlog("RBDVDI.snapshot for %s" % (vdi_uuid))
+        util.SMlog("RBDVDI._snapshot: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         
         #secondary = None
         
@@ -524,7 +531,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         snapVDI = RBDVDI(self.sr, snap_uuid, "%s%s" % (orig_label, " (snapshot)"))
         self._do_snapshot(base_uuid, snap_uuid)
         
-        snapVDI.path = self.sr._get_snap_path(base_uuid, snap_uuid)
+        #snapVDI.path = self.sr._get_snap_path(base_uuid, snap_uuid)
+        snapVDI.path = self.sr._get_path(snap_uuid)
         snapVDI.issnap = True
         snapVDI.read_only = True
         snapVDI.location = snapVDI.uuid
@@ -545,10 +553,17 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         return snapVDI
     
     def resize(self, sr_uuid, vdi_uuid, size):
-        """Resize the given VDI to size <size> MB. Size can
+        """Resize the given VDI to size <size>. Size can
         be any valid disk size greater than [or smaller than]
         the current value."""
-        util.SMlog("RBDVDI.resize for %s" % self.uuid)
+        util.SMlog("RBDVDI.resize: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
+        
+        if size < cephutils.OBJECT_SIZE_IN_B:
+            image_size_M = OBJECT_SIZE_IN_B // 1024 // 1024
+        else:
+            image_size_M = size // 1024 // 1024
+        
+        size = image_size_M * 1024 * 1024
         
         if not self.sr._isSpaceAvailable(size):
             util.SMlog('vdi_resize: vdi size is too big: ' + \
@@ -564,7 +579,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             return VDI.VDI.get_params(self)
         
         oldSize = self.size
-        cephutils.VDI.resize(self, sr_uuid, vdi_uuid, size)
+        cephutils.VDI.resize(self, sr_uuid, vdi_uuid, image_size_M)
         
         self.size = size
         self.utilisation = self.size
@@ -579,10 +594,11 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
     def resize_online(self, sr_uuid, vdi_uuid, size):
         """Resize the given VDI which may have active VBDs, which have
         been paused for the duration of this call."""
+        util.SMlog("RBDVDI.resize_online: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
         return resize(sr_uuid, vdi_uuid, size)
     
     def compose(self, sr_uuid, vdi1_uuid, vdi2_uuid):
-        util.SMlog("RBDSR.compose for %s -> %s" % (vdi2_uuid, vdi1_uuid))
+        util.SMlog("RBDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi1_uuid))
         
         #if not blktap2.VDI.tap_pause(self.session, sr_uuid, vdi2_uuid):
         #    raise util.SMException("failed to pause VDI %s" % vdi2_uuid)
@@ -603,7 +619,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         vdi1_ref = self.session.xenapi.VDI.get_by_uuid(vdi1_uuid)
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi1_ref))
         
-        self._merge_diffs(vdi2_uuid, snap_uuid, vdi1_uuid, self.size)
+        self._merge_sxm_diffs(vdi2_uuid, vdi1_uuid, self.size)
         
         self.session.xenapi.VDI.remove_from_sm_config(snap_vdi_ref, 'snapshot-of')
         self.session.xenapi.VDI.add_to_sm_config(snap_vdi_ref, 'snapshot-of', vdi1_uuid)
@@ -611,7 +627,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         #blktap2.VDI.tap_unpause(self.session, sr_uuid, vdi2_uuid, None)
     
     def update(self, sr_uuid, vdi_uuid):
-        util.SMlog("RBDSR.update for %s" % vdi_uuid)
+        util.SMlog("RBDVDI.update: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         
         self_vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         
@@ -663,9 +679,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             cephutils.VDI.update(self, sr_uuid, base_vdi_uuid)
 
     def generate_config(self, sr_uuid, vdi_uuid):
-        util.SMlog("RBDVDI.generate_config")
-        #if not util.pathexists(self.path):
-        #    raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+        util.SMlog("RBDVDI.generate_config: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         dict = {}
         #self.sr.dconf['multipathing'] = self.sr.mpath
         #self.sr.dconf['multipathhandle'] = self.sr.mpathhandle
@@ -680,12 +694,14 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         return xmlrpclib.dumps((config,), "", True)
 
     def attach_from_config(self, sr_uuid, vdi_uuid):
-        util.SMlog("RBDVDI.attach_from_config")
+        util.SMlog("RBDVDI.attach_from_config: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         self.sr.attach(sr_uuid)
         try:
             vdi_name = "%s%s" % (cephutils.VDI_PREFIX, vdi_uuid)
             dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
             self.path = self.sr._get_path(vdi_uuid)
+            if not util.pathexists(self.path):
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
             if self.mode == "kernel":
                 util.pread2(["rbd", "map", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
             elif self.mode == "fuse":
