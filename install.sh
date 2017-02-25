@@ -20,8 +20,8 @@ echo "Install Required Packages"
 yum install -y epel-release
 yum install -y yum-plugin-priorities.noarch
 yum install -y snappy leveldb gdisk python-argparse gperftools-libs
-#yum install -y fuse fuse-libs #skip due to conflict with XenServer
-yum install -y ceph-common rbd-nbd
+yum install -y fuse fuse-libs
+yum install ceph-common rbd-fuse rbd-nbd
 
 echo "Disable Repos"
 sed -ie 's/enabled=1/enabled=0/g' /etc/yum.repos.d/CentOS-Base.repo
