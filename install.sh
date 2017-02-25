@@ -42,3 +42,9 @@ python -O -m compileall /opt/xensource/sm/cephutils.py
 chmod +x /opt/xensource/sm/RBDSR.py
 chmod +x /opt/xensource/sm/cephutils.py
 ln -s RBDSR.py RBDSR
+
+echo "Add RBDSR plugin to whitelist of SM plugins in /etc/xapi.conf"
+cp /etc/xapi.conf /etc/xapi.conf.backup
+grep "sm-plugins" /etc/xapi.conf
+grep "sm-plugins" /etc/xapi.conf | grep -q "rbd" || sed -ie 's/sm-plugins\(.*\)/& rbd/g' /etc/xapi.conf
+grep "sm-plugins" /etc/xapi.conf | grep "rbd"

@@ -15,17 +15,11 @@ This plugin uses **rbd**, **rbd-nbd** utilities for manipulating RBD devices, so
 
 		sh <(curl -s https://raw.githubusercontent.com/phoenixweb/RBDSR/master/netinstall.sh)
 
+2. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
-2. Add RBDSR plugin to whitelist of SM plugins in ```/etc/xapi.conf```
+3. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
 
-		# Whitelist of SM plugins
-		sm-plugins= rbd cifs ext nfs iscsi lvmoiscsi dummy file hba rawhba udev iso lvm lvmohba lvmofcoe
-
-3. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
-
-4. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
-
-5. Restart XAPI tool-stack on XenServer hosts
+4. Restart XAPI tool-stack on XenServer hosts
 
 		# xe-toolstack-restart 
 
