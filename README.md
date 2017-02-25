@@ -9,7 +9,7 @@ You can change the following device configs using device-config args when creati
 
 ## Installation 
 
-This plugin uses **rbd**, **rbd-nbd** utilities for manipulating RBD devices, so you need to install ceph-common and rbd-nbd  packages from ceph repository on your XenServer hosts.
+This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so you need to install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
 
 1. Run this command:
 
