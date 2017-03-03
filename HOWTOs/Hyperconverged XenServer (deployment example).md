@@ -1,6 +1,7 @@
-Let's imagine that you have four new HP DL360 G8 servers, each with 2x480GB SSD and 6x2TB HDD, and you want to set up XenServer pool using local server disks as storage. Here is a short description how you can get it.
+# Hyperconverged XenServer - deployment example
+Let's imagine that you have four new HP DL360 G9 servers, each with 2x480GB SSD and 6x2TB HDD, and you want to set up XenServer pool using local server disks as storage. Here is a short description how you can get it.
 
-#Preparing XenServer hosts
+## Preparing XenServer hosts
 
 You need two USB-sticks for each server. The first one for XenServer itself and the second one as local storage to place Ceph cluster node VM on it. I don't recommend using the one USB-stick for both XenServer and local storage as you can have performance issues with such configuration. 
 Anyway, I ran into performance problems when I used only one USB-stick.
@@ -98,9 +99,6 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 			# yum install fuse fuse-libs
 			# yum install ceph-common rbd-fuse rbd-nbd
 
-----------
-
-
 	- Restore backup copy of ```CentOS-Base.repo``` and ```Citrix.repo```
 
 			# cp CentOS-Base.repo.orig CentOS-Base.repo
@@ -197,7 +195,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 
 6. Download and install "CentOS 7 (1511) Minimal x86_64" in new VMs [https://wiki.centos.org/Download](https://wiki.centos.org/Download)
 
-#Deploying Ceph
+## Deploying Ceph
 
 1. On each new VMs install and configure ntpd . It's very important to have clock synced on your Ceph nodes.
 
@@ -486,7 +484,7 @@ Anyway, I ran into performance problems when I used only one USB-stick.
 		# ceph osd tier add RBD_XenStorage-5aab7115-2d2c-466d-818c-909cff689467 CACHE
 		# ceph osd tier cache-mode CACHE readonly
 
-#Configuring XenServer hosts
+## Configuring XenServer hosts
 
 1. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easyest way is just copy it from your Ceph cluster VM
 
