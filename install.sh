@@ -45,6 +45,16 @@ chmod +x /opt/xensource/sm/RBDSR.py
 chmod +x /opt/xensource/sm/cephutils.py
 ln -s /opt/xensource/sm/RBDSR.py /opt/xensource/sm/RBDSR
 
+mv /sbin/tap-ctl /sbin/tap-ctl-orig
+mv /bin/vhd-tool /bin/vhd-tool-orig
+cp bins/tap-ctl /sbin/tap-ctl
+cp bins/vhd-tool /bin/vhd-tool
+chmod +x /sbin/tap-ctl
+chmod +x /bin/vhd-tool
+cp bins/rbd2vhd.py /bin/rbd2vhd
+chmod +x /bin/rbd2vhd
+ln /bin/rbd2vhd /bin/vhd2rbd
+
 echo "Add RBDSR plugin to whitelist of SM plugins in /etc/xapi.conf"
 cp /etc/xapi.conf /etc/xapi.conf.backup
 grep "sm-plugins" /etc/xapi.conf

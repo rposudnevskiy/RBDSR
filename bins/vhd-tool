@@ -21,72 +21,72 @@ cmd=${!i}
 while [ $i -le $ARGC ];
 do
 	case ${!i} in
-                --source-protocol)
+        --source-protocol)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             srcproto=${!i}
                         fi
                         ;;
-                --source-format)
+        --source-format)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             srcfmt=${!i}
                         fi
                         ;;
-                --destination-protocol)
+        --destination-protocol)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             dstproto=${!i}
                         fi
                         ;;
-                --destination-format)
+        --destination-format)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             dstfmt=${!i}
                         fi
                         ;;
-                --tar-filename-prefix)
+        --tar-filename-prefix)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             tarpfx=${!i}
                         fi
                         ;;
-                --progress)
+        --progress)
                         ARGS+=("${!i}")
                         prgs=1
                         ;;
-                --machine)
+        --machine)
                         ARGS+=("${!i}")
                         machine=1
                         ;;
-                --direct)
+        --direct)
                         ARGS+=("${!i}")
                         direct=1
                         ;;
-                --prezeroed)
+        --prezeroed)
                         ARGS+=("${!i}")
                         zero=1
                         ;;
-                --path)
+        --path)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             path=${!i}
                         fi
                         ;;
 		--source)
-			i=$((i+1))
+                        i=$((i+1))
                         if [ -n "${!i}" ]; then
-			    src=${!i}
+                        src=${!i}
                         fi
-			;;
-                --source-fd)
+                        ;;
+        --source-fd)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             srcfd=${!i}
                             let "srcfd = $srcfd - 2"
                         fi
                         ;;
-                --destination)
+        --destination)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             dst=${!i}
@@ -98,8 +98,8 @@ do
                             dstfd=${!i}
                             let "dstfd = $dstfd - 1"
                         fi
-			;;
-                --destination-size)
+                        ;;
+        --destination-size)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             dstsz=${!i}
@@ -110,7 +110,7 @@ do
                         if [ -n "${!i}" ]; then
                             base=${!i}
                         fi
-			;;
+                        ;;
 	esac
 	i=$((i+1))	
 done
@@ -118,24 +118,32 @@ rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
 case "$src|$dst" in
 	*$rbdsrs*)
                 if [ -z $dst ]; then
-                    to_export=`echo $src | awk -F: '{print $2}' | sed 's/\/dev\/nbd\///g'`
-                    from_snap=`echo $base | awk -F@ '{print $2}'`
+                    src_link=`echo $src | awk -F: '{print $2}'`
+                    src_dev=`readlink $src_link`
+                    to_export=`echo $src_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g'`
+                    to_export_snap=`echo $to_export | awk -F@ '{print $2}'`
+                    to_export_vdi_uid=`echo $to_export | awk -F@ '{print $1}' | awk -F/ '{print $2}' | sed 's/VHD-//g'`
+                    #to_export=`echo $src | awk -F: '{print $2}' | sed 's/\/dev\/nbd\///g'`
+                    base_link=`echo $base | awk -F: '{print $2}'`
+                    base_dev=`readlink $base_link`
+                    from_snap=`echo $base_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g' | awk -F@ '{print $2}'`
+                    #from_snap=`echo $base | awk -F@ '{print $2}'`
                     xe_pid=`pidof xe`
                     dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
                     if [ -z "$base" ]; then
                         rbd export-diff $to_export - >$dst_file_name 2>/dev/null
                     else
                         if [ -z "$from_snap" ]; then
-                            rbd export-diff $to_export - >$dst_file_name 2>/dev/null
+                            rbd export-diff $to_export - 2>/dev/null | rbd2vhd --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
                         else
-                            rbd export-diff --from-snap $from_snap $to_export - >$dst_file_name 2>/dev/null
+                            rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2vhd --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
                         fi
                     fi
                 else
                     import_to=`echo $dst | awk -F/ '{print "RBD_XenStorage-"$7"/VHD-"$8}'`
                     xe_pid=`pidof xe`
                     src_file_name=`readlink /proc/$xe_pid/fd/$srcfd`
-                    rbd import-diff $src_file_name $import_to 2>/dev/null
+                    vhd2rbd --vhd $src_file_name --rbd - 2>/dev/null | rbd import-diff - $import_to 2>/dev/null
                     #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix " " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
                 fi
 		;;
