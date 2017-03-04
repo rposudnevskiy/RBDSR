@@ -289,7 +289,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         cephutils.VDI.create(self, sr_uuid, vdi_uuid, image_size_M)
         
         self.size = image_size_M * 1024 * 1024
-        self.utilisation = size * 1024 * 1024
+        self.utilisation = image_size_M * 1024 * 1024
         self.sm_config["vdi_type"] = 'aio'
         
         self.ref = self._db_introduce()
