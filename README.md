@@ -13,7 +13,7 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 
 1. Run this command:
 
-		sh <(curl -s https://github.com/rposudnevskiy/RBDSR/raw/master/netinstall.sh)
+		sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/master/netinstall.sh)
 
 2. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
