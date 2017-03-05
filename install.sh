@@ -1,5 +1,5 @@
 #!/bin/bash
-CEPH_VERSION="jewel"
+CEPH_VERSION="luminous"
 echo "****************"
 echo "Install RBDSR plugin"
 echo "****************"
@@ -23,7 +23,7 @@ yum install -y yum-plugin-priorities.noarch
 sed -ie 's/enabled=0/enabled=1/g' /etc/yum.repos.d/epel.repo
 yum install -y snappy leveldb gdisk python-argparse gperftools-libs
 yum install -y fuse fuse-libs
-yum install ceph-common rbd-fuse rbd-nbd
+yum install -y ceph-common rbd-fuse rbd-nbd
 
 echo "Disable Repos"
 sed -ie 's/enabled=1/enabled=0/g' /etc/yum.repos.d/CentOS-Base.repo

@@ -1,5 +1,5 @@
 #!/bin/bash
-REPO="https://github.com/phoenixweb/"
+REPO="https://github.com/rposudevskiy/"
 PROJECT="RBDSR"
 if [ -z "$1" ]; then
 	BRANCH="master"
