@@ -119,7 +119,7 @@ class RBDSR(SR.SR, cephutils.SR):
                     self.vdis[vdi_uuid].read_only = True
                     self.vdis[vdi_uuid].sm_config['snapshot-of'] = parent_vdi_uuid
                     self.vdis[vdi_uuid].sm_config["vdi_type"] = 'aio'
-                    self.vdis[vdi_uuid].path = self._get_snap_path(parent_vdi_uuid, vdi_uuid)
+                    self.vdis[vdi_uuid].path = self._get_path(vdi_uuid)
                 else:
                     #VDI exists
                     vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)

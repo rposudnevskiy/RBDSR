@@ -81,7 +81,7 @@ class SR:
         for vdi in decoded:
             if vdi['image'].find("SXM") == -1:
                 if vdi.has_key('snapshot'):
-                    if vdi['image'].startswith(SNAPSHOT_PREFIX):
+                    if vdi['snapshot'].startswith(SNAPSHOT_PREFIX):
                         snap_uuid = self._get_snap_uuid(vdi['snapshot'])
                         RBDVDIs[snap_uuid] = vdi
                 elif vdi['image'].startswith(VDI_PREFIX) or vdi['image'].startswith(CLONE_PREFIX):
