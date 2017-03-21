@@ -282,7 +282,7 @@ class VDI:
 
     def _flatten_clone(self, clone_uuid):
         util.SMlog("Calling cephutils.VDI._flatten_clone: clone_uuid=%s" % clone_uuid)
-        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(clone_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         if sm_config.has_key('attached'):
             if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, clone_uuid):
