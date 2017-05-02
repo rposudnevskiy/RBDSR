@@ -55,13 +55,23 @@ if [ -e /bin/vhd-tool-orig ] then
 else
   mv /bin/vhd-tool /bin/vhd-tool-orig
 fi
+if [ -e /usr/libexec/xapi/sparse_dd-orig ] then
+  echo "/usr/libexec/xapi/sparse_dd-orig already in place, not backing up!"
+else
+  mv /usr/libexec/xapi/sparse_dd /usr/libexec/xapi/sparse_dd-orig
+fi
+
 cp bins/tap-ctl /sbin/tap-ctl
 cp bins/vhd-tool /bin/vhd-tool
+cp bins/sparse_dd /usr/libexec/xapi/sparse_dd-orig
 chmod +x /sbin/tap-ctl
 chmod +x /bin/vhd-tool
+chmod +x /usr/libexec/xapi/sparse_dd
 cp bins/rbd2vhd.py /bin/rbd2vhd
 chmod +x /bin/rbd2vhd
 ln /bin/rbd2vhd /bin/vhd2rbd
+ln /bin/rbd2vhd /bin/rbd2raw
+ln /bin/rbd2vhd /bin/rbd2nbd
 
 echo "Add RBDSR plugin to whitelist of SM plugins in /etc/xapi.conf"
 cp /etc/xapi.conf /etc/xapi.conf.backup

@@ -2,13 +2,13 @@
 #
 # Copyright (C) Roman V. Posudnevskiy (ramzes_r@yahoo.com)
 #
-# This program is free software; you can redistribute it and/or modify 
-# it under the terms of the GNU Lesser General Public License as published 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
 # by the Free Software Foundation; version 2.1 only.
 #
-# This program is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
@@ -20,7 +20,7 @@ i=1  # Used as argument index
 cmd=${!i}
 while [ $i -le $ARGC ];
 do
-	case ${!i} in
+    case ${!i} in
         --source-protocol)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
@@ -73,7 +73,7 @@ do
                             path=${!i}
                         fi
                         ;;
-		--source)
+        --source)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                         src=${!i}
@@ -92,7 +92,7 @@ do
                             dst=${!i}
                         fi
                         ;;
-		--destination-fd)
+        --destination-fd)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             dstfd=${!i}
@@ -105,56 +105,56 @@ do
                             dstsz=${!i}
                         fi
                         ;;
-		--relative-to)
+        --relative-to)
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             base=${!i}
                         fi
                         ;;
-	esac
-	i=$((i+1))	
+    esac
+    i=$((i+1))
 done
 rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
 case "$src|$dst" in
-	*$rbdsrs*)
-                if [ -z $dst ]; then
-                    src_link=`echo $src | awk -F: '{print $2}'`
-                    src_dev=`readlink $src_link`
-                    to_export=`echo $src_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g'`
-                    to_export_snap=`echo $to_export | awk -F@ '{print $2}'`
-                    to_export_vdi_uid=`echo $to_export | awk -F@ '{print $1}' | awk -F/ '{print $2}' | sed 's/VHD-//g'`
-                    #to_export=`echo $src | awk -F: '{print $2}' | sed 's/\/dev\/nbd\///g'`
-                    base_link=`echo $base | awk -F: '{print $2}'`
-                    base_dev=`readlink $base_link`
-                    from_snap=`echo $base_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g' | awk -F@ '{print $2}'`
-                    #from_snap=`echo $base | awk -F@ '{print $2}'`
-                    xe_pid=`pidof xe`
-                    dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
-                    if [ -z "$base" ]; then
-                        rbd export-diff $to_export - >$dst_file_name 2>/dev/null
-                    else
-                        if [ -z "$from_snap" ]; then
-                            rbd export-diff $to_export - 2>/dev/null | rbd2vhd --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
-                        else
-                            rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2vhd --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
-                        fi
-                    fi
+    *$rbdsrs*)
+        if [ -z $dst ]; then
+            src_link=`echo $src | awk -F: '{print $2}'`
+            src_dev=`readlink $src_link`
+            to_export=`echo $src_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g'`
+            to_export_snap=`echo $to_export | awk -F@ '{print $2}'`
+            to_export_vdi_uid=`echo $to_export | awk -F@ '{print $1}' | awk -F/ '{print $2}' | sed 's/VHD-//g'`
+            #to_export=`echo $src | awk -F: '{print $2}' | sed 's/\/dev\/nbd\///g'`
+            base_link=`echo $base | awk -F: '{print $2}'`
+            base_dev=`readlink $base_link`
+            from_snap=`echo $base_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g' | awk -F@ '{print $2}'`
+            #from_snap=`echo $base | awk -F@ '{print $2}'`
+            xe_pid=`pidof xe`
+            dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
+            if [ -z "$base" ]; then
+                rbd export-diff $to_export - >$dst_file_name 2>/dev/null
+            else
+                if [ -z "$from_snap" ]; then
+                    rbd export-diff $to_export - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
                 else
-                    import_to=`echo $dst | awk -F/ '{print "RBD_XenStorage-"$7"/VHD-"$8}'`
-                    xe_pid=`pidof xe`
-                    src_file_name=`readlink /proc/$xe_pid/fd/$srcfd`
-                    vhd2rbd --vhd $src_file_name --rbd - 2>/dev/null | rbd import-diff - $import_to 2>/dev/null
-                    #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix " " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
+                    rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
                 fi
-		;;
-	*)
-                IFS=""
-                if [ -z $dst ]; then
-                    #/bin/vhd-tool-orig $cmd --source-protocol $srcproto --source-format $srcfmt --source $src --destination-protocol $dstproto --destination-format $dstfmt --destination-fd $dstfd --tar-filename-prefix "$tarpfx " --progress --machine --direct --path $path
-                    /bin/vhd-tool-orig "$@"
-                else
-		    #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix "$tarpfx " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
-                    /bin/vhd-tool-orig "$@"
-                fi
-		;;
+            fi
+        else
+            import_to=`echo $dst | awk -F/ '{print "RBD_XenStorage-"$7"/VHD-"$8}'`
+            xe_pid=`pidof xe`
+            src_file_name=`readlink /proc/$xe_pid/fd/$srcfd`
+            vhd2rbd -m -p --vhd $src_file_name --rbd - 2>/dev/null | rbd import-diff - $import_to 2>/dev/null
+            #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix " " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
+        fi
+        ;;
+    *)
+        IFS=""
+        if [ -z $dst ]; then
+            #/bin/vhd-tool-orig $cmd --source-protocol $srcproto --source-format $srcfmt --source $src --destination-protocol $dstproto --destination-format $dstfmt --destination-fd $dstfd --tar-filename-prefix "$tarpfx " --progress --machine --direct --path $path
+            /bin/vhd-tool-orig "$@"
+        else
+            #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix "$tarpfx " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
+            /bin/vhd-tool-orig "$@"
+        fi
+        ;;
 esac

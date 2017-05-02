@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# Copyright (C) Roman V. Posudnevskiy (ramzes_r@yahoo.com)
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
+# by the Free Software Foundation; version 2.1 only.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+ARGC=$#  # Number of args, not counting $0
+i=1  # Used as argument index
+cmd=${!i}
+while [ $i -le $ARGC ];
+do
+    case ${!i} in
+        -src)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                        src=${!i}
+                        fi
+                        ;;
+        -dest)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            dst=${!i}
+                        fi
+                        ;;
+        -base)
+                        i=$((i+1))
+                        if [ -n "${!i}" ]; then
+                            base=${!i}
+                        fi
+                        ;;
+    esac
+    i=$((i+1))
+done
+rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
+
+case "$src|$dst" in
+    *$rbdsrs*)
+        if [ `echo $src|grep $rbdsrs` ]; then
+            src_sr_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`
+            src_vdi_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`
+            source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "SNAP-$src_vdi_uuid\$"`
+            if [ -z $source ]; then
+                echo "rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep \"VHD-$src_vdi_uuid\$\"" >> /tmp/sparse
+                source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "VHD-$src_vdi_uuid\$"`
+            fi
+            if [ `echo $dst| grep http` ]; then
+                /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2nbd -m -p --nbd $dst --rbd - 2>/tmp/sparse_dd.out
+                exit 1
+            else
+                if [ -z $base ]; then
+                    /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2raw -m -p --raw $dst --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                    exit 0
+                else
+                    # Not implemented
+                    #/usr/bin/rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2raw -m -p --raw $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
+                    exit 1
+                fi
+            fi
+        elif [ `echo $dst|grep $rbdsrs` ]; then
+            #dst_sr_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`
+            #dst_vdi_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`
+            if [ -z $base ]; then
+                #/usr/bin/vhd2rbd --vhd $src --rbd - 2>/dev/null | /usr/bin/rbd import-diff - RBD_XenStorage-$dst_sr_uuid/VHD-$dst_vdi_uuid 2>/dev/null
+                IFS=""
+                /usr/libexec/xapi/sparse_dd-orig "$@"
+            else
+                IFS=""
+                /usr/libexec/xapi/sparse_dd-orig "$@"
+            fi
+        fi
+        ;;
+    *)
+        IFS=""
+        /usr/libexec/xapi/sparse_dd-orig "$@"
+        ;;
+esac
