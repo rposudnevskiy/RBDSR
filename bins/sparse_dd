@@ -56,11 +56,11 @@ case "$src|$dst" in
             fi
             if [ `echo $dst| grep http` ]; then
                 /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2nbd -m -p --nbd $dst --rbd - 2>/tmp/sparse_dd.out
-                exit 1
+                exit $?
             else
                 if [ -z $base ]; then
                     /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2raw -m -p --raw $dst --rbd - --uuid $src_vdi_uuid 2>/dev/null
-                    exit 0
+                    exit $?
                 else
                     # Not implemented
                     #/usr/bin/rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2raw -m -p --raw $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null

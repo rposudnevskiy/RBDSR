@@ -155,6 +155,8 @@ NBD_REQUEST_HEADER_SIZE = 28
 NBD_REPLY_HEADER_FORMAT = "!LLQ"
 NBD_REPLY_HEADER_SIZE = 16
 
+NBD_CHUNK_SIZE = SECTOR_SIZE*1024
+
 _nbd_negotiation_init_passwd_        = 0
 _nbd_negotiation_cliserver_magic_    = 1
 _nbd_negotiation_export_size_        = 2
@@ -532,30 +534,49 @@ def nbd_negotiate(sock):
 
     return (negotiate_reply[_nbd_negotiation_export_size_], negotiate_reply[_nbd_negotiation_transmission_flags_])
 
-def nbd_send_write(sock, handle, offset, length, data):
-    INFO("NBD: Going to send write data request with handle %d" % handle)
+def nbd_send_write(sock, handle, request_handles, offset, length, data):
+    INFO("NBD: Going to send write data request(s) with handle %d" % handle)
     DEBUG("NBD: Length from rbd = %d, length of data to send = %d" % (length, len(data)))
     flags = 0
-    request_header = pack(NBD_REQUEST_HEADER_FORMAT, NBD_REQUEST_MAGIC, flags, NBD_CMD_WRITE, handle, offset, length)
-    DEBUG("NBD: Request header: %s" % hexdump(request_header))
-    while True:
-        ready = select.select([],[sock],[])
-        if ready[1]:
-            DEBUG("NBD: Socket ready for writing request header")
-            break
+    buffer_offset = 0
+    while length > 0:
+        DEBUG("NBD: Going to send request with handle = %d" % handle)
+        if length >= NBD_CHUNK_SIZE:
+            _buffer_ = data[buffer_offset:buffer_offset+NBD_CHUNK_SIZE]
+            request_header = pack(NBD_REQUEST_HEADER_FORMAT, NBD_REQUEST_MAGIC, flags, NBD_CMD_WRITE, handle, offset+buffer_offset, NBD_CHUNK_SIZE)
+            DEBUG("NBD: buffer_offset = %d, offset = %d, length = %d, calculated length of data to send = %d,length of _buffer_ %d" % (buffer_offset, offset, length, NBD_CHUNK_SIZE, len(_buffer_)))
         else:
-            DEBUG("NBD: Socket isn't ready for writing request header")
-    sock.sendall(request_header)
-    INFO("NBD: Going to send body for request with handle %d" % handle)
-    while True:
-        ready = select.select([],[sock],[])
-        if ready[1]:
-            DEBUG("NBD: Socket ready for writing body")
-            break
-        else:
-            DEBUG("NBD: Socket isn't ready for writing body")
-    sock.sendall(data)
-    INFO("NBD: Write data request with handle %d has been sent" % handle)
+            _buffer_ = data[buffer_offset:]
+            request_header = pack(NBD_REQUEST_HEADER_FORMAT, NBD_REQUEST_MAGIC, flags, NBD_CMD_WRITE, handle, offset+buffer_offset, length)
+            DEBUG("NBD: buffer_offset = %d, offset = %d, length = %d, calculated length of data to send = %d,length of _buffer_ %d" % (buffer_offset, offset, length, length, len(_buffer_)))
+
+        DEBUG("NBD: Request header: %s" % hexdump(request_header))
+        while True:
+            ready = select.select([],[sock],[])
+            if ready[1]:
+                DEBUG("NBD: Socket ready for writing request header")
+                break
+            else:
+                DEBUG("NBD: Socket isn't ready for writing request header")
+        sock.sendall(request_header)
+
+        INFO("NBD: Going to send body for request with handle %d" % handle)
+        while True:
+            ready = select.select([],[sock],[])
+            if ready[1]:
+                DEBUG("NBD: Socket ready for writing body")
+                break
+            else:
+                DEBUG("NBD: Socket isn't ready for writing body")
+        sock.sendall(_buffer_)
+        INFO("NBD: Write data request with handle %d has been sent" % handle)
+
+        buffer_offset += NBD_CHUNK_SIZE
+        length -= NBD_CHUNK_SIZE
+        request_handles[handle] = True
+        handle += 1
+
+    return (handle, request_handles)
 
 def nbd_send_write_zeros(sock, handle, offset, length):
     INFO("NBD: Going to send write zeros request with handle %d" % handle)
@@ -602,7 +623,7 @@ def rbd2nbd(rbd, uri, progress, mrout):
     finished = False
 
     request_handles = {}
-    request_handles_lock = threading.Lock()
+    #request_handles_lock = threading.Lock()
 
     (sock, encoding) = nbd_open_channel(uri)
     if (encoding != 'nbd'):
@@ -627,9 +648,9 @@ def rbd2nbd(rbd, uri, progress, mrout):
             if reply[_nbd_reply_magic_] != NBD_REPLY_MAGIC:
                 ERROR("NBD: Bad magic in received reply")
             INFO("NBD: Recived reply for handle %d" % reply[_nbd_reply_handle_])
-            request_handles_lock.acquire()
+            #request_handles_lock.acquire()
             request_handles.pop(reply[_nbd_reply_handle_])
-            request_handles_lock.release()
+            #request_handles_lock.release()
         INFO("NBD: Replies reciver thread has been finished")
 
     rbd_header = RBDDIFF_FH.read(len(RBD_HEADER))
@@ -701,22 +722,19 @@ def rbd2nbd(rbd, uri, progress, mrout):
                 sys.exit(2)
 
             if (rbd_meta_read_finished == 1):
+                #request_handles_lock.acquire()
 
-                INFO("NBD: Going to send request with handle = %d" % handle_index)
                 if record_tag == "w":
                     _buffer_ = RBDDIFF_FH.read(length)
-                    nbd_send_write(sock, handle_index, offset, length, _buffer_)
+                    (handle_index, request_handles) = nbd_send_write(sock, handle_index, request_handles, offset, length, _buffer_)
                 elif record_tag == "z":
                     if (nbd_trans_flags & NBD_FLAG_SEND_WRITE_ZEROES):
                         nbd_send_write_zeros(sock, handle_index, offset, length)
                     else:
                         _buffer_ = pack("!%ds" % length, '')
-                        nbd_send_write(sock, handle_index, offset, length, _buffer_)
+                        (handle_index, request_handles) = nbd_send_write(sock, handle_index, request_handles, offset, length, _buffer_)
 
-                request_handles_lock.acquire()
-                request_handles[handle_index] = True
-                request_handles_lock.release()
-                handle_index+=1
+                #request_handles_lock.release()
                 _offset_ = offset + length
 
                 #time.sleep(0.05)
