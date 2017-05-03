@@ -45,17 +45,17 @@ chmod +x /opt/xensource/sm/RBDSR.py
 chmod +x /opt/xensource/sm/cephutils.py
 ln -s /opt/xensource/sm/RBDSR.py /opt/xensource/sm/RBDSR
 
-if [ -e /sbin/tap-ctl-orig ] then
+if [ -e /sbin/tap-ctl-orig ]; then
   echo "tap-ctl-orig already in place, not backing up!"
 else
   mv /sbin/tap-ctl /sbin/tap-ctl-orig
 fi
-if [ -e /bin/vhd-tool-orig ] then
+if [ -e /bin/vhd-tool-orig ]; then
   echo "/bin/vhd-tool-orig already in place, not backing up!"
 else
   mv /bin/vhd-tool /bin/vhd-tool-orig
 fi
-if [ -e /usr/libexec/xapi/sparse_dd-orig ] then
+if [ -e /usr/libexec/xapi/sparse_dd-orig ]; then
   echo "/usr/libexec/xapi/sparse_dd-orig already in place, not backing up!"
 else
   mv /usr/libexec/xapi/sparse_dd /usr/libexec/xapi/sparse_dd-orig
@@ -63,7 +63,7 @@ fi
 
 cp bins/tap-ctl /sbin/tap-ctl
 cp bins/vhd-tool /bin/vhd-tool
-cp bins/sparse_dd /usr/libexec/xapi/sparse_dd-orig
+cp bins/sparse_dd /usr/libexec/xapi/sparse_dd
 chmod +x /sbin/tap-ctl
 chmod +x /bin/vhd-tool
 chmod +x /usr/libexec/xapi/sparse_dd
