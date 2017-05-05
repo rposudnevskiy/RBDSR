@@ -1,32 +1,44 @@
 # RBDSR - XenServer Storage Manager plugin for CEPH
 This plugin adds support of Ceph block devices into XenServer.
-It supports creation of VDI as RBD device in Ceph pool. 
+It supports creation of VDI as RBD device in Ceph pool.
 It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi Storage Migration (XSM) and XenServer High Availability (HA).
 
 You can change the following device configs using device-config args when creating PBDs on each hosts:
 - cephx-id: the cephx user id to be used. Default is admin for the client.admin user.
 - rbd-mode: can be kernel, fuse or nbd. Default is nbd.
 
-## Installation 
+## Installation
 
-This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so you need to install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
+This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so the install script will install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
 
 1. Run this command:
 
-		sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/master/netinstall.sh)
+		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/master/netinstall.sh)
+		# ./install.sh install jewel
 
 2. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
-3. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node. 
+3. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node.
 
 4. Restart XAPI tool-stack on XenServer hosts
 
-		# xe-toolstack-restart 
+		# xe-toolstack-restart
+
+## Removal
+		1. Remove all Ceph RBD SR out of XenServer with the appropriate commands.
+
+		2. Run this command:
+
+				# ~/RDBSR/install.sh deinstall jewel
+
+		3. Restart XAPI tool-stack on XenServer hosts
+
+				# xe-toolstack-restart
 
 
 ## Usage
 
-1. Create a pool on your Ceph cluster to store VDI images (should be executed on Ceph cluster node):
+1. Create a pool on your Ceph cluster to store VDI images (should be executed on Ceph cluster node). The naming convention RBD_XenStorage-<uuid> is important!:
 
 		# uuidgen
 		4ceb0f8a-1539-40a4-bee2-450a025b04e1
@@ -36,7 +48,7 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 2. Introduce the pool created in previous step as Storage Repository on XenServer hosts:
 
 		  xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
-		
+
 3. Run the ```xe host-list``` command to find out the host UUID for Xenserer host:
 
 		# xe host-list
@@ -50,12 +62,12 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 		aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
 	If you would like to use a different cephx user or rbd mode, use the follwing device-config:
-		
+
 		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5 device-config:cephx-id=xenserver device-config:rbd-mode=kernel
-		
+
 
 5. Attach the PBD created with xe pbd-plug command:
 
 		# xe pbd-plug uuid=aec2c6fc-e1fb-0a27-2437-9862cffe213e
-		
+
 	The SR should be connected to the XenServer hosts and be visible in XenCenter.

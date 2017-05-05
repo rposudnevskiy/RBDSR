@@ -11,5 +11,3 @@ wget "$REPO/$PROJECT/archive/$BRANCH.zip" -O ~/$PROJECT-temp.zip
 unzip ~/$PROJECT-temp.zip -d ~
 mv ~/$PROJECT-$BRANCH/ ~/$PROJECT/
 cd ~/$PROJECT/
-sh ./install.sh
-rm -rf ~/$PROJECT-temp.zip
