@@ -13,8 +13,7 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 
 1. Run this command:
 
-		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/master/netinstall.sh)
-		# ./install.sh install jewel
+		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/master/netinstall.sh) jewel
 
 2. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
@@ -29,7 +28,7 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 
 		2. Run this command:
 
-				# ~/RDBSR/install.sh deinstall jewel
+				# ~/RDBSR/install.sh deinstall
 
 		3. Restart XAPI tool-stack on XenServer hosts
 

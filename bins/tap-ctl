@@ -16,7 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
-if [ $1 == "list" ]; then
+if [ "$1" == "list" ]; then
     /sbin/tap-ctl-orig $@ | while read line ;
     do
         case $line in

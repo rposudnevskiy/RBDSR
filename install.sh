@@ -1,5 +1,5 @@
 #!/bin/bash
-CEPH_VERSION="luminous"
+DEFAULT_CEPH_VERSION="luminous"
 
 # Usage: installRepo <ceph-version>
 function installRepo {
@@ -17,7 +17,7 @@ function removeRepo {
 # Usage: setReposEnabled <repo filename> <section name> <0|1>
 function setReposEnabled {
   echo "Set $1 $2 enabled = $3"
-  sed -ie '/\[$2\]/,/^\[/s/enabled=[01]/enabled=$3/' /etc/yum.repos.d/$1
+  sed -ie "/\[$2\]/,/^\[/s/enabled=[01]/enabled=$3/" /etc/yum.repos.d/$1
 }
 
 # Usage: backupFile <path>
@@ -62,10 +62,10 @@ function installCeph {
 
 function installFiles {
   echo "Install RBDSR Files"
-  copyFile "bins/waitdmmerging.sh"     "/usr/bin/waitdmmerging.sh"
-  copyFile "bins/ceph_plugin.py"	      "/etc/xapi.d/plugins/ceph_plugin"
-  copyFile "bins/RBDSR.py"             "/opt/xensource/sm/RBDSR"
-  copyFile "bins/cephutils.py"	        "/opt/xensource/sm/cephutils.py"
+  copyFile "bins/waitdmmerging.sh"      "/usr/bin/waitdmmerging.sh"
+  copyFile "bins/ceph_plugin.py"        "/etc/xapi.d/plugins/ceph_plugin"
+  copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR"
+  copyFile "bins/cephutils.py"          "/opt/xensource/sm/cephutils.py"
 
   copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
   copyFile "bins/vhd-tool"             "/bin/vhd-tool"
@@ -100,20 +100,17 @@ function removeFiles {
 function install {
   installRepo $1
   setReposEnabled "CentOS-Base.repo" "base" 1
-  setReposEnabled "CentOS-Base.repo" "updates" 1
   setReposEnabled "CentOS-Base.repo" "extras" 1
   installEpel
   setReposEnabled "epel.repo" "epel" 1
   installCeph
   setReposEnabled "CentOS-Base.repo" "base" 0
-  setReposEnabled "CentOS-Base.repo" "updates" 0
   setReposEnabled "CentOS-Base.repo" "extras" 0
   setReposEnabled "epel.repo" "epel" 0
 
   backupFile "/sbin/tap-ctl"
   backupFile "/bin/vhd-tool"
   backupFile "/usr/libexec/xapi/sparse_dd"
-  backupFile "/etc/xapi.conf"
 
   installFiles
 
@@ -130,10 +127,39 @@ function deinstall {
   deinstallRepo $1
 }
 
-if [ "$1" == "install"]; then
-  install $2
-fi
-
-if [ "$1" == "deinstall"]; then
-  deinstall $2
-fi
+case $1 in
+    install)
+        if [ -z "$2" ]; then
+            install $DEFAULT_CEPH_VERSION
+        else
+            if [ -z `echo $2|egrep "^jewel$|^kraken$|^luminous$"` ]; then
+                echo "[ERROR]: Unsupported Ceph version specified '$2'"
+                exit 1
+            else
+                install $2
+            fi
+        fi
+        ;;
+    deinstall)
+        CEPH_INSTALLED_VERSION = `ls -1 | grep ceph | awk 'match($0, /ceph-(.*).repo/, a) {print a[1]}'`
+        if [ -z "$CEPH_INSTALLED_VERSION" ]; then
+            echo "[ERROR]: Can't determine installed version of Ceph."
+            echo "         RBDSR plugin is not installed or corrupted."
+            exit 2
+        fi
+        if [ -z "$2" ]; then
+            deinstall $CEPH_INSTALLED_VERSION
+        else
+            if [ "$2" != "$CEPH_INSTALLED_VERSION" ]; then
+                echo "[ERROR]: Installed version of Ceph is '$CEPH_INSTALLED_VERSION'"
+                exit 3
+            else
+                deinstall $2
+            fi
+        fi
+        ;;
+    *)
+        echo "Usage: $0 install|deinstall [jewel|kraken|luminous]"
+        exit 1
+        ;;
+esac
