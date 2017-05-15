@@ -30,6 +30,16 @@ function backupFile {
   fi
 }
 
+# Usage: backupFile <path>
+function restoreFile {
+  echo "Backing Up file $1"
+  if [ -e $1-orig ]; then
+    mv $1 $1-orig
+  else
+    echo "No $1-orig in place, not restoring!"
+  fi
+}
+
 # Usage: copyFile <source path> <destination path>
 function copyFile {
   cp $1 $2
@@ -123,7 +133,6 @@ function deinstall {
   restoreFile "/sbin/tap-ctl"
   restoreFile "/bin/vhd-tool"
   restoreFile "/usr/libexec/xapi/sparse_dd"
-  restoreFile "/etc/xapi.conf"
   deinstallRepo $1
 }
 
@@ -141,7 +150,7 @@ case $1 in
         fi
         ;;
     deinstall)
-        CEPH_INSTALLED_VERSION = `ls -1 | grep ceph | awk 'match($0, /ceph-(.*).repo/, a) {print a[1]}'`
+        CEPH_INSTALLED_VERSION=`ls /etc/yum.repos.d/ | grep ceph | awk 'match($0, /ceph-(.*).repo/, a) {print a[1]}'`
         if [ -z "$CEPH_INSTALLED_VERSION" ]; then
             echo "[ERROR]: Can't determine installed version of Ceph."
             echo "         RBDSR plugin is not installed or corrupted."
