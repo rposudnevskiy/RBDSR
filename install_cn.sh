@@ -37,6 +37,16 @@ function backupFile {
   fi
 }
 
+# Usage: backupFile <path>
+function restoreFile {
+  echo "Backing Up file $1"
+  if [ -e $1-orig ]; then
+    mv $1 $1-orig
+  else
+    echo "No $1-orig in place, not restoring!"
+  fi
+}
+
 # Usage: copyFile <source path> <destination path>
 function copyFile {
   cp $1 $2
@@ -124,7 +134,6 @@ function deinstall {
   restoreFile "/sbin/tap-ctl"
   restoreFile "/bin/vhd-tool"
   restoreFile "/usr/libexec/xapi/sparse_dd"
-  restoreFile "/etc/xapi.conf"
   deinstallRepo $1
 }
 
