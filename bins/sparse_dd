@@ -51,12 +51,17 @@ case "$src|$dst" in
             src_vdi_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`
             source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "SNAP-$src_vdi_uuid\$"`
             if [ -z $source ]; then
-                echo "rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep \"VHD-$src_vdi_uuid\$\"" >> /tmp/sparse
                 source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "VHD-$src_vdi_uuid\$"`
             fi
             if [ `echo $dst| grep http` ]; then
-                /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2nbd -m -p --nbd $dst --rbd - 2>/tmp/sparse_dd.out
-                exit $?
+                if [ -z $base ]; then
+                    /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2nbd -m -p --nbd $dst --rbd - 2>/dev/null
+                    exit $?
+                else
+                    # Not implemented
+                    #/usr/bin/rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2nbd -m -p --raw $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
+                    exit 1
+                fi
             else
                 if [ -z $base ]; then
                     /usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2raw -m -p --raw $dst --rbd - --uuid $src_vdi_uuid 2>/dev/null
