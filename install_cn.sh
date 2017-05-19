@@ -1,5 +1,6 @@
 #!/bin/bash
-DEFAULT_CEPH_VERSION="luminous"
+DEFAULT_CEPH_VERSION="jewel"
+CEPH_REPO="mirrors.163.com\/ceph"
 
 # Usage: installRepo <ceph-version>
 function installRepo {
@@ -7,6 +8,12 @@ function installRepo {
   rpm --import 'https://download.ceph.com/keys/release.asc'
   echo "Install new Repos"
   cp -n repos/ceph-$1.repo /etc/yum.repos.d/
+  sed -i "s/download.ceph.com/$CEPH_REPO/g" /etc/yum.repos.d/ceph-$1.repo
+}
+
+function deinstallRepo {
+  echo "deinstallRepo $1"
+  rm -f /etc/yum.repos.d/ceph-$1.repo
 }
 
 # Usage: removeRepo <ceph-version>
@@ -27,16 +34,6 @@ function backupFile {
     echo "$1-orig already in place, not backing up!"
   else
     mv $1 $1-orig
-  fi
-}
-
-# Usage: backupFile <path>
-function restoreFile {
-  echo "Backing Up file $1"
-  if [ -e $1-orig ]; then
-    mv $1 $1-orig
-  else
-    echo "No $1-orig in place, not restoring!"
   fi
 }
 
@@ -62,12 +59,12 @@ function disableRBDSR {
 
 function installEpel {
   echo "Install Required Packages"
-  yum install -y epel-release  yum-plugin-priorities.noarch
+  yum install -y epel-release  yum-plugin-priorities.noarch --enablerepo=base,extras --releasever=7
 }
 
 function installCeph {
   echo "Install RBDSR depenencies"
-  yum install -y snappy leveldb gdisk python-argparse gperftools-libs fuse fuse-libs ceph-common rbd-fuse rbd-nbd
+  yum install -y snappy leveldb gdisk python-argparse gperftools-libs fuse fuse-libs ceph-common rbd-fuse rbd-nbd --enablerepo=base,extras --releasever=7
 }
 
 function installFiles {
@@ -109,14 +106,8 @@ function removeFiles {
 
 function install {
   installRepo $1
-  setReposEnabled "CentOS-Base.repo" "base" 1
-  setReposEnabled "CentOS-Base.repo" "extras" 1
   installEpel
-  setReposEnabled "epel.repo" "epel" 1
   installCeph
-  setReposEnabled "CentOS-Base.repo" "base" 0
-  setReposEnabled "CentOS-Base.repo" "extras" 0
-  setReposEnabled "epel.repo" "epel" 0
 
   backupFile "/sbin/tap-ctl"
   backupFile "/bin/vhd-tool"
@@ -133,10 +124,14 @@ function deinstall {
   restoreFile "/sbin/tap-ctl"
   restoreFile "/bin/vhd-tool"
   restoreFile "/usr/libexec/xapi/sparse_dd"
+  restoreFile "/etc/xapi.conf"
   deinstallRepo $1
 }
 
 case $1 in
+    update)
+  	yum update -y ceph-common rbd-fuse rbd-nbd --enablerepo=base,extras --releasever=7
+	;;
     install)
         if [ -z "$2" ]; then
             install $DEFAULT_CEPH_VERSION
@@ -150,7 +145,7 @@ case $1 in
         fi
         ;;
     deinstall)
-        CEPH_INSTALLED_VERSION=`ls /etc/yum.repos.d/ | grep ceph | awk 'match($0, /ceph-(.*).repo/, a) {print a[1]}'`
+        CEPH_INSTALLED_VERSION = `ls -1 | grep ceph | awk 'match($0, /ceph-(.*).repo/, a) {print a[1]}'`
         if [ -z "$CEPH_INSTALLED_VERSION" ]; then
             echo "[ERROR]: Can't determine installed version of Ceph."
             echo "         RBDSR plugin is not installed or corrupted."
@@ -168,7 +163,7 @@ case $1 in
         fi
         ;;
     *)
-        echo "Usage: $0 install|deinstall [jewel|kraken|luminous]"
+        echo "Usage: $0 install|deinstall|update [jewel|kraken|luminous]"
         exit 1
         ;;
 esac

@@ -137,13 +137,13 @@ class RBDSR(SR.SR, cephutils.SR):
                     else:
                         parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_vdi_uuid)
                     self.session.xenapi.VDI.set_is_a_snapshot(vdi_ref, True)
-                    self.session.xenapi.VDI.set_name_description(vdi_ref, description)
                     self.session.xenapi.VDI.set_snapshot_of(vdi_ref, parent_vdi_ref)
                     if parent_vdi_info.has_key(RBDVDIs[vdi_uuid]['snapshot']):
                         self.session.xenapi.VDI.set_snapshot_time(vdi_ref, str(parent_vdi_info[RBDVDIs[vdi_uuid]['snapshot']]))
                     self.session.xenapi.VDI.set_read_only(vdi_ref, True)
                     self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'snapshot-of')
                     self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'snapshot-of', parent_vdi_uuid)
+                    self.session.xenapi.VDI.set_name_description(vdi_ref, description)
             else:
                 vdi_info = self._get_vdi_info(vdi_uuid)
                 if vdi_info.has_key('VDI_LABEL'):
