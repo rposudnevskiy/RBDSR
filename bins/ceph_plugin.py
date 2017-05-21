@@ -2,13 +2,13 @@
 #
 # Copyright (C) Roman V. Posudnevskiy (ramzes_r@yahoo.com)
 #
-# This program is free software; you can redistribute it and/or modify 
-# it under the terms of the GNU Lesser General Public License as published 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
 # by the Free Software Foundation; version 2.1 only.
 #
-# This program is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
@@ -41,13 +41,13 @@ def _merge(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
     size = arg_dict['size']
-    
+
     util.pread2(["dmsetup", "suspend", _base_dm_name])
     util.pread2(["dmsetup", "reload", _base_dm_name, "--table", "0 %s snapshot-merge %s %s P 1" % (str(int(size) / 512), _base_dev_name, _mirror_dev_name)])
     util.pread2(["dmsetup", "resume", _base_dm_name])
     # we should wait until the merge is completed
     util.pread2(["waitdmmerging.sh", _base_dm_name])
-    
+
     return "merged"
 
 def _map(session, arg_dict):
@@ -62,13 +62,13 @@ def _map(session, arg_dict):
     sharable = arg_dict['sharable']
     size = arg_dict['size']
     dm = arg_dict['dm']
-    
+
     if arg_dict.has_key("_snap_name"):
         _vdi_name = arg_dict["_snap_name"]
     else:
         _vdi_name = arg_dict['_vdi_name']
     vdi_name = arg_dict['vdi_name']
-        
+
     if mode == "kernel":
         dev = util.pread2(["rbd", "map", _vdi_name, "--pool", CEPH_POOL_NAME, "--name", CEPH_USER])
     elif mode == "fuse":
@@ -80,7 +80,7 @@ def _map(session, arg_dict):
         else:
             dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         util.pread2(["ln", "-s", dev, _dev_name])
-    
+
     if dm == "linear":
         util.pread2(["dmsetup", "create", _dm_name, "--table", "0 %s linear %s 0" % (str(int(size) / 512), dev)])
         util.pread2(["ln", "-s", _dmdev_name, dev_name])
@@ -109,15 +109,15 @@ def _unmap(session, arg_dict):
     sharable = arg_dict['sharable']
     size = arg_dict['size']
     dm = arg_dict['dm']
-    
+
     if arg_dict.has_key("_snap_name"):
         _vdi_name = arg_dict["_snap_name"]
     else:
         _vdi_name = arg_dict['_vdi_name']
     vdi_name = arg_dict['vdi_name']
-    
+
     dev = util.pread2(["realpath", _dev_name]).rstrip('\n')
-    
+
     util.pread2(["unlink", dev_name])
     if dm == "linear":
         util.pread2(["dmsetup", "remove", _dm_name])
@@ -127,7 +127,7 @@ def _unmap(session, arg_dict):
         util.pread2(["dmsetup", "remove", _dmzero_name])
     elif dm == "base":
         util.pread2(["dmsetup", "remove", _dm_name])
-    
+
     if mode == "kernel":
         util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])
     elif mode == "fuse":
@@ -148,7 +148,7 @@ def __map(session, arg_dict):
     sharable = arg_dict['sharable']
     dm = arg_dict['dm']
     _vdi_name = arg_dict['_vdi_name']
-    
+
     if mode == "kernel":
         dev = util.pread2(["rbd", "map", _vdi_name, "--pool", CEPH_POOL_NAME, "--name", CEPH_USER])
     elif mode == "fuse":
@@ -159,10 +159,10 @@ def __map(session, arg_dict):
             dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         else:
             dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
-    
+
     if dm != "none":
         util.pread2(["dmsetup", "resume", _dm_name])
-        
+
     return "mapped"
 
 def __unmap(session, arg_dict):
@@ -176,19 +176,19 @@ def __unmap(session, arg_dict):
     sharable = arg_dict['sharable']
     dm = arg_dict['dm']
     _vdi_name = arg_dict['_vdi_name']
-    
+
     dev = util.pread2(["realpath", _dev_name]).rstrip('\n')
-    
+
     if dm != "none":
         util.pread2(["dmsetup", "suspend", _dm_name])
-        
+
     if mode == "kernel":
         util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])
     elif mode == "fuse":
         pass
     elif mode == "nbd":
         util.pread2(["rbd-nbd", "unmap", dev, "--name", CEPH_USER])
-        
+
     return "unmapped"
 
 if __name__ == "__main__":
