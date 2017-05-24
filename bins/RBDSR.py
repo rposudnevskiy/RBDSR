@@ -371,10 +371,6 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.xenstore_data['storage-type']='rbd'
         self.xenstore_data['vdi-type']=self.vdi_type
 
-        self.attached = True
-        self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
-        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
-
         ##########
         vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
         has_a_snapshot = False
@@ -409,6 +405,11 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
 
         if not util.pathexists(self.path):
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+
+        self.attached = True
+        if sm_config.has_key("attached"):
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
+        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
 
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
 

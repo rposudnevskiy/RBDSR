@@ -53,11 +53,11 @@ do
                         ;;
         --progress)
                         ARGS+=("${!i}")
-                        prgs=1
+                        progress="-p"
                         ;;
         --machine)
                         ARGS+=("${!i}")
-                        machine=1
+                        machine="-m"
                         ;;
         --direct)
                         ARGS+=("${!i}")
@@ -96,7 +96,7 @@ do
                         i=$((i+1))
                         if [ -n "${!i}" ]; then
                             dstfd=${!i}
-                            let "dstfd = $dstfd - 1"
+                            let "dstfd = $dstfd - 2"
                         fi
                         ;;
         --destination-size)
@@ -115,46 +115,49 @@ do
     i=$((i+1))
 done
 rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
-case "$src|$dst" in
-    *$rbdsrs*)
-        if [ -z $dst ]; then
-            src_link=`echo $src | awk -F: '{print $2}'`
-            src_dev=`readlink $src_link`
-            to_export=`echo $src_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g'`
-            to_export_snap=`echo $to_export | awk -F@ '{print $2}'`
-            to_export_vdi_uid=`echo $to_export | awk -F@ '{print $1}' | awk -F/ '{print $2}' | sed 's/VHD-//g'`
-            #to_export=`echo $src | awk -F: '{print $2}' | sed 's/\/dev\/nbd\///g'`
-            base_link=`echo $base | awk -F: '{print $2}'`
-            base_dev=`readlink $base_link`
-            from_snap=`echo $base_dev | sed 's/\/dev\/\(nbd\|rbd\)\///g' | awk -F@ '{print $2}'`
-            #from_snap=`echo $base | awk -F@ '{print $2}'`
-            xe_pid=`pidof xe`
-            dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
-            if [ -z "$base" ]; then
-                rbd export-diff $to_export - >$dst_file_name 2>/dev/null
-            else
-                if [ -z "$from_snap" ]; then
-                    rbd export-diff $to_export - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
+case "$cmd" in
+    stream)
+        case "$src" in
+            *$rbdsrs*)
+                if [ -n "$src" ] && [ "$srcproto"="none" ] && [ "$srcfmt"="hybrid" ] && [ -n "$dstfd" ]; then
+                    #echo "`echo $src | awk -F: '{print $1}'`" > /tmp/vhd-tool.log
+                    src_sr_uuid=`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`
+                    src_vdi_uuid=`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`
+                    #echo $src_sr_uuid >> /tmp/vhd-tool.log
+                    #echo $src_vdi_uuid >> /tmp/vhd-tool.log
+                    source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "SNAP-$src_vdi_uuid\$"`
+                    if [ -z $source ]; then
+                        source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "VHD-$src_vdi_uuid\$"`
+                    fi
+                    #echo $base >> /tmp/vhd-tool.log
+                    base_sr_uuid=`echo $base | sed 's/\/run\/sr-mount\///g' | awk -F/ '{print $1}'`
+                    base_vdi_uuid=`echo $base | sed 's/\/run\/sr-mount\///g' | awk -F/ '{print $2}'`
+                    xe_pid=`pidof xe`
+                    #echo "$xe_pid" >> /tmp/vhd-tool.log
+                    #echo "$dstfd" >> /tmp/vhd-tool.log
+                    dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
+                    #ls -la /proc/$xe_pid/fd/ >> /tmp/vhd-tool.log
+                    if [ -z "$base_vdi_uuid" ]; then
+                        #echo "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
+                        rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                    else
+                        from_snap="SNAP-$base_vdi_uuid"
+                        #echo "rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
+                        rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                    fi
                 else
-                    rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
+                    IFS=""
+                    /bin/vhd-tool-orig "$@"
                 fi
-            fi
-        else
-            import_to=`echo $dst | awk -F/ '{print "RBD_XenStorage-"$7"/VHD-"$8}'`
-            xe_pid=`pidof xe`
-            src_file_name=`readlink /proc/$xe_pid/fd/$srcfd`
-            vhd2rbd -m -p --vhd $src_file_name --rbd - 2>/dev/null | rbd import-diff - $import_to 2>/dev/null
-            #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix " " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
-        fi
+                ;;
+            *)
+                IFS=""
+                /bin/vhd-tool-orig "$@"
+                ;;
+        esac
         ;;
-    *)
+    serve)
         IFS=""
-        if [ -z $dst ]; then
-            #/bin/vhd-tool-orig $cmd --source-protocol $srcproto --source-format $srcfmt --source $src --destination-protocol $dstproto --destination-format $dstfmt --destination-fd $dstfd --tar-filename-prefix "$tarpfx " --progress --machine --direct --path $path
-            /bin/vhd-tool-orig "$@"
-        else
-            #/bin/vhd-tool-orig $cmd --source-format $srcfmt --source-protocol $srcproto --source-fd $srcfd --tar-filename-prefix "$tarpfx " --destination $dst --destination-format $dstfmt --progress --machine --direct --destination-size $dstsz --prezeroed
-            /bin/vhd-tool-orig "$@"
-        fi
+        /bin/vhd-tool-orig "$@"
         ;;
 esac

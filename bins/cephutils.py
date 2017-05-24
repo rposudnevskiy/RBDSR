@@ -409,14 +409,14 @@ class VDI:
         if filter(lambda x: x.startswith('host_'), sm_config.keys()):
             for key in filter(lambda x: x.startswith('host_'), sm_config.keys()):
                 host_ref = key[len('host_'):]
-                util.SMlog("Calling rbd/nbd map/unmap on host %s" % host_ref)
+                util.SMlog("Calling '%s' on host %s" % (op, host_ref))
                 if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
                     # Failed to pause node
                     raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
         else:
             host_uuid = inventory.get_localhost_uuid()
             host_ref = self.session.xenapi.host.get_by_uuid(host_uuid)
-            util.SMlog("Calling rbd/nbd map on localhost %s" % host_ref)
+            util.SMlog("Calling '%s' on localhost %s" % (op, host_ref))
             if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
                 # Failed to pause node
                 raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
@@ -744,11 +744,20 @@ class VDI:
         base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         #---
         mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
+        base_sm_config = self.session.xenapi.VDI.get_sm_config(base_vdi_ref)
         #---
         if mirror_sm_config.has_key('attached') and not mirror_sm_config.has_key('paused'):
             if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
                 raise util.SMException("failed to pause VDI %s" % mirror_uuid)
         #---
+
+        if filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
+            for mirror_host_key in filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
+                if filter(lambda x: x.startswith('host_'), base_sm_config.keys()):
+                    for base_host_key in filter(lambda x: x.startswith('host_'), base_sm_config.keys()):
+                        self.session.xenapi.VDI.remove_from_sm_config(base_vdi_ref, base_host_key)
+                self.session.xenapi.VDI.add_to_sm_config(base_vdi_ref, mirror_host_key, mirror_sm_config[mirror_host_key])
+
         self._unmap_sxm_mirror(mirror_uuid, size)
         self._map_sxm_base(base_uuid, self.size)
         self._map_VHD(mirror_uuid, self.size, "none")
