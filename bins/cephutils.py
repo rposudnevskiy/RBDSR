@@ -65,12 +65,15 @@ class SR:
     def _get_vdi_info(self, vdi_uuid):
         util.SMlog("Calling cephutils.SR._get_vdi_info: vdi_uuid=%s" % vdi_uuid)
         VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
-        cmdout = util.pread2(["rbd", "image-meta", "list", VDI_NAME, "--pool", self.CEPH_POOL_NAME, "--format", "json", "--name", self.CEPH_USER])
-        if len(cmdout) != 0:
-            decoded = json.loads(cmdout)
-            return decoded
+        if self.use_rbd_meta:
+            cmdout = util.pread2(["rbd", "image-meta", "list", VDI_NAME, "--pool", self.CEPH_POOL_NAME, "--format", "json", "--name", self.CEPH_USER])
+            if len(cmdout) != 0:
+                decoded = json.loads(cmdout)
+                return decoded
+            else:
+                return {}
         else:
-            return {}
+             return {}
 
     def _get_vdilist(self, pool):
         util.SMlog("Calling cephutils.SR._get_vdilist: pool=%s" % pool)
@@ -247,10 +250,11 @@ class VDI:
         # image_size_M = (size + OBJECT_SIZE_IN_B)/ 1024 / 1024
         # before JEWEL: util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size), "--order", str(BLOCK_SIZE), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "create", self.CEPH_VDI_NAME, "--size", str(image_size_M), "--object-size", str(OBJECT_SIZE_IN_B), "--image-format", str(IMAGE_FORMAT), "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        if self.label:
-            util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_LABEL", self.label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        if self.description:
-            util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_DESCRIPTION", self.description, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        if self.sr.use_rbd_meta:
+            if self.label:
+                util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_LABEL", self.label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+            if self.description:
+                util.pread2(["rbd", "image-meta", "set", self.CEPH_VDI_NAME, "VDI_DESCRIPTION", self.description, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
 
     def resize(self, sr_uuid, vdi_uuid, image_size_M):
         util.SMlog("Calling cephutils.VDI.resize: sr_uuid=%s, vdi_uuid=%s, size=%sMB" % (sr_uuid, vdi_uuid, image_size_M))
@@ -258,7 +262,7 @@ class VDI:
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         ##self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
         if sm_config.has_key('attached') and not sm_config.has_key('paused'):
-            if not blktap2.VDI.tap_pause(self.session, self,sr.uuid, vdi_uuid):
+            if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
                 raise util.SMException("failed to pause VDI %s" % vdi_uuid)
             self.__unmap_VHD(vdi_uuid)
         #---
@@ -272,13 +276,26 @@ class VDI:
     def update(self, sr_uuid, vdi_uuid):
         util.SMlog("Calling cephutils.VDI.update: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
-        if self.label:
-            util.pread2(["rbd", "image-meta", "set", vdi_name, "VDI_LABEL", self.label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        if self.description:
-            util.pread2(["rbd", "image-meta", "set", vdi_name, "VDI_DESCRIPTION", self.description, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        for snapshot_uuid in self.snaps.keys():
-            snapshot_name = "%s%s" % (SNAPSHOT_PREFIX, snapshot_uuid)
-            util.pread2(["rbd", "image-meta", "set", vdi_name, snapshot_name, str(self.snaps[snapshot_uuid]), "--pool",self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if self.sr.use_rbd_meta:
+            if sm_config.has_key('attached') and not sm_config.has_key('paused'):
+                if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+                    raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+                self.__unmap_VHD(vdi_uuid)
+
+            if self.label:
+                util.pread2(["rbd", "image-meta", "set", vdi_name, "VDI_LABEL", self.label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+            if self.description:
+                util.pread2(["rbd", "image-meta", "set", vdi_name, "VDI_DESCRIPTION", self.description, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+            for snapshot_uuid in self.snaps.keys():
+                snapshot_name = "%s%s" % (SNAPSHOT_PREFIX, snapshot_uuid)
+                util.pread2(["rbd", "image-meta", "set", vdi_name, snapshot_name, str(self.snaps[snapshot_uuid]), "--pool",self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+
+            if sm_config.has_key('attached') and not sm_config.has_key('paused'):
+                self.__map_VHD(vdi_uuid)
+                blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None)
+
 
     def _flatten_clone(self, clone_uuid):
         util.SMlog("Calling cephutils.VDI._flatten_clone: clone_uuid=%s" % clone_uuid)
@@ -310,7 +327,8 @@ class VDI:
         #---
         util.pread2(["rbd", "snap", "unprotect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         util.pread2(["rbd", "snap", "rm", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        util.pread2(["rbd", "image-meta", "remove", vdi_name, short_snap_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        if self.sr.use_rbd_meta:
+            util.pread2(["rbd", "image-meta", "remove", vdi_name, short_snap_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         #---
         if sm_config.has_key('attached') and not sm_config.has_key('paused'):
             self.__map_VHD(vdi_uuid)
@@ -358,8 +376,9 @@ class VDI:
             self.__unmap_VHD(vdi_uuid)
         #---
         util.pread2(["rbd", "clone", snapshot_name, clone_name, "--name", self.sr.CEPH_USER])
-        util.pread2(["rbd", "image-meta", "set", clone_name, "VDI_LABEL", vdi_label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
-        util.pread2(["rbd", "image-meta", "set", clone_name, "CLONE_OF", snap_uuid, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        if self.sr.use_rbd_meta:
+            util.pread2(["rbd", "image-meta", "set", clone_name, "VDI_LABEL", vdi_label, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+            util.pread2(["rbd", "image-meta", "set", clone_name, "CLONE_OF", snap_uuid, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         #---
         if sm_config.has_key('attached') and not sm_config.has_key('paused'):
             self.__map_VHD(vdi_uuid)
@@ -392,10 +411,13 @@ class VDI:
     def _get_vdi_info(self, vdi_uuid):
         util.SMlog("Calling cephutils.VDI._get_vdi_info: vdi_uuid=%s" % vdi_uuid)
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
-        cmdout = util.pread2(["rbd", "image-meta", "list", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--format", "json", "--name", self.sr.CEPH_USER])
-        if len(cmdout) != 0:
-            decoded = json.loads(cmdout)
-            return decoded
+        if self.sr.use_rbd_meta:
+            cmdout = util.pread2(["rbd", "image-meta", "list", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--format", "json", "--name", self.sr.CEPH_USER])
+            if len(cmdout) != 0:
+                decoded = json.loads(cmdout)
+                return decoded
+            else:
+                return {}
         else:
             return {}
 
