@@ -137,13 +137,23 @@ case "$cmd" in
                     #echo "$dstfd" >> /tmp/vhd-tool.log
                     dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
                     #ls -la /proc/$xe_pid/fd/ >> /tmp/vhd-tool.log
-                    if [ -z "$base_vdi_uuid" ]; then
-                        #echo "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
-                        rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
-                    else
-                        from_snap="SNAP-$base_vdi_uuid"
-                        #echo "rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
-                        rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                    if [ "$dstfmt" = "vhd" ]; then
+                        if [ -z "$base_vdi_uuid" ]; then
+                            #echo "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
+                            rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                        else
+                            from_snap="SNAP-$base_vdi_uuid"
+                            #echo "rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
+                            rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                        fi
+                    elif [ "$dstfmt" = "raw" ]; then
+                        if [ -z "$base_vdi_uuid" ]; then
+                            #echo "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
+                            rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2raw $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                        else
+                            echo "[ERROR]: Relative diff export is not supported with raw format"
+                            exit 1
+                        fi
                     fi
                 else
                     IFS=""

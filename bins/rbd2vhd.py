@@ -52,7 +52,8 @@ _vhd_footter_disk_type_              = 11
 _vhd_footter_checksum_               = 12
 _vhd_footter_unique_iq_              = 13
 _vhd_footter_saved_state_            = 14
-_vhd_footter_rbd_image_uuid_         = 15
+_vhd_footter_hidden_                 = 15
+_vhd_footter_rbd_image_uuid_         = 16
 #-- VHD FOOTTER FIELDs --#
 
 #-- VHD DISK GEOMETRY FIELs --#
@@ -115,7 +116,7 @@ _platform_code_Mac_     = 0x4D616320
 _platform_code_MacX_    = 0x4D616358
 #-- PLATFORM CODEs --#
 
-VHD_FOTTER_FORMAT = "!8sIIQI4sIIQQ4sII16sB16s411s"
+VHD_FOTTER_FORMAT = "!8sIIQI4sIIQQ4sII16sBB16s410s"
 VHD_FOTTER_RECORD_SIZE = 512
 VHD_DISK_GEOMETRY_FORMAT = "!HBB"
 VHD_DISK_GEOMETRY_RECORD_SIZE = 4
@@ -262,7 +263,7 @@ def checksum(vhd_record):
     checksum = 0
     b = bytearray()
     b.extend(vhd_record)
-    for index in range(VHD_FOTTER_RECORD_SIZE):
+    for index in range(len(vhd_record)):
         checksum += b[index]
     checksum = ~checksum + 2**32
     return checksum
@@ -373,10 +374,10 @@ def gen_vhd_footer_struct(disk_type, image_size, vhd_uuid, rbd_uuid, checksum):
     vhd_geometry_struct = gen_vhd_geometry_struct(image_size)
     vhd_geometry = pack(VHD_DISK_GEOMETRY_FORMAT, vhd_geometry_struct[0], vhd_geometry_struct[1], vhd_geometry_struct[2])
     reserved = ''
-    for i in range(411):
+    for i in range(410):
         reserved = reserved + pack('!c', chr(0))
-    vhd_footer_struct = ('conectix', 0x00000002, 0x00010000, 0x00000200, time.time(), 'tap', 0x00010003,
-                         0x00000000, image_size, image_size, vhd_geometry, disk_type, checksum, vhd_uuid, 0,
+    vhd_footer_struct = ('conectix', 0x00000002, 0x00010000, 0x00000200, time.time()-946684800, 'tap', 0x00010003,
+                         0x00000000, image_size, image_size, vhd_geometry, disk_type, checksum, vhd_uuid, 0, 0,
                          rbd_uuid, reserved)
     return vhd_footer_struct
 
@@ -388,7 +389,7 @@ def gen_vhd_dynamic_disk_header_struct(table_offset, image_size, checksum, paren
     parent_locator_entry_empty_struct = (0x00000000, 0, 0, 0, 0) #empty
     parent_locator_entry_empty = pack(VHD_PARENT_LOCATOR_ENTRY_FORMAT, *parent_locator_entry_empty_struct)
     dynamic_disk_header_struct = ('cxsparse', 0xffffffffffffffff, table_offset, 0x00010000, max_tab_entries,
-                    VHD_DEFAULT_BLOCK_SIZE, checksum, parent_uuid, time.time(), 0x00000000, parent_unicode_name.encode("UTF-16BE"),
+                    VHD_DEFAULT_BLOCK_SIZE, checksum, parent_uuid, 0, 0x00000000, parent_unicode_name.encode("UTF-16BE"),
                     parent_locator_entry_empty, parent_locator_entry_empty, parent_locator_entry_empty,
                     parent_locator_entry_empty, parent_locator_entry_empty, parent_locator_entry_empty,
                     parent_locator_entry_empty, parent_locator_entry_empty,
@@ -978,10 +979,11 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
 
                 if parent_exists:
                     vhd_dynamic_disk_header_struct = gen_vhd_dynamic_disk_header_struct(VHD_FOTTER_RECORD_SIZE+VHD_DYNAMIC_DISK_HEADER_RECORD_SIZE, image_size, 0, parent_uuid.bytes, "%s.vhd" % str(parent_uuid))
+                    vhd_dynamic_disk_header_struct = modTupleByIndex(vhd_dynamic_disk_header_struct, _dynamic_disk_header_parent_time_stamp_, time.time()-946684800) #????
                 else:
                     vhd_dynamic_disk_header_struct = gen_vhd_dynamic_disk_header_struct(VHD_FOTTER_RECORD_SIZE+VHD_DYNAMIC_DISK_HEADER_RECORD_SIZE, image_size, 0, '', '')
                 VHD_DYNAMIC_DISK_HEADER = pack(VHD_DYNAMIC_DISK_HEADER_FORMAT, *vhd_dynamic_disk_header_struct)
-                vhd_footer_struct = modTupleByIndex(vhd_dynamic_disk_header_struct, _dynamic_disk_header_checksum_, checksum(VHD_DYNAMIC_DISK_HEADER))
+                vhd_dynamic_disk_header_struct = modTupleByIndex(vhd_dynamic_disk_header_struct, _dynamic_disk_header_checksum_, checksum(VHD_DYNAMIC_DISK_HEADER))
                 VHD_DYNAMIC_DISK_HEADER = pack(VHD_DYNAMIC_DISK_HEADER_FORMAT, *vhd_dynamic_disk_header_struct)
 
                 vhd_bat_list = gen_empty_vhd_bat(image_size)
@@ -1019,11 +1021,11 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
                             parent_locator_entry_struct = (_platform_code_MacX_, get_size_aligned_to_sector_boundary(len(parent_locator_encoded)), len(parent_locator_encoded), 0, vhd_file_offset) #MacX
                         elif index == 1:
                             parent_locator = ".\%s.vhd" % parent_uuid
-                            parent_locator_encoded = parent_locator.encode("UTF-16BE")
+                            parent_locator_encoded = parent_locator.encode("UTF-16LE")
                             parent_locator_entry_struct = (_platform_code_W2ku_, get_size_aligned_to_sector_boundary(len(parent_locator_encoded)), len(parent_locator_encoded), 0, vhd_file_offset) #W2ku
                         elif index == 2:
                             parent_locator = ".\%s.vhd" % parent_uuid
-                            parent_locator_encoded = parent_locator.encode("UTF-16BE")
+                            parent_locator_encoded = parent_locator.encode("UTF-16LE")
                             parent_locator_entry_struct = (_platform_code_W2ru_, get_size_aligned_to_sector_boundary(len(parent_locator_encoded)), len(parent_locator_encoded), 0, vhd_file_offset) #W2ru
                         else:
                             parent_locator_encoded = ''
@@ -1145,6 +1147,9 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
     VHD_FH.write(VHD_FOOTER)
     if (rbd_data_exists == True):
         VHD_FH.seek(VHD_FOTTER_RECORD_SIZE,0)
+        vhd_dynamic_disk_header_struct = modTupleByIndex(vhd_dynamic_disk_header_struct, _dynamic_disk_header_checksum_, 0)
+        VHD_DYNAMIC_DISK_HEADER = pack(VHD_DYNAMIC_DISK_HEADER_FORMAT, *vhd_dynamic_disk_header_struct)
+        vhd_dynamic_disk_header_struct = modTupleByIndex(vhd_dynamic_disk_header_struct, _dynamic_disk_header_checksum_, checksum(VHD_DYNAMIC_DISK_HEADER))
         VHD_DYNAMIC_DISK_HEADER = pack(VHD_DYNAMIC_DISK_HEADER_FORMAT, *vhd_dynamic_disk_header_struct)
         VHD_FH.write(VHD_DYNAMIC_DISK_HEADER)
         vhd_file_offset = VHD_FOTTER_RECORD_SIZE + VHD_DYNAMIC_DISK_HEADER_RECORD_SIZE
