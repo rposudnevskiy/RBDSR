@@ -408,8 +408,8 @@ class VDI:
         snapshot_name = "%s@%s%s" % (vdi_name, SNAPSHOT_PREFIX, snap_uuid)
         util.pread2(["rbd", "snap", "rollback", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
 
-    def _get_vdi_info(self, vdi_uuid):
-        util.SMlog("Calling cephutils.VDI._get_vdi_info: vdi_uuid=%s" % vdi_uuid)
+    def _get_vdi_meta(self, vdi_uuid):
+        util.SMlog("Calling cephutils.VDI._get_vdi_meta: vdi_uuid=%s" % vdi_uuid)
         vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
         if self.sr.use_rbd_meta:
             cmdout = util.pread2(["rbd", "image-meta", "list", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--format", "json", "--name", self.sr.CEPH_USER])
@@ -420,6 +420,28 @@ class VDI:
                 return {}
         else:
             return {}
+
+    def _get_vdi_info(self, vdi_uuid):
+        util.SMlog("Calling cephutils.VDI._get_vdi_info: vdi_uuid=%s" % vdi_uuid)
+        vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
+        if self.sr.use_rbd_meta:
+            cmdout = util.pread2(["rbd", "info", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--format", "json", "--name", self.sr.CEPH_USER])
+            if len(cmdout) != 0:
+                decoded = json.loads(cmdout)
+                return decoded
+            else:
+                return {}
+        else:
+            return {}
+
+    def _if_vdi_exist(self, vdi_uuid):
+        util.SMlog("Calling cephutils.VDI._if_vdi_exist: vdi_uuid=%s" % vdi_uuid)
+        vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
+        try:
+            cmdout = util.pread2(["rbd", "info", vdi_name, "--pool", self.sr.CEPH_POOL_NAME, "--format", "json", "--name", self.sr.CEPH_USER])
+            return True
+        except Exception:
+            return False
 
     def _call_plugin(self, op, args):
         util.SMlog("Calling cephutils.VDI._call_plugin: op=%s" % op)
