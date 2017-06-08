@@ -319,15 +319,15 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
             raise xs_errors.XenError('VDIExists')
         except:
-            if cephutils.VDI._if_vdi_exist(sr_uuid, vdi_uuid):
+            if self._if_vdi_exist(vdi_uuid):
                 vdi_meta = self._get_vdi_meta(vdi_uuid)
                 vdi_info = self._get_vdi_info(vdi_uuid)
-                if self.label == '':
-                    self.label = vdi_meta["VDI_LABEL"]
+                if self.label == '' and vdi_meta.has_key('VDI_LABEL'):
+                    self.label = vdi_meta['VDI_LABEL']
                 else:
                     need_update = True
-                if self.description == '':
-                    self.description = vdi_meta["VDI_DESCRIPTION"]
+                if self.description == '' and vdi_meta.has_key('VDI_DESCRIPTION'):
+                    self.description = vdi_meta['VDI_DESCRIPTION']
                 else:
                     need_update = True
 

@@ -62,7 +62,7 @@ class SR:
         regex = re.compile(SNAPSHOT_PREFIX)
         return regex.sub('', vdi)
 
-    def _get_vdi_info(self, vdi_uuid):
+    def _get_vdi_meta(self, vdi_uuid):
         util.SMlog("Calling cephutils.SR._get_vdi_info: vdi_uuid=%s" % vdi_uuid)
         VDI_NAME = "%s%s" % (VDI_PREFIX, vdi_uuid)
         if self.use_rbd_meta:
