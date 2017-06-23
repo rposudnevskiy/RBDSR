@@ -36,6 +36,8 @@ CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLO
 
 CONFIGURATION = [['rbd-mode', 'SR mount mode (optional): kernel, fuse, nbd (default)'],
                  ['cephx-id', 'Cephx id to be used (optional): default is admin'],
+                 ['use-rbd-meta', 'Store VDI params in rbd metadata (optional): True (default), False'],
+                 ['vdi-update-existing', 'Update params of existing VDIs on scan (optional): True (default), False'],
                 ]
 
 DRIVER_INFO = {
@@ -58,6 +60,8 @@ MODE_TYPES = ["kernel", "fuse", "nbd"]
 MODE_DEFAULT = "nbd"
 
 DEFAULT_CEPH_USER = 'admin'
+USE_RBD_META_DEFAULT = True
+VDI_UPDATE_EXISTING_DEFAULT = True
 
 class RBDSR(SR.SR, cephutils.SR):
     """Ceph Block Devices storage repository"""
@@ -89,13 +93,13 @@ class RBDSR(SR.SR, cephutils.SR):
             #name = RBDVDIs[vdi_uuid]['image']
             if RBDVDIs[vdi_uuid].has_key('snapshot'):
                 parent_vdi_uuid = self._get_vdi_uuid(RBDVDIs[vdi_uuid]['image'])
-                parent_vdi_info = self._get_vdi_info(parent_vdi_uuid)
-                if parent_vdi_info.has_key('VDI_LABEL'):
-                    label = parent_vdi_info['VDI_LABEL']
+                parent_vdi_meta = self._get_vdi_meta(parent_vdi_uuid)
+                if parent_vdi_meta.has_key('VDI_LABEL'):
+                    label = parent_vdi_meta['VDI_LABEL']
                 else:
                     label = ''
-                if parent_vdi_info.has_key('VDI_DESCRIPTION'):
-                    description = parent_vdi_info['VDI_DESCRIPTION']
+                if parent_vdi_meta.has_key('VDI_DESCRIPTION'):
+                    description = parent_vdi_meta['VDI_DESCRIPTION']
                 else:
                     description = ''
                 if vdi_uuid not in vdi_uuids:
@@ -114,8 +118,8 @@ class RBDSR(SR.SR, cephutils.SR):
                     else:
                         base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_vdi_uuid)
                         self.vdis[vdi_uuid].snapshot_of = base_vdi_ref
-                    if parent_vdi_info.has_key(RBDVDIs[vdi_uuid]['snapshot']):
-                        self.vdis[vdi_uuid].snapshot_time = str(parent_vdi_info[RBDVDIs[vdi_uuid]['snapshot']])
+                    if parent_vdi_meta.has_key(RBDVDIs[vdi_uuid]['snapshot']):
+                        self.vdis[vdi_uuid].snapshot_time = str(parent_vdi_meta[RBDVDIs[vdi_uuid]['snapshot']])
                     self.vdis[vdi_uuid].read_only = True
                     self.vdis[vdi_uuid].sm_config['snapshot-of'] = parent_vdi_uuid
                     self.vdis[vdi_uuid].sm_config["vdi_type"] = 'aio'
@@ -123,8 +127,6 @@ class RBDSR(SR.SR, cephutils.SR):
                 else:
                     #VDI exists
                     vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
-                    self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
-                    self.session.xenapi.VDI.set_physical_utilisation(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
                     if parent_vdi_uuid not in vdi_uuids:
                         self.vdis[parent_vdi_uuid] = RBDVDI(self, parent_vdi_uuid, label)
                         self.vdis[parent_vdi_uuid].description = description
@@ -136,22 +138,25 @@ class RBDSR(SR.SR, cephutils.SR):
                             continue
                     else:
                         parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_vdi_uuid)
-                    self.session.xenapi.VDI.set_is_a_snapshot(vdi_ref, True)
-                    self.session.xenapi.VDI.set_snapshot_of(vdi_ref, parent_vdi_ref)
-                    if parent_vdi_info.has_key(RBDVDIs[vdi_uuid]['snapshot']):
-                        self.session.xenapi.VDI.set_snapshot_time(vdi_ref, str(parent_vdi_info[RBDVDIs[vdi_uuid]['snapshot']]))
-                    self.session.xenapi.VDI.set_read_only(vdi_ref, True)
-                    self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'snapshot-of')
-                    self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'snapshot-of', parent_vdi_uuid)
-                    self.session.xenapi.VDI.set_name_description(vdi_ref, description)
+                    if self.vdi_update_existing:
+                        self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
+                        self.session.xenapi.VDI.set_physical_utilisation(vdi_ref, str(RBDVDIs[parent_vdi_uuid]['size']))
+                        self.session.xenapi.VDI.set_is_a_snapshot(vdi_ref, True)
+                        self.session.xenapi.VDI.set_snapshot_of(vdi_ref, parent_vdi_ref)
+                        if parent_vdi_meta.has_key(RBDVDIs[vdi_uuid]['snapshot']):
+                            self.session.xenapi.VDI.set_snapshot_time(vdi_ref, str(parent_vdi_meta[RBDVDIs[vdi_uuid]['snapshot']]))
+                        self.session.xenapi.VDI.set_read_only(vdi_ref, True)
+                        self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'snapshot-of')
+                        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'snapshot-of', parent_vdi_uuid)
+                        self.session.xenapi.VDI.set_name_description(vdi_ref, description)
             else:
-                vdi_info = self._get_vdi_info(vdi_uuid)
-                if vdi_info.has_key('VDI_LABEL'):
-                    label = vdi_info['VDI_LABEL']
+                vdi_meta = self._get_vdi_meta(vdi_uuid)
+                if vdi_meta.has_key('VDI_LABEL'):
+                    label = vdi_meta['VDI_LABEL']
                 else:
                     label = ''
-                if vdi_info.has_key('VDI_DESCRIPTION'):
-                    description = vdi_info['VDI_DESCRIPTION']
+                if vdi_meta.has_key('VDI_DESCRIPTION'):
+                    description = vdi_meta['VDI_DESCRIPTION']
                 else:
                     description = ''
                 if vdi_uuid not in vdi_uuids:
@@ -164,10 +169,11 @@ class RBDSR(SR.SR, cephutils.SR):
                 else:
                     #VDI exists
                     vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
-                    self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(RBDVDIs[vdi_uuid]['size']))
-                    self.session.xenapi.VDI.set_physical_utilisation(vdi_ref, str(RBDVDIs[vdi_uuid]['size']))
-                    self.session.xenapi.VDI.set_name_description(vdi_ref, description)
-                    #self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'vdi_type', 'aio')
+                    if self.vdi_update_existing:
+                        self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(RBDVDIs[vdi_uuid]['size']))
+                        self.session.xenapi.VDI.set_physical_utilisation(vdi_ref, str(RBDVDIs[vdi_uuid]['size']))
+                        self.session.xenapi.VDI.set_name_description(vdi_ref, description)
+                        #self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'vdi_type', 'aio')
 
     def content_type(self, sr_uuid):
         """Returns the content_type XML"""
@@ -188,6 +194,8 @@ class RBDSR(SR.SR, cephutils.SR):
         """Initialises the SR"""
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
+        self.use_rbd_meta = USE_RBD_META_DEFAULT
+        self.vdi_update_existing = VDI_UPDATE_EXISTING_DEFAULT
         self.uuid = sr_uuid
         ceph_user = DEFAULT_CEPH_USER
         if self.dconf.has_key('cephx-id'):
@@ -196,6 +204,12 @@ class RBDSR(SR.SR, cephutils.SR):
 
         if self.dconf.has_key('rbd-mode'):
             self.mode = self.dconf['rbd-mode']
+
+        if self.dconf.has_key('use-rbd-meta'):
+            self.use_rbd_meta = self.dconf['use-rbd-meta']
+
+        if self.dconf.has_key('vdi-update-existing'):
+            self.vdi_update_existing = self.dconf['vdi-update-existing']
 
         cephutils.SR.load(self,sr_uuid, ceph_user)
 
@@ -296,6 +310,40 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.sr._updateStats(self.sr.uuid, self.size)
 
         return VDI.VDI.get_params(self)
+
+    def introduce(self, sr_uuid, vdi_uuid):
+        """Explicitly introduce a particular VDI."""
+        util.SMlog("RBDVDI.introduce: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        need_update = False
+        try:
+            vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+            raise xs_errors.XenError('VDIExists')
+        except:
+            if self._if_vdi_exist(vdi_uuid):
+                vdi_meta = self._get_vdi_meta(vdi_uuid)
+                vdi_info = self._get_vdi_info(vdi_uuid)
+                if self.label == '' and vdi_meta.has_key('VDI_LABEL'):
+                    self.label = vdi_meta['VDI_LABEL']
+                else:
+                    need_update = True
+                if self.description == '' and vdi_meta.has_key('VDI_DESCRIPTION'):
+                    self.description = vdi_meta['VDI_DESCRIPTION']
+                else:
+                    need_update = True
+
+                self.size = vdi_info["size"]
+                self.utilisation = vdi_info["size"]
+                self.sm_config["vdi_type"] = 'aio'
+
+                self.ref = self._db_introduce()
+                self.sr._updateStats(self.sr.uuid, self.size)
+
+                if need_update:
+                    self.update(sr_uuid, vdi_uuid)
+
+                return VDI.VDI.get_params(self)
+            else:
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' % (vdi_uuid, sr_uuid))
 
     def delete(self, sr_uuid, vdi_uuid):
         util.SMlog("RBDVDI.delete: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
@@ -481,10 +529,10 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
 
                 return baseVDI.get_params()
         else:
-            base_vdi_info = self._get_vdi_info(base_uuid)
+            base_vdi_meta = self._get_vdi_meta(base_uuid)
             base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
-            if base_vdi_info.has_key('VDI_LABEL'):
-                base_vdi_label = base_vdi_info['VDI_LABEL']
+            if base_vdi_meta.has_key('VDI_LABEL'):
+                base_vdi_label = base_vdi_meta['VDI_LABEL']
             else:
                 base_vdi_label = ''
 
@@ -523,9 +571,9 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         base_uuid = vdi_uuid
         snap_uuid = util.gen_uuid()
 
-        vdi_info = self._get_vdi_info(vdi_uuid)
-        if vdi_info.has_key('VDI_LABEL'):
-            orig_label = vdi_info['VDI_LABEL']
+        vdi_meta = self._get_vdi_meta(vdi_uuid)
+        if vdi_meta.has_key('VDI_LABEL'):
+            orig_label = vdi_meta['VDI_LABEL']
         else:
             orig_label = ''
 

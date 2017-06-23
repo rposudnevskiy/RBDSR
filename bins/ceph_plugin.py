@@ -79,22 +79,22 @@ def _map(session, arg_dict):
             dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         else:
             dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
-        util.pread2(["ln", "-s", dev, _dev_name])
+        util.pread2(["ln", "-fs", dev, _dev_name])
 
     if dm == "linear":
         util.pread2(["dmsetup", "create", _dm_name, "--table", "0 %s linear %s 0" % (str(int(size) / 512), dev)])
-        util.pread2(["ln", "-s", _dmdev_name, dev_name])
+        util.pread2(["ln", "-fs", _dmdev_name, dev_name])
     elif dm == "mirror":
         _dmzero_name = "%s%s" % (_dm_name, "-zero")
         _dmzerodev_name = "%s%s" % (_dmdev_name,"-zero",)
         util.pread2(["dmsetup", "create", _dmzero_name, "--table", "0 %s zero" % str(int(size) / 512)])
         util.pread2(["dmsetup", "create", _dm_name, "--table", "0 %s snapshot %s %s P 1" % (str(int(size) / 512), _dmzerodev_name, dev)])
-        util.pread2(["ln", "-s", _dmdev_name, dev_name])
+        util.pread2(["ln", "-fs", _dmdev_name, dev_name])
     elif dm == "base":
         util.pread2(["dmsetup", "create", _dm_name, "--table", "0 %s snapshot-origin %s" % (str(int(size) / 512), dev)])
-        util.pread2(["ln", "-s", _dmdev_name, dev_name])
+        util.pread2(["ln", "-fs", _dmdev_name, dev_name])
     else:
-        util.pread2(["ln", "-s", dev, dev_name])
+        util.pread2(["ln", "-fs", dev, dev_name])
     return "mapped"
 
 def _unmap(session, arg_dict):
