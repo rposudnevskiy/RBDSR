@@ -28,6 +28,8 @@ import scsiutil
 import xml.dom.minidom
 import blktap2
 import vhdutil
+import json
+import inventory
 
 CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLONE", "VDI_SNAPSHOT",
                 "VDI_INTRODUCE", "VDI_RESIZE", "VDI_RESIZE_ONLINE", "VDI_UPDATE", "VDI_MIRROR",
@@ -219,6 +221,10 @@ class RBDSR(SR.SR, cephutils.SR):
         if not self.RBDPOOLs.has_key(self.uuid):
             raise xs_errors.XenError('SRUnavailable',opterr='no pool with uuid: %s' % sr_uuid)
 
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr_ref)
+        if sr_sm_config.has_key("dev_instances"):
+            self.session.xenapi.SR.remove_from_sm_config(self.sr_ref, "dev_instances")
+
         cephutils.SR.attach(self, sr_uuid)
 
     def update(self, sr_uuid):
@@ -227,6 +233,11 @@ class RBDSR(SR.SR, cephutils.SR):
 
     def detach(self, sr_uuid):
         util.SMlog("RBDSR.detach: sr_uuid=%s" % sr_uuid)
+
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr_ref)
+        if sr_sm_config.has_key("dev_instances"):
+            self.session.xenapi.SR.remove_from_sm_config(self.sr_ref, "dev_instances")
+
         cephutils.SR.detach(self, sr_uuid)
 
     def scan(self, sr_uuid):
@@ -402,13 +413,35 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
+        host_uuid = inventory.get_localhost_uuid()
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
 
-        #if sm_config.has_key("snapshot-of"):
-        #    base_uuid = sm_config["snapshot-of"]
-        #    # it's a snapshot VDI
-        #    self.path = self.sr._get_snap_path(base_uuid, vdi_uuid)
-        #else:
+        if sr_sm_config.has_key("dev_instances"):
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+            self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+        else:
+            sr_dev_instances={"hosts":{}}
+
+        first_free_instance = -1
+        if sr_dev_instances["hosts"].has_key(host_uuid):
+            for i in range(cephutils.NBDS_MAX):
+                if sr_dev_instances["hosts"][host_uuid][i] == None:
+                    first_free_instance = i
+                    break
+            sr_dev_instances["hosts"][host_uuid][first_free_instance] = vdi_uuid
+        else:
+            #sr_dev_instances["hosts"].append({host_uuid:[None]*cephutils.NBDS_MAX})
+            sr_dev_instances["hosts"][host_uuid] = [None]*cephutils.NBDS_MAX
+            sr_dev_instances["hosts"][host_uuid][0] = "reserved"
+            sr_dev_instances["hosts"][host_uuid][1] = vdi_uuid
+            first_free_instance = 1
+
+        self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+        if sm_config.has_key("dev_instance"):
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
+        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, "dev_instance", str(first_free_instance))
+
         self.path = self.sr._get_path(vdi_uuid)
 
         if not hasattr(self,'xenstore_data'):
@@ -419,45 +452,52 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.xenstore_data['storage-type']='rbd'
         self.xenstore_data['vdi-type']=self.vdi_type
 
-        ##########
-        vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
-        has_a_snapshot = False
-        for tmp_vdi in vdis:
-            tmp_vdi_uuid = self.session.xenapi.VDI.get_uuid(tmp_vdi)
-            tmp_sm_config = self.session.xenapi.VDI.get_sm_config(tmp_vdi)
-            if tmp_sm_config.has_key("snapshot-of"):
-                if tmp_sm_config["snapshot-of"] == vdi_uuid:
-                    has_a_snapshot = True
-        #    if tmp_sm_config.has_key("sxm_mirror"):
-        #            sxm_mirror_vdi = vdi_uuid
-        ########## SXM VDIs
-        if sm_config.has_key("snapshot-of"):
-            base_uuid = sm_config["snapshot-of"]
-            # it's a snapshot VDI, attach it as snapshot
-            self._map_SNAP(base_uuid, vdi_uuid, self.size, "none")
-        elif sm_config.has_key("base_mirror"):
-            if has_a_snapshot:
-                # it's a mirror vdi of storage migrating VM
-                # it's attached first
-                self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'sxm_mirror', 'true')
-                # creating dm snapshot dev
-                self._map_sxm_mirror(vdi_uuid, self.size)
+        try:
+            ##########
+            vdis = self.session.xenapi.SR.get_VDIs(self.sr.sr_ref)
+            has_a_snapshot = False
+            for tmp_vdi in vdis:
+                tmp_vdi_uuid = self.session.xenapi.VDI.get_uuid(tmp_vdi)
+                tmp_sm_config = self.session.xenapi.VDI.get_sm_config(tmp_vdi)
+                if tmp_sm_config.has_key("snapshot-of"):
+                    if tmp_sm_config["snapshot-of"] == vdi_uuid:
+                        has_a_snapshot = True
+            #    if tmp_sm_config.has_key("sxm_mirror"):
+            #            sxm_mirror_vdi = vdi_uuid
+            ########## SXM VDIs
+            if sm_config.has_key("snapshot-of"):
+                base_uuid = sm_config["snapshot-of"]
+                # it's a snapshot VDI, attach it as snapshot
+                self._map_SNAP(base_uuid, vdi_uuid, self.size, "none")
+            elif sm_config.has_key("base_mirror"):
+                if has_a_snapshot:
+                    # it's a mirror vdi of storage migrating VM
+                    # it's attached first
+                    self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'sxm_mirror', 'true')
+                    # creating dm snapshot dev
+                    self._map_sxm_mirror(vdi_uuid, self.size)
+                else:
+                    # it's a base vdi of storage migrating VM
+                    # it's attached after mirror VDI and mirror snapshot VDI has been created
+                    self._map_VHD(vdi_uuid, self.size, "none")
+            ########## not SXM VDIs
             else:
-                # it's a base vdi of storage migrating VM
-                # it's attached after mirror VDI and mirror snapshot VDI has been created
+                # it's not SXM VDI, just attach it
                 self._map_VHD(vdi_uuid, self.size, "none")
-        ########## not SXM VDIs
-        else:
-            # it's not SXM VDI, just attach it
-            self._map_VHD(vdi_uuid, self.size, "none")
 
-        if not util.pathexists(self.path):
-            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
+            if not util.pathexists(self.path):
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not find: %s' % self.path)
 
-        self.attached = True
-        if sm_config.has_key("attached"):
-            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
-        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
+            self.attached = True
+            if sm_config.has_key("attached"):
+                self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
+            self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
+
+        except:
+            self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+            sr_dev_instances["hosts"][host_uuid][first_free_instance] = None
+            self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
 
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
 
@@ -465,6 +505,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         util.SMlog("RBDVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
         vdi_ref = self.sr.srcmd.params['vdi_ref']
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
+        host_uuid = inventory.get_localhost_uuid()
 
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
 
@@ -479,6 +521,16 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
             self._unmap_VHD(vdi_uuid, self.size)
         self.attached = False
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
+
+        sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+        if sr_dev_instances["hosts"].has_key(host_uuid):
+            for i in range(cephutils.NBDS_MAX):
+                if sr_dev_instances["hosts"][host_uuid][i] == vdi_uuid:
+                    sr_dev_instances["hosts"][host_uuid][i] = None
+                    break
+        self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+        self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
 
     def clone(self, sr_uuid, snap_uuid):
         util.SMlog("RBDVDI.clone: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, snap_uuid))
@@ -756,7 +808,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                 pass
             elif self.mode == "nbd":
                 self._disable_rbd_caching()
-                cmdout = util.pread2(["rbd-nbd", "--nbds_max", str(cephutils.NBDS_MAX), "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, _vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
+                cmdout = util.pread2(["rbd-nbd", "--device", "/dev/nbd0", "--nbds_max", str(cephutils.NBDS_MAX), "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (self.sr.CEPH_POOL_NAME, _vdi_name), "--name", self.sr.CEPH_USER]).rstrip('\n')
                 util.pread2(["ln", "-s", cmdout, _dev_name])
             util.pread2(["ln", "-s", cmdout, dev_name])
 

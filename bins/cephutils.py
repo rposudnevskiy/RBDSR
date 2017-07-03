@@ -474,9 +474,11 @@ class VDI:
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         if sm_config.has_key("dm"):
-            dm=sm_config["dm"]
+            dm = sm_config["dm"]
         else:
-            dm="none"
+            dm = "none"
+
+        dev = sm_config["dev_instance"]
 
         if self.session.xenapi.VDI.get_sharable(vdi_ref):
             sharable="true"
@@ -491,7 +493,7 @@ class VDI:
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME,
                 "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
-                "dm":dm}
+                "dm":dm, "dev":dev}
         self._call_plugin('_map',args)
 
     def __unmap_VHD(self, vdi_uuid):
@@ -532,6 +534,8 @@ class VDI:
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        dev = sm_config["dev_instance"]
 
         if self.session.xenapi.VDI.get_sharable(vdi_ref):
             sharable="true"
@@ -547,7 +551,7 @@ class VDI:
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME,
                 "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
-                "dm":dm,
+                "dm":dm, "dev":dev,
                 "size":str(size)}
         self._call_plugin('map',args)
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dm', dm)
@@ -596,6 +600,8 @@ class VDI:
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
 
         snap_ref = self.session.xenapi.VDI.get_by_uuid(snap_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(snap_ref)
+        dev = sm_config["dev_instance"]
 
         if self.session.xenapi.VDI.get_sharable(snap_ref):
             sharable="true"
@@ -612,7 +618,7 @@ class VDI:
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME,
                 "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
-                "dm":dm,
+                "dm":dm, "dev":dev,
                 "size":str(size)}
         self._call_plugin('map',args)
         self.session.xenapi.VDI.add_to_sm_config(snap_ref, 'dm', dm)
@@ -662,7 +668,10 @@ class VDI:
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         dm="mirror"
+        dev = sm_config["dev_instance"]
+
         if self.session.xenapi.VDI.get_sharable(vdi_ref):
             sharable="true"
         else:
@@ -677,7 +686,7 @@ class VDI:
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME,
                 "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
-                "dm":dm,
+                "dm":dm, "dev":dev,
                 "size":str(size)}
         self._call_plugin('map',args)
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dm', dm)
@@ -706,7 +715,7 @@ class VDI:
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME,
                 "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
-                "dm":"mirror",
+                "dm":dm,
                 "size":str(size)}
         self._call_plugin('unmap',args)
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dm')
@@ -720,7 +729,31 @@ class VDI:
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
         dm="base"
+
+        if sr_sm_config.has_key("dev_instances"):
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        else:
+            sr_dev_instances={"hosts":{}}
+
+        first_free_instance = -1
+        if sr_dev_instances["hosts"].has_key(host_uuid):
+            for i in range(NBDS_MAX):
+                if sr_dev_instances["hosts"][host_uuid][i] == None:
+                    first_free_instance = i
+                    break
+            sr_dev_instances["hosts"][host_uuid][first_free_instance] = vdi_uuid
+        else:
+            #sr_dev_instances["hosts"].append({host_uuid:[None]*NBDS_MAX})
+            sr_dev_instances["hosts"][host_uuid] = [None]*NBDS_MAX
+            sr_dev_instances["hosts"][host_uuid][0] = "reserved"
+            sr_dev_instances["hosts"][host_uuid][1] = vdi_uuid
+            first_free_instance = 1
+
+        dev = str(first_free_instance)
+
         if self.session.xenapi.VDI.get_sharable(vdi_ref):
             sharable="true"
         else:
@@ -735,10 +768,16 @@ class VDI:
                 "CEPH_POOL_NAME":self.sr.CEPH_POOL_NAME,
                 "NBDS_MAX":str(NBDS_MAX),
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
-                "dm":dm,
+                "dm":dm, "dev":dev,
                 "size":str(size)}
         self._call_plugin('map',args)
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dm', dm)
+
+        self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+        self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+        if sm_config.has_key("dev_instance"):
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
+        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, "dev_instance", str(first_free_instance))
 
     def _unmap_sxm_base(self, vdi_uuid, size):
         _vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -749,6 +788,9 @@ class VDI:
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
+
         dm="base"
         if self.session.xenapi.VDI.get_sharable(vdi_ref):
             sharable="true"
@@ -768,6 +810,16 @@ class VDI:
                 "size":str(size)}
         self._call_plugin('unmap',args)
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dm')
+
+        sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+        if sr_dev_instances["hosts"].has_key(host_uuid):
+            for i in range(NBDS_MAX):
+                if sr_dev_instances["hosts"][host_uuid][i] == vdi_uuid:
+                    sr_dev_instances["hosts"][host_uuid][i] = None
+                    break
+        self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+        self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
 
     def _merge_sxm_diffs(self, mirror_uuid, base_uuid, size):
         util.SMlog("Calling cephutills.VDI._merge_sxm_diffs: mirror_uuid=%s, base_uuid=%s, size=%s" % (mirror_uuid, base_uuid, size))
