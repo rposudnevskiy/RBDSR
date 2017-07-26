@@ -37,6 +37,16 @@ function backupFile {
   fi
 }
 
+# Usage: restoreFile <path>
+function restoreFile {
+  echo "Backing Up file $1"
+  if [ -e $1-orig ]; then
+    mv $1 $1-orig
+  else
+    echo "No $1-orig in place, not restoring!"
+  fi
+}
+
 # Usage: copyFile <source path> <destination path>
 function copyFile {
   cp $1 $2
@@ -74,7 +84,7 @@ function installFiles {
   copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR"
   copyFile "bins/cephutils.py"          "/opt/xensource/sm/cephutils.py"
 
-  copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
+  #copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
   copyFile "bins/vhd-tool"             "/bin/vhd-tool"
   copyFile "bins/sparse_dd"            "/usr/libexec/xapi/sparse_dd"
 
@@ -109,7 +119,7 @@ function install {
   installEpel
   installCeph
 
-  backupFile "/sbin/tap-ctl"
+  #backupFile "/sbin/tap-ctl"
   backupFile "/bin/vhd-tool"
   backupFile "/usr/libexec/xapi/sparse_dd"
 
@@ -124,7 +134,6 @@ function deinstall {
   restoreFile "/sbin/tap-ctl"
   restoreFile "/bin/vhd-tool"
   restoreFile "/usr/libexec/xapi/sparse_dd"
-  restoreFile "/etc/xapi.conf"
   deinstallRepo $1
 }
 

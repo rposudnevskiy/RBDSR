@@ -739,6 +739,7 @@ class VDI:
             sr_dev_instances={"hosts":{}}
 
         first_free_instance = -1
+        host_uuid = inventory.get_localhost_uuid()
         if sr_dev_instances["hosts"].has_key(host_uuid):
             for i in range(NBDS_MAX):
                 if sr_dev_instances["hosts"][host_uuid][i] == None:
@@ -813,6 +814,7 @@ class VDI:
 
         sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
         self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+        host_uuid = inventory.get_localhost_uuid()
         if sr_dev_instances["hosts"].has_key(host_uuid):
             for i in range(NBDS_MAX):
                 if sr_dev_instances["hosts"][host_uuid][i] == vdi_uuid:
@@ -842,17 +844,21 @@ class VDI:
         mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
         base_sm_config = self.session.xenapi.VDI.get_sm_config(base_vdi_ref)
         #---
-        if mirror_sm_config.has_key('attached') and not mirror_sm_config.has_key('paused'):
-            if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
-                raise util.SMException("failed to pause VDI %s" % mirror_uuid)
+        #if mirror_sm_config.has_key('attached') and not mirror_sm_config.has_key('paused'):
+        #    if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
+        #        raise util.SMException("failed to pause VDI %s" % mirror_uuid)
         #---
 
         if filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
+            if "paused" not in mirror_sm_config:
+                if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
+                    raise util.SMException("failed to pause VDI %s" % mirror_uuid)
             for mirror_host_key in filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
                 if filter(lambda x: x.startswith('host_'), base_sm_config.keys()):
                     for base_host_key in filter(lambda x: x.startswith('host_'), base_sm_config.keys()):
                         self.session.xenapi.VDI.remove_from_sm_config(base_vdi_ref, base_host_key)
                 self.session.xenapi.VDI.add_to_sm_config(base_vdi_ref, mirror_host_key, mirror_sm_config[mirror_host_key])
+
 
         self._unmap_sxm_mirror(mirror_uuid, size)
         self._map_sxm_base(base_uuid, self.size)
@@ -881,6 +887,8 @@ class VDI:
         #---
         self._map_VHD(mirror_uuid, size, "linear")
         #---
-        if mirror_sm_config.has_key('attached') and not mirror_sm_config.has_key('paused'):
+        mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
+        #if mirror_sm_config.has_key('attached') and not mirror_sm_config.has_key('paused'):
+        if "paused" in mirror_sm_config:
             if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_uuid, None):
                 raise util.SMException("failed to unpause VDI %s" % mirror_uuid)
