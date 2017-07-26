@@ -30,7 +30,7 @@ function backupFile {
   fi
 }
 
-# Usage: backupFile <path>
+# Usage: restoreFile <path>
 function restoreFile {
   echo "Backing Up file $1"
   if [ -e $1-orig ]; then
@@ -44,6 +44,12 @@ function restoreFile {
 function copyFile {
   cp $1 $2
   chmod +x $2
+}
+
+function configFirewall {
+  iptables -A INPUT -p tcp --dport 6789 -j ACCEPT
+  iptables -A INPUT -m multiport -p tcp --dports 6800:7300 -j ACCEPT
+  service iptables save
 }
 
 function enableRBDSR {
@@ -130,6 +136,7 @@ function install {
 
   installFiles
 
+  configFirewall
   enableRBDSR
 }
 

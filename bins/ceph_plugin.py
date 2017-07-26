@@ -74,11 +74,12 @@ def _map(session, arg_dict):
     elif mode == "fuse":
         pass
     elif mode == "nbd":
+        dev = "%s%s" % ("/dev/nbd", arg_dict['dev'])
         if sharable == "true":
             _disable_rbd_caching()
-            dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         else:
-            dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         util.pread2(["ln", "-fs", dev, _dev_name])
 
     if dm == "linear":
@@ -154,11 +155,12 @@ def __map(session, arg_dict):
     elif mode == "fuse":
         pass
     elif mode == "nbd":
+        dev = "%s%s" % ("/dev/nbd", arg_dict['dev'])
         if sharable == "true":
             _disable_rbd_caching()
-            dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            dev = util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         else:
-            dev = util.pread2(["rbd-nbd", "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            dev = util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
 
     if dm != "none":
         util.pread2(["dmsetup", "resume", _dm_name])
