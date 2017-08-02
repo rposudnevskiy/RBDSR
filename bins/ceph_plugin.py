@@ -77,9 +77,9 @@ def _map(session, arg_dict):
         dev = "%s%s" % ("/dev/nbd", arg_dict['dev'])
         if sharable == "true":
             _disable_rbd_caching()
-            util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            util.pread2(["rbd", "nbd", "map", "--device", dev, "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         else:
-            util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            util.pread2(["rbd", "nbd", "map", "--device", dev, "--nbds_max", NBDS_MAX, "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         util.pread2(["ln", "-fs", dev, _dev_name])
 
     if dm == "linear":
@@ -135,7 +135,7 @@ def _unmap(session, arg_dict):
         pass
     elif mode == "nbd":
         util.pread2(["unlink", _dev_name])
-        util.pread2(["rbd-nbd", "unmap", dev, "--name", CEPH_USER])
+        util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
     return "unmapped"
 
 def __map(session, arg_dict):
@@ -158,9 +158,9 @@ def __map(session, arg_dict):
         dev = "%s%s" % ("/dev/nbd", arg_dict['dev'])
         if sharable == "true":
             _disable_rbd_caching()
-            dev = util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            dev = util.pread2(["rbd", "nbd", "map", "--device", dev, "--nbds_max", NBDS_MAX, "-c", "/etc/ceph/ceph.conf.nocaching", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
         else:
-            dev = util.pread2(["rbd-nbd", "--device", dev, "--nbds_max", NBDS_MAX, "map", "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
+            dev = util.pread2(["rbd", "nbd", "map", "--device", dev, "--nbds_max", NBDS_MAX, "%s/%s" % (CEPH_POOL_NAME, _vdi_name), "--name", CEPH_USER]).rstrip('\n')
 
     if dm != "none":
         util.pread2(["dmsetup", "resume", _dm_name])
@@ -189,7 +189,7 @@ def __unmap(session, arg_dict):
     elif mode == "fuse":
         pass
     elif mode == "nbd":
-        util.pread2(["rbd-nbd", "unmap", dev, "--name", CEPH_USER])
+        util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
 
     return "unmapped"
 
