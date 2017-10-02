@@ -81,7 +81,7 @@ function installFiles {
   echo "Install RBDSR Files"
   copyFile "bins/waitdmmerging.sh"      "/usr/bin/waitdmmerging.sh"
   copyFile "bins/ceph_plugin.py"        "/etc/xapi.d/plugins/ceph_plugin"
-  copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR"
+  copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR.py"
   copyFile "bins/cephutils.py"          "/opt/xensource/sm/cephutils.py"
 
   #copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
@@ -93,6 +93,7 @@ function installFiles {
   ln "/bin/rbd2vhd" "/bin/vhd2rbd"
   ln "/bin/rbd2vhd" "/bin/rbd2raw"
   ln "/bin/rbd2vhd" "/bin/rbd2nbd"
+  ln -s "/opt/xensource/sm/RBDSR.py" "/opt/xensource/sm/RBDSR"
 }
 
 function removeFiles {

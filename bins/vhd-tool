@@ -114,11 +114,12 @@ do
     esac
     i=$((i+1))
 done
-rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
+#rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
+aiorbdsrs=`xe pbd-list device-config='image-type: aio' | grep sr-uuid | awk '{print $4} END {if (!NR) print "~~~"}'`
 case "$cmd" in
     stream)
         case "$src" in
-            *$rbdsrs*)
+            *$aiorbdsrs*)
                 if [ -n "$src" ] && [ "$srcproto"="none" ] && [ "$srcfmt"="hybrid" ] && [ -n "$dstfd" ]; then
                     #echo "`echo $src | awk -F: '{print $1}'`" > /tmp/vhd-tool.log
                     src_sr_uuid=`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`
@@ -166,7 +167,7 @@ case "$cmd" in
                 ;;
         esac
         ;;
-    serve)
+    *)
         IFS=""
         /bin/vhd-tool-orig "$@"
         ;;

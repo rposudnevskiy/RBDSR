@@ -42,10 +42,10 @@ do
     esac
     i=$((i+1))
 done
-rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
-
+#rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
+aiorbdsrs=`xe pbd-list device-config='image-type: aio' | grep sr-uuid | awk '{print $4} END {if (!NR) print "~~~"}'`
 case "$src|$dst" in
-    *$rbdsrs*)
+    *$aiorbdsrs*)
         if [ `echo $src|grep $rbdsrs` ]; then
             src_sr_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`
             src_vdi_uuid=`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`

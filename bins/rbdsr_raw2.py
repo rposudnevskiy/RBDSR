@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/python
 #
 # Copyright (C) Roman V. Posudnevskiy (ramzes_r@yahoo.com)
 #
@@ -15,19 +15,14 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-#rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
-aiorbdsrs=`xe pbd-list device-config='image-type: aio' | grep sr-uuid | awk '{print $4} END {if (!NR) print "~~~"}'`
-if [ "$1" == "list" ]; then
-    /sbin/tap-ctl-orig $@ | while read line ;
-    do
-        case $line in
-            *$aiorbdsrs*) echo $line | sed "s/aio/vhd/g";;
-            *) echo $line;;
-        esac
-    done
-else
-    case $@ in
-        *$aiorbdsrs*) /sbin/tap-ctl-orig `echo $@ | sed "s/vhd/aio/g"`;;
-        *) /sbin/tap-ctl-orig $@;;
-    esac
-fi
+from rbdsr_common import *
+
+VDI_TYPE = 'raw2'
+DRIVER_CLASS_PREFIX[VDI_TYPE] = 'RBDRAW2'
+
+class RBDRAW2SR(CSR):
+    pass
+
+
+class RBDRAW2VDI(CVDI):
+    pass
