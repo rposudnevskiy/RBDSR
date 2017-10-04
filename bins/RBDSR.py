@@ -16,6 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from rbdsr_vhd import *
+from rbdsr_dmp import *
 from rbdsr_raw import *
 from rbdsr_raw2 import *
 import SRCommand
@@ -29,7 +30,7 @@ CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLO
                 "SR_SCAN", "SR_UPDATE", "SR_ATTACH", "SR_DETACH", "SR_PROBE", "SR_METADATA"]
 
 CONFIGURATION = [['rbd-mode', 'SR mount mode (optional): kernel, fuse, nbd (default)'],
-                 ['vdi-type', 'Image format (optional): vhd (default), raw'],
+                 ['driver-type', 'Driver type (optional): vhd (default), dmp, raw'],
                  ['cephx-id', 'Cephx id to be used (optional): default is admin'],
                  ['use-rbd-meta', 'Store VDI params in rbd metadata (optional): True (default), False'],
                  ['vdi-update-existing', 'Update params of existing VDIs on scan (optional): True (default), False']]
@@ -45,20 +46,22 @@ DRIVER_INFO = {
     'configuration': CONFIGURATION
     }
 
-OPS_EXCLUSIVE = ["sr_create", "sr_delete", "sr_attach", "sr_detach", "sr_scan",
-        "sr_update", "vdi_create", "vdi_delete", "vdi_resize", "vdi_snapshot",
-        "vdi_clone"]
+OPS_EXCLUSIVE = ['sr_create', 'sr_delete', 'sr_attach', 'sr_detach', 'sr_scan',
+        'sr_update', 'vdi_create', 'vdi_delete', 'vdi_resize', 'vdi_snapshot',
+        'vdi_clone']
 
-TYPE = "rbd"
+TYPE = 'rbd'
 
-PROVISIONING_TYPES = ["thin", "thick"]
-PROVISIONING_DEFAULT = "thick"
+PROVISIONING_TYPES = ['thin', 'thick']
+PROVISIONING_DEFAULT = 'thick'
 
-MODE_TYPES = ["kernel", "fuse", "nbd"]
-MODE_DEFAULT = "nbd"
+MODE_TYPES = ['kernel', 'fuse', 'nbd']
+MODE_DEFAULT = 'nbd'
 
-VDI_TYPES = ["vhd", "raw", "raw2"]
-VDI_TYPE_DEFAULT = "vhd"
+VDI_TYPES = ['vhd', 'aio']
+
+DRIVER_TYPES = ['vhd', 'dmp', 'raw']
+DRIVER_TYPE_DEFAULT = 'vhd'
 
 
 class RBDSR(object):
@@ -74,12 +77,12 @@ class RBDSR(object):
 
         srcmd = args[0]
 
-        if 'vdi-type' in srcmd.dconf:
-            vditype = srcmd.dconf['vdi-type']
+        if 'driver-type' in srcmd.dconf:
+            driver_type = srcmd.dconf['driver-type']
         else:
-            vditype = VDI_TYPE_DEFAULT
+            driver_type = DRIVER_TYPE_DEFAULT
 
-        subtypeclass = "%sSR" % DRIVER_CLASS_PREFIX[vditype]
+        subtypeclass = "%sSR" % DRIVER_CLASS_PREFIX[driver_type]
         return object.__new__(type('RBDSR',
                                    (RBDSR, globals()[subtypeclass]) + RBDSR.__bases__,
                                    dict(RBDSR.__dict__)),
@@ -92,10 +95,10 @@ class RBDSR(object):
         """
         util.SMlog("RBDSR.SR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
 
-        if 'vdi-type' in srcmd.dconf:
-            self.vdi_type = srcmd.dconf.get('vdi-type')
+        if 'driver-type' in srcmd.dconf:
+            self.driver_type = srcmd.dconf.get('driver-type')
         else:
-            self.vdi_type = VDI_TYPE_DEFAULT
+            self.driver_type = DRIVER_TYPE_DEFAULT
 
         if 'cephx-id' in srcmd.dconf:
             self.CEPH_USER = ("client.%s" % srcmd.dconf.get('cephx-id'))
@@ -229,7 +232,7 @@ class RBDVDI(object):
 
     def __new__(cls, *args, **kwargs):
         sr_ref = args[0]
-        subtypeclass = "%sVDI" % DRIVER_CLASS_PREFIX[sr_ref.vdi_type]
+        subtypeclass = "%sVDI" % DRIVER_CLASS_PREFIX[sr_ref.driver_type]
         return object.__new__(type('RBDVDI',
                                    (RBDVDI, globals()[subtypeclass]) + RBDVDI.__bases__,
                                    dict(RBDVDI.__dict__)),

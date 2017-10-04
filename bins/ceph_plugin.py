@@ -42,6 +42,7 @@ def _map(session, arg_dict):
     sharable = arg_dict['sharable']
     size = arg_dict['size']
     dmmode = arg_dict['dmmode']
+    _dmbasedev_name =''
 
     if '_dmbasedev_name' in arg_dict:
         _dmbasedev_name = arg_dict['_dmbasedev_name']
@@ -91,7 +92,7 @@ def _map(session, arg_dict):
         util.pread2(['ln', '-sf', _dmdev_name, dev_name])
     elif dmmode == 'base':
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        _dmbasedev_name = "%s%s" % (_dmdev_name, '-zero')
+        _dmbasedev_name = "%s%s" % (_dmdev_name, '-base')
         util.pread2(['dmsetup', 'create', _dmbase_name, '--table', "0 %s snapshot-origin %s" % (str(int(size) / 512),
                                                                                             _dev_name)])
         util.pread2(['ln', '-sf', _dmbasedev_name, dev_name])
@@ -107,7 +108,7 @@ def _map(session, arg_dict):
                                                                                             _dmbasedev_name,
                                                                                             _dev_name)])
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        _dmbasedev_name = "%s%s" % (_dmdev_name, '-zero')
+        _dmbasedev_name = "%s%s" % (_dmdev_name, '-base')
         util.pread2(['dmsetup', 'create', _dmbase_name, '--table', "0 %s snapshot-origin %s" % (str(int(size) / 512),
                                                                                                  _dmdev_name)])
         util.pread2(['ln', '-sf', _dmbasedev_name, dev_name])
@@ -140,8 +141,8 @@ def _unmap(session, arg_dict):
         util.pread2(["dmsetup", "remove", _dm_name])
     elif dmmode == "cow2base":
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        util.pread2(["dmsetup", "remove", _dm_name])
         util.pread2(["dmsetup", "remove", _dmbase_name])
+        util.pread2(["dmsetup", "remove", _dm_name])
 
     if mode == "kernel":
         util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])

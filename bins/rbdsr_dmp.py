@@ -18,7 +18,9 @@
 from rbdsr_common import *
 
 VDI_TYPE = 'aio'
-DRIVER_CLASS_PREFIX[VDI_TYPE] = 'RBDDMP'
+
+DRIVER_TYPE = 'dmp'
+DRIVER_CLASS_PREFIX[DRIVER_TYPE] = 'RBDDMP'
 
 VDI_PREFIX = 'DMP-'
 
@@ -135,7 +137,7 @@ class RBDDMPVDI(CVDI):
 
         self._map_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
 
-        if 'dmp_parent' in sm_config:
+        if 'dmp-parent' in sm_config:
             return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'cow')
         else:
             return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'linear')

@@ -20,8 +20,10 @@
 # import re
 from rbdsr_common import *
 
-VDI_TYPE = 'raw'
-DRIVER_CLASS_PREFIX[VDI_TYPE] = 'RBDRAW'
+VDI_TYPE = 'aio'
+
+DRIVER_TYPE = 'raw'
+DRIVER_CLASS_PREFIX[DRIVER_TYPE] = 'RBDRAW'
 
 VDI_PREFIX = "RAW-"
 CLONE_PREFIX = "RAW-"

@@ -552,7 +552,7 @@ class CSR(SR.SR):
 
         self.RBDPOOLs = self._get_srsdict()
 
-        if self.uuid not in self.RBDPOOLs:
+        if self.uuid != '' and self.uuid not in self.RBDPOOLs:
             raise xs_errors.XenError('SRUnavailable',opterr='no pool with uuid: %s' % sr_uuid)
 
         # Fallback to kernel mode if mode is fuse with different than admin
@@ -827,8 +827,8 @@ class CVDI(VDI.VDI):
                 "dmmode": dmmode,
                 "size": str(size)}
 
-        if 'dmp_parent' in sm_config['dmp_parent']:
-            args['_dmbasedev_name'] = "%s%s" % (self.sr.DM_ROOT, "%s%s-base" % (self.sr.VDI_PREFIX, sm_config['dmp_parent']))
+        if 'dmp-parent' in sm_config:
+            args['_dmbasedev_name'] = "%s%s" % (self.sr.DM_ROOT, "%s%s-base" % (self.sr.VDI_PREFIX, sm_config['dmp-parent']))
 
         def __call_plugin__():
             if not norefcount:
@@ -1196,7 +1196,7 @@ class CVDI(VDI.VDI):
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
         new_sm_config = {}
         for key, val in sm_config.iteritems():
-            if key in ["vdi_type", "vhd-parent"]:
+            if key in ["vdi_type", "vhd-parent", "dmp-parent"]:
                 new_sm_config[key] = val
         sm_config_dump = json.dumps(new_sm_config)
 
@@ -1364,7 +1364,7 @@ class CVDI(VDI.VDI):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s" % (sr_uuid, vdi_uuid, dmmode))
         # TODO: Test the method
 
         if not hasattr(self,'xenstore_data'):

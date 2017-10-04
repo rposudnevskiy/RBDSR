@@ -20,7 +20,9 @@ import lvhdutil
 from rbdsr_common import *
 
 VDI_TYPE = 'vhd'
-DRIVER_CLASS_PREFIX[VDI_TYPE] = 'RBDVHD'
+
+DRIVER_TYPE = 'vhd'
+DRIVER_CLASS_PREFIX[DRIVER_TYPE] = 'RBDVHD'
 
 VDI_PREFIX = 'VHD-'
 
