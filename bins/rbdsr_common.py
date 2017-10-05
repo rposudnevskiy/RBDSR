@@ -1404,16 +1404,65 @@ class CVDI(VDI.VDI):
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                               (vdi_uuid, sr_uuid))
 
-    def clone(self, sr_uuid, vdi_uuid):
+    def clone(self, sr_uuid, snap_uuid):
         """
         :param sr_uuid:
         :param snap_uuid:
         :return:
         """
         # TODO: Implement
-        util.SMlog("rbdsr_common.CVDI.clone: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
+        util.SMlog("rbdsr_common.CVDI.clone: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, snap_uuid))
 
-        return None
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(snap_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
+        label = self.session.xenapi.VDI.get_name_label(vdi_ref)
+        description = self.session.xenapi.VDI.get_name_description(vdi_ref)
+
+        if not is_a_snapshot:
+            raise util.SMException("Can not make clone not from snapshot %s" % snap_uuid)
+
+        self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
+        self.snapshot_of = self.session.xenapi.VDI.get_snapshot_of(vdi_ref)
+
+        clone_uuid = util.gen_uuid()
+
+        vdi_uuid = self.session.xenapi.VDI.get_uuid(self.snapshot_of)
+        vdi_name = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
+        snap_name = "%s@%s%s" % (vdi_name, self.sr.SNAPSHOT_PREFIX, snap_uuid)
+        clone_name = "%s%s" % (self.sr.VDI_PREFIX, clone_uuid)
+
+        cloneVDI = self.sr.vdi(clone_uuid)
+        cloneVDI.label = "%s (clone)" % label
+        cloneVDI.description = description
+        cloneVDI.path = self.sr._get_path(snap_uuid)
+        cloneVDI.location = cloneVDI.uuid
+        cloneVDI.size = self.size
+        cloneVDI.utilisation = self.size
+        cloneVDI.sm_config = dict()
+        for key, val in sm_config.iteritems(): # TODO: Remove rbd-parent from here
+            if key not in ["type", "vdi_type", "rbd-parent", "paused", "attached"] and \
+                    not key.startswith("host_"):
+                cloneVDI.sm_config[key] = val
+
+        if 'attached' in sm_config:
+            if 'paused' not in sm_config:
+                if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+                    raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+            self._unmap_rbd(vdi_uuid,self.size, devlinks=False, norefcount=True)
+        # ---
+        util.pread2(
+            ["rbd", "clone", "%s/%s" % (self.sr.CEPH_POOL_NAME, snap_name), clone_name, "--name", self.sr.CEPH_USER])
+        cloneVDI.ref = cloneVDI._db_introduce()
+        CVDI.update(cloneVDI, sr_uuid, clone_uuid)
+        # ---
+        if 'attached' in sm_config:
+            self._map_rbd(vdi_uuid, self.size, devlinks=False, norefcount=True)
+            if 'paused' not in sm_config:
+                if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None):
+                    raise util.SMException("failed to unpause VDI %s" % vdi_uuid)
+
+        return cloneVDI.get_params()
 
     def snapshot(self, sr_uuid, vdi_uuid):
         """
@@ -1421,10 +1470,61 @@ class CVDI(VDI.VDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Implement
+        # TODO: Test the method
         util.SMlog("rbdsr_common.CVDI.snapshot: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
-        return None
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
+        label = self.session.xenapi.VDI.get_name_label(vdi_ref)
+        description = self.session.xenapi.VDI.get_name_description(vdi_ref)
+
+        if is_a_snapshot:
+            raise util.SMException("Can not make snapshot from snapshot %s" % vdi_uuid)
+
+        self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
+
+        snap_uuid = util.gen_uuid()
+
+        vdi_name = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
+        snapshot_name = "%s@%s%s" % (vdi_name, self.sr.SNAPSHOT_PREFIX, snap_uuid)
+
+        snapVDI = self.sr.vdi(snap_uuid)
+        snapVDI.label = "%s (snapshot)" % label #TODO: base or snapshot?
+        snapVDI.description = description
+        snapVDI.path = self.sr._get_path(snap_uuid)
+        snapVDI.location = snapVDI.uuid
+        snapVDI.size = self.size
+        snapVDI.utilisation = self.size
+        snapVDI.sm_config = dict()
+        for key, val in sm_config.iteritems(): # TODO: Remove rbd-parent from here
+            if key not in ["type", "vdi_type", "rbd-parent", "paused", "attached"] and \
+                    not key.startswith("host_"):
+                snapVDI.sm_config[key] = val
+        snapVDI.read_only = True
+        snapVDI.is_a_snapshot = True
+        snapVDI.snapshot_of = vdi_ref
+
+        if 'attached' in sm_config:
+            if 'paused' not in sm_config:
+                if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
+                    raise util.SMException("failed to pause VDI %s" % vdi_uuid)
+            self._unmap_rbd(vdi_uuid,self.size, devlinks=False, norefcount=True)
+        # ---
+        util.pread2(
+            ["rbd", "snap", "create", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        util.pread2(
+            ["rbd", "snap", "protect", snapshot_name, "--pool", self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
+        snapVDI.ref = snapVDI._db_introduce()
+        CVDI.update(snapVDI, sr_uuid, snap_uuid)
+        # ---
+        if 'attached' in sm_config:
+            self._map_rbd(vdi_uuid, self.size, devlinks=False, norefcount=True)
+            if 'paused' not in sm_config:
+                if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None):
+                    raise util.SMException("failed to unpause VDI %s" % vdi_uuid)
+
+        return snapVDI.get_params()
 
     def resize(self, sr_uuid, vdi_uuid, size):
         """

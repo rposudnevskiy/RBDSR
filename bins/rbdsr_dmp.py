@@ -44,7 +44,7 @@ class RBDDMPSR(CSR):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.SR.vdi vdi_uuid = %s" % vdi_uuid)
+        util.SMlog("rbdsr_dmp.SR.vdi vdi_uuid = %s" % vdi_uuid)
 
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDDMPVDI(self, vdi_uuid)
@@ -129,18 +129,29 @@ class RBDDMPVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Test the method
+        # TODO: Checked. Need to check for 'base_mirror'
         util.SMlog("rbdsr_dmp.RBDDMPVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
 
-        self._map_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
-
-        if 'dmp-parent' in sm_config:
-            return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'cow')
+        if 'base_mirror' in sm_config: # check if VDI is SXM created vdi
+            if is_a_snapshot:
+                # it's a mirror vdi of storage migrating VM
+                # it's attached first
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'mirror')
+            else:
+                # it's a base vdi of storage migrating VM
+                # it's attached after mirror VDI and mirror snapshot VDI has been created
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'linear')
         else:
-            return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'linear')
+            self._map_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
+
+            if 'dmp-parent' in sm_config:
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'cow')
+            else:
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'linear')
 
     def detach(self, sr_uuid, vdi_uuid):
         """
@@ -148,7 +159,7 @@ class RBDDMPVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Test the method
+        # TODO: Checked
         util.SMlog("rbdsr_dmp.RBDDMPVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         super(RBDDMPVDI, self).detach(sr_uuid, vdi_uuid)
@@ -161,7 +172,7 @@ class RBDDMPVDI(CVDI):
         :param snap_uuid:
         :return:
         """
-        # TODO: Test the method
+        # TODO: Checked
         util.SMlog("rbdsr_dmp.RBDDMPVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
 
         return self.clone(sr_uuid, vdi_uuid, mode='snapshot')
@@ -172,7 +183,7 @@ class RBDDMPVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Test the method
+        # TODO: Checked
         util.SMlog("rbdsr_dmp.RBDDMPVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
@@ -182,7 +193,7 @@ class RBDDMPVDI(CVDI):
         description = self.session.xenapi.VDI.get_name_description(vdi_ref)
 
         if mode == 'snapshot' and is_a_snapshot:
-            raise util.SMException("Can not make snapshot form snapshot %s" % vdi_uuid)
+            raise util.SMException("Can not make snapshot from snapshot %s" % vdi_uuid)
 
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
 
@@ -288,3 +299,61 @@ class RBDDMPVDI(CVDI):
         """
         util.SMlog("rbdsr_dmp.RBDDMPVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
         # TODO: Test the method
+
+        parent_uuid = vdi1_uuid
+        mirror_uuid = vdi2_uuid
+
+        parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_uuid)
+        mirror_vdi_ref = self.session.xenapi.VDI.get_by_uuid(mirror_uuid)
+
+        parent_sm_config = self.session.xenapi.VDI.get_sm_config(parent_vdi_ref)
+        mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
+
+        if filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
+            for mirror_host_key in filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
+                if filter(lambda x: x.startswith('host_'), parent_sm_config.keys()):
+                    for parent_host_key in filter(lambda x: x.startswith('host_'), parent_sm_config.keys()):
+                        self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, parent_host_key)
+                self.session.xenapi.VDI.add_to_sm_config(parent_vdi_ref, mirror_host_key,
+                                                         mirror_sm_config[mirror_host_key])
+
+        if 'attached' in mirror_sm_config:
+            if 'paused' not in mirror_sm_config:
+                if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
+                    raise util.SMException("failed to pause VDI %s" % mirror_uuid)
+
+        self.detach(sr_uuid, mirror_uuid)
+
+        if 'dmp-parent' in mirror_sm_config:
+            self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, 'dmp-parent')
+        self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'dmp-parent', parent_uuid)
+        self.sm_config['dmp-parent'] = parent_uuid
+
+        self.attach(sr_uuid, mirror_uuid)
+
+        if 'attached' in mirror_sm_config:
+            if 'paused' not in mirror_sm_config:
+                if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_sm_config, None):
+                    raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
+
+        self.sr.session.xenapi.VDI.set_managed(parent_vdi_ref, False)
+
+        util.SMlog("Compose done")
+
+    def resize(self, sr_uuid, vdi_uuid, size):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param size:
+        :return:
+        """
+        raise xs_errors.XenError('Unimplemented')
+
+    def resize_online(self, sr_uuid, vdi_uuid, size):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param size:
+        :return:
+        """
+        raise xs_errors.XenError('Unimplemented')
