@@ -1074,12 +1074,68 @@ class CVDI(VDI.VDI):
         return retval
 
     def _disable_rbd_caching(self, userbdmeta, ceph_pool_name, _vdi_name):
+        """
+        :param userbdmeta:
+        :param ceph_pool_name:
+        :param _vdi_name:
+        :return:
+        """
+        util.SMlog("rbdsr_common.VDI._disable_rbd_caching: userbdmeta=%s, ceph_pool_name=%s, _vdi_name=%s" %
+                   (userbdmeta, ceph_pool_name, _vdi_name))
+
         if userbdmeta == 'True':
             util.pread2(['rbd', 'image-meta', 'set', "%s/%s" % (ceph_pool_name, _vdi_name), 'conf_rbd_cache', 'false'])
         if userbdmeta == 'False':
             if not os.path.isfile("/etc/ceph/ceph.conf.nocaching"):
                 os.system("printf \"[client]\\n\\trbd cache = false\\n\\n\" > /etc/ceph/ceph.conf.nocaching")
                 os.system("cat /etc/ceph/ceph.conf >> /etc/ceph/ceph.conf.nocaching")
+
+    def _get_vdi_hostRefs(self, vdi_uuid):
+        """
+        :param vdi_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.VDI._get_vdi_mapped_hosts: vdi_uuid=%s" % vdi_uuid)
+
+        vdi_hostRefs = {}
+
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+
+        if filter(lambda x: x.startswith('host_'), sm_config.keys()):
+            for key in filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                host_ref = key[len('host_'):]
+                host_uuid = self.session.xenapi.host.get_uuid(host_ref)
+                vdi_hostRefs[host_uuid] = host_ref
+
+        return vdi_hostRefs
+
+    def _set_vdi_hostRefs(self, vdi_uuid, vdi_hostRefs):
+        """
+        :param vdi_uuid:
+        :param vdi_hostRefs:
+        :return:
+        """
+        util.SMlog("rbdsr_common.VDI._get_vdi_mapped_hosts: vdi_uuid=%s, hostRefs=$s" % (vdi_uuid, vdi_hostRefs))
+
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+
+        for key, value in vdi_hostRefs.iteritems():
+            self.session.xenapi.VDI.add_to_sm_config(vdi_ref, "host_%s" % value, '')
+
+    def _rm_vdi_hostRefs(self, vdi_uuid):
+        """
+        :param vdi_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.VDI._rm_vdi_mapped_hosts: vdi_uuid=%s" % vdi_uuid)
+
+        vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+
+        if filter(lambda x: x.startswith('host_'), sm_config.keys()):
+            for key in filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, key)
 
     def load(self, vdi_uuid):
         """
@@ -1358,13 +1414,16 @@ class CVDI(VDI.VDI):
                 raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                                   (vdi_uuid, sr_uuid))
 
-    def attach(self, sr_uuid, vdi_uuid, dmmode='None'):
+    def attach(self, sr_uuid, vdi_uuid, host_uuid=None, dmmode='None'):
         """
         :param sr_uuid:
         :param vdi_uuid:
+        :param host_uuid:
+        :param dmmode:
         :return:
         """
-        util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s" % (sr_uuid, vdi_uuid, dmmode))
+        util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s" % (sr_uuid, vdi_uuid,
+                                                                                                   dmmode, host_uuid))
         # TODO: Test the method
 
         if not hasattr(self,'xenstore_data'):
@@ -1377,29 +1436,30 @@ class CVDI(VDI.VDI):
 
         if self.rbd_info is not None:
             if self.rbd_info[0] == 'image':
-                self._map_rbd(vdi_uuid, self.rbd_info[1]['size'], dmmode=dmmode)
+                self._map_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
             else:
-                self._map_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], dmmode=dmmode)
+                self._map_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid,
+                                   dmmode=dmmode)
 
             return super(CVDI, self).attach(sr_uuid, vdi_uuid)
         else:
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                               (vdi_uuid, sr_uuid))
 
-    def detach(self, sr_uuid, vdi_uuid):
+    def detach(self, sr_uuid, vdi_uuid, host_uuid=None):
         """
         :param sr_uuid:
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common.CVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        util.SMlog("rbdsr_common.CVDI.detach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
         # TODO: Test the method
 
         if self.rbd_info is not None:
             if self.rbd_info[0] == 'image':
-                self._unmap_rbd(vdi_uuid, self.rbd_info[1]['size'])
+                self._unmap_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
             else:
-                self._unmap_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'])
+                self._unmap_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
         else:
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                               (vdi_uuid, sr_uuid))

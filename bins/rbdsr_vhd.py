@@ -17,6 +17,7 @@
 
 import vhdutil
 import lvhdutil
+import inventory
 from rbdsr_common import *
 
 VDI_TYPE = 'vhd'
@@ -40,25 +41,6 @@ class RBDVHDSR(CSR):
 
         super(RBDVHDSR, self).load(sr_uuid)
 
-#    def scan(self, sr_uuid):
-#        """
-#        :param sr_uuid:
-#        :return:
-#        """
-#        util.SMlog("rbdsr_vhd.SR.scan: sr_uuid=%s" % sr_uuid)
-#
-#        super(RBDVHDSR, self).scan(sr_uuid)
-
-#    def update(self, sr_uuid):
-#        """
-#        :param sr_uuid:
-#        :return:
-#        """
-#
-#        util.SMlog("rbdsr_vhd.SR.update: sr_uuid=%s" % sr_uuid)
-#
-#        super(RBDVHDSR, self).update(sr_uuid)
-
     def vdi(self, vdi_uuid):
         """
         Create a VDI class
@@ -74,15 +56,6 @@ class RBDVHDSR(CSR):
 
 class RBDVHDVDI(CVDI):
 
-#    def __init__(self, sr_ref, vdi_uuid):
-#        """
-#        :param sr_ref:
-#        :param vdi_uuid:
-#        """
-#        util.SMlog("rbdsr_vhd.VDI.__init__: vdi_uuid=%s" % vdi_uuid)
-#
-#        super(RBDVHDVDI, self).__init__(sr_ref, vdi_uuid)
-
     def _create_vhd_over_rbd(self, vdi_uuid, size, rbd_size):
         """
         :param vdi_uuid:
@@ -95,14 +68,6 @@ class RBDVHDVDI(CVDI):
         ## print "---- self.path = %s, long(size) = %s, False = %s , lvhdutil.MSIZE_MB = %s" % (self.path, long(size), False, lvhdutil.MSIZE_MB)
         vhdutil.create(self.path, long(size), False, lvhdutil.MSIZE_MB)
         self._unmap_rbd(vdi_uuid, rbd_size, norefcount=True)
-
-#    def load(self, vdi_uuid):
-#        """
-#        :param vdi_uuid:
-#        """
-#        util.SMlog("rbdsr_vhd.VDI.load: vdi_uuid=%s" % vdi_uuid)
-#
-#        super(RBDVHDVDI, self).load(vdi_uuid)
 
     def _map_vhd_chain(self, sr_uuid, vdi_uuid, rbd_size, host_uuid=None, read_only=None, dmmode='None', devlinks=True, norefcount=False):
         """
@@ -187,63 +152,32 @@ class RBDVHDVDI(CVDI):
 
         return retval
 
-#    def delete(self, sr_uuid, vdi_uuid):
-#        """
-#        :param sr_uuid:
-#        :param vdi_uuid:
-#        :return:
-#        """
-#        util.SMlog("rbdsr_vhd.RBDVHDVDI.delete: sr_uuid = %s, vdi_uuid = %s" % (sr_uuid, vdi_uuid))
-#
-#        super(RBDVHDVDI, self).delete(sr_uuid, vdi_uuid)
+    def attach(self, sr_uuid, vdi_uuid, host_uuid=None, dmmode='None'):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+        # TODO: Checked
+        util.SMlog("rbdsr_vhd.RBDVHDVDI.attach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
 
-#    def update(self, sr_uuid, vdi_uuid):
-#        """
-#        :param sr_uuid:
-#        :param vdi_uuid:
-#        :return:
-#        """
-#        util.SMlog("rbdsr_vhd.RBDVHDVDI.update: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
-#
-#        super(RBDVHDVDI, self).update(sr_uuid, vdi_uuid)
+        self._map_vhd_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
 
-#    def introduce(self, sr_uuid, vdi_uuid):
-#        """
-#        Explicitly introduce a particular VDI.
-#        :param sr_uuid:
-#        :param vdi_uuid:
-#        :return:
-#        """
-#
-#        util.SMlog("rbdsr_vhd.RBDVHDVDI.introduce: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
-#
-#        super(RBDVHDVDI, self).update(sr_uuid, vdi_uuid)
+        return super(RBDVHDVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode=dmmode)
 
-    def attach(self, sr_uuid, vdi_uuid):
+    def detach(self, sr_uuid, vdi_uuid, host_uuid=None):
         """
         :param sr_uuid:
         :param vdi_uuid:
         :return:
         """
         # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        util.SMlog("rbdsr_vhd.RBDVHDVDI.detach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
 
-        self._map_vhd_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
+        super(RBDVHDVDI, self).detach(sr_uuid, vdi_uuid, host_uuid=host_uuid)
 
-        return super(RBDVHDVDI, self).attach(sr_uuid, vdi_uuid)
-
-    def detach(self, sr_uuid, vdi_uuid):
-        """
-        :param sr_uuid:
-        :param vdi_uuid:
-        :return:
-        """
-        # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
-
-        super(RBDVHDVDI, self).detach(sr_uuid, vdi_uuid)
-
-        self._unmap_vhd_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
+        self._unmap_vhd_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
 
     def snapshot(self, sr_uuid, vdi_uuid):
         """
@@ -262,7 +196,7 @@ class RBDVHDVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Checked
+        # TODO: Test the method
         util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
@@ -270,6 +204,8 @@ class RBDVHDVDI(CVDI):
         is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
         label = self.session.xenapi.VDI.get_name_label(vdi_ref)
         description = self.session.xenapi.VDI.get_name_description(vdi_ref)
+
+        local_host_uuid = inventory.get_localhost_uuid()
 
         if mode == 'snapshot' and is_a_snapshot:
             raise util.SMException("Can not make snapshot form snapshot %s" % vdi_uuid)
@@ -300,7 +236,6 @@ class RBDVHDVDI(CVDI):
             cloneVDI.snapshot_of = vdi_ref
 
         retval_clone = RBDVHDVDI.create(cloneVDI, sr_uuid, clone_uuid, cloneVDI.size)
-        #retval_clone = cloneVDI.create(sr_uuid, clone_uuid, self.rbd_info[1]['size'])
         clone_ref = self.session.xenapi.VDI.get_by_uuid(clone_uuid)
 
         if not is_a_snapshot:
@@ -316,7 +251,6 @@ class RBDVHDVDI(CVDI):
             baseVDI.sm_config = dict()
 
             retval_base = RBDVHDVDI.create(baseVDI,sr_uuid, base_uuid, baseVDI.size)
-            #retval_base = baseVDI.create(sr_uuid, base_uuid, self.rbd_info[1]['size'])
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         else:
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
@@ -341,24 +275,43 @@ class RBDVHDVDI(CVDI):
         if not is_a_snapshot:
             if 'attached' in sm_config:
                 self._map_rbd(vdi_uuid, self.size, devlinks=False, norefcount=True)
+                base_hostRefs = self._get_vdi_hostRefs(vdi_uuid)
+                if local_host_uuid not in base_hostRefs:
+                    self.attach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
             else:
-                self.attach(sr_uuid, vdi_uuid)
+                self.attach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
+                base_hostRefs = {}
         else:
             if 'attached' not in baseVDI.sm_config:
-                RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid)
+                RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
+                base_hostRefs = {}
+            else:
+                base_hostRefs = self._get_vdi_hostRefs(base_uuid)
+                if local_host_uuid not in base_hostRefs:
+                    RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
 
         if is_a_snapshot:
-            RBDVHDVDI.attach(cloneVDI, sr_uuid, clone_uuid)
+            RBDVHDVDI.attach(cloneVDI, sr_uuid, clone_uuid, host_uuid=local_host_uuid)
+
             vhdutil.snapshot(cloneVDI.path, baseVDI.path, False, lvhdutil.MSIZE_MB)
-            RBDVHDVDI.detach(cloneVDI, sr_uuid, clone_uuid)
+
+            RBDVHDVDI.detach(cloneVDI, sr_uuid, clone_uuid, host_uuid=local_host_uuid)
         else:
-            RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid)
-            RBDVHDVDI.attach(cloneVDI, sr_uuid, clone_uuid)
+            if bool(base_hostRefs):
+                for host_uuid in base_hostRefs.iterkeys():
+                    RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=host_uuid)
+            if local_host_uuid not in base_hostRefs:
+                RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
+            RBDVHDVDI.attach(cloneVDI, sr_uuid, clone_uuid, host_uuid=local_host_uuid)
+
             vhdutil.snapshot(cloneVDI.path, baseVDI.path, False, lvhdutil.MSIZE_MB)
             vhdutil.snapshot(self.path, baseVDI.path, False, lvhdutil.MSIZE_MB)
             vhdutil.setHidden(baseVDI.path)
-            RBDVHDVDI.detach(cloneVDI, sr_uuid, clone_uuid)
-            #RBDVHDVDI.detach(baseVDI, sr_uuid, base_uuid)
+
+            RBDVHDVDI.detach(cloneVDI, sr_uuid, clone_uuid, host_uuid=local_host_uuid)
+            if local_host_uuid not in base_hostRefs:
+                RBDVHDVDI.detach(baseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
+
             baseVDI.read_only = True
             self.session.xenapi.VDI.set_read_only(base_ref, True)
 
@@ -387,12 +340,11 @@ class RBDVHDVDI(CVDI):
                 if 'paused' not in sm_config:
                     if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None):
                         raise util.SMException("failed to unpause VDI %s" % vdi_uuid)
-            else:
-                self.detach(sr_uuid, vdi_uuid)
-                RBDVHDVDI.detach(baseVDI, sr_uuid, base_uuid)
+            if local_host_uuid not in base_hostRefs:
+                self.detach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
         else:
-            if 'attached' not in baseVDI.sm_config:
-                RBDVHDVDI.detach(baseVDI, sr_uuid, base_uuid)
+            if local_host_uuid not in base_hostRefs:
+                RBDVHDVDI.detach(baseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
 
         return retval_clone
 
@@ -411,6 +363,8 @@ class RBDVHDVDI(CVDI):
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
+        vdi_hostRefs = self._get_vdi_hostRefs(vdi_uuid)
+        local_host_uuid = inventory.get_localhost_uuid()
 
         if 'attached' in sm_config and online is False:
             online = True
@@ -429,15 +383,25 @@ class RBDVHDVDI(CVDI):
             retval = super(RBDVHDVDI, self).resize(sr_uuid, vdi_uuid, rbdSizeNew)
 
         if not online:
-            self._map_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
-            # map_vhd_chain
+            #self._map_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
+            self.attach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
+        else:
+            if local_host_uuid not in vdi_hostRefs:
+                self.attach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
 
         vhdutil.setSizePhys(self.path, size, False)
         vhdutil.setSizeVirtFast(self.path, size)
 
+        if online:
+            if not blktap2.VDI.tap_refresh(self.session, self.sr.uuid, vdi_uuid, True):
+                raise util.SMException("failed to refresh VDI %s" % vdi_uuid)
+
         if not online:
-            # unmap_vhd_chain
-            self._unmap_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
+            #self._unmap_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
+            self.detach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
+        else:
+            if local_host_uuid not in vdi_hostRefs:
+                self.detach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
 
         self.size = size
         self.session.xenapi.VDI.set_virtual_size(vdi_ref, str(size))
@@ -468,60 +432,39 @@ class RBDVHDVDI(CVDI):
         util.SMlog("rbdsr_vhd.RBDVHDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
         # TODO: Test the method
 
-        parent_uuid = vdi1_uuid
+        base_uuid = vdi1_uuid
         mirror_uuid = vdi2_uuid
 
-        parent_path = self.sr._get_path(parent_uuid)
+        base_path = self.sr._get_path(base_uuid)
         mirror_path = self.sr._get_path(mirror_uuid)
 
-        parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_uuid)
+        base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         mirror_vdi_ref = self.session.xenapi.VDI.get_by_uuid(mirror_uuid)
 
-        parent_sm_config = self.session.xenapi.VDI.get_sm_config(parent_vdi_ref)
+        base_sm_config = self.session.xenapi.VDI.get_sm_config(base_vdi_ref)
         mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
 
-        if filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
-            for mirror_host_key in filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
-                if filter(lambda x: x.startswith('host_'), parent_sm_config.keys()):
-                    for parent_host_key in filter(lambda x: x.startswith('host_'), parent_sm_config.keys()):
-                        self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, parent_host_key)
-                self.session.xenapi.VDI.add_to_sm_config(parent_vdi_ref, mirror_host_key,
-                                                         mirror_sm_config[mirror_host_key])
+        mirror_hostRefs = self._get_vdi_hostRefs(mirror_uuid)
+        local_host_uuid = inventory.get_localhost_uuid()
 
-        self.attach(sr_uuid, parent_uuid)
+        for host_uuid in mirror_hostRefs.iterkeys():
+            self.attach(sr_uuid, base_uuid, host_uuid=host_uuid)
+        if local_host_uuid not in mirror_hostRefs:
+            self.attach(sr_uuid, base_uuid, host_uuid=local_host_uuid)
 
-        vhdutil.setParent(mirror_path, parent_path, False)
-        vhdutil.setHidden(parent_path)
-        self.sr.session.xenapi.VDI.set_managed(parent_vdi_ref, False)
+        vhdutil.setParent(mirror_path, base_path, False)
+        vhdutil.setHidden(base_path)
+        self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
 
         if 'vhd-parent' in mirror_sm_config:
             self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, 'vhd-parent')
-        self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'vhd-parent', parent_uuid)
-        self.sm_config['vhd-parent'] = parent_uuid
+        self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'vhd-parent', base_uuid)
+        self.sm_config['vhd-parent'] = base_uuid
+
+        if local_host_uuid not in mirror_hostRefs:
+            self.detach(sr_uuid, base_uuid, host_uuid=local_host_uuid)
 
         if not blktap2.VDI.tap_refresh(self.session, self.sr.uuid, mirror_uuid, True):
             raise util.SMException("failed to refresh VDI %s" % mirror_uuid)
 
         util.SMlog("Compose done")
-
-#    def generate_config(self, sr_uuid, vdi_uuid):
-#        """
-#        :param sr_uuid:
-#        :param vdi_uuid:
-#        :return:
-#        """
-#        util.SMlog("rbdsr_vhd.RBDVHDVDI.generate_config: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
-#        # TODO: Test the method
-#
-#        return super(RBDVHDVDI, self).generate_config(sr_uuid, vdi_uuid)
-
-#    def attach_from_config(self, sr_uuid, vdi_uuid):
-#        """
-#        :param sr_uuid:
-#        :param vdi_uuid:
-#        :return:
-#        """
-#        util.SMlog("rbdsr_vhd.RBDVHDVDI.attach_from_config: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
-#        # TODO: Test the method
-#
-#        return super(RBDVHDVDI, self).attach_from_config(sr_uuid, vdi_uuid)
