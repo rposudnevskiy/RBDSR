@@ -192,6 +192,8 @@ class RBDDMPVDI(CVDI):
         label = self.session.xenapi.VDI.get_name_label(vdi_ref)
         description = self.session.xenapi.VDI.get_name_description(vdi_ref)
 
+        local_host_uuid = inventory.get_localhost_uuid()
+
         if mode == 'snapshot' and is_a_snapshot:
             raise util.SMException("Can not make snapshot from snapshot %s" % vdi_uuid)
 
@@ -254,6 +256,7 @@ class RBDDMPVDI(CVDI):
                     if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
                         raise util.SMException("failed to pause VDI %s" % vdi_uuid)
                 self._unmap_rbd(vdi_uuid, self.size, norefcount=True)
+                base_hostRefs = self._get_vdi_hostRefs(vdi_uuid)
             util.SMlog(
                 "rbdsr_vhd.RBDDMPVDI.clone: Swap Base and VDI: sr_uuid=%s, vdi_uuid=%s, base_uuid=%s" % (sr_uuid, vdi_uuid, base_uuid))
             tmp_uuid = "temporary"  # util.gen_uuid()
@@ -279,10 +282,11 @@ class RBDDMPVDI(CVDI):
 
         if not is_a_snapshot:
             if 'attached' in sm_config:
-                if 'dmp-parent' in baseVDI.sm_config:
-                    self._map_rbd(base_uuid, self.size, dmmode='cow2base')
-                else:
-                    self._map_rbd(base_uuid, self.size, dmmode='base')
+                for host_uuid in base_hostRefs.iterkeys():
+                    if 'dmp-parent' in baseVDI.sm_config:
+                        self._map_rbd(base_uuid, self.size, host_uuid=host_uuid, dmmode='cow2base')
+                    else:
+                        self._map_rbd(base_uuid, self.size, host_uuid=host_uuid, dmmode='base')
                 self._map_rbd(vdi_uuid, self.size, dmmode='cow', norefcount=True)
                 if 'paused' not in sm_config:
                     if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, vdi_uuid, None):
@@ -300,22 +304,14 @@ class RBDDMPVDI(CVDI):
         util.SMlog("rbdsr_dmp.RBDDMPVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
         # TODO: Test the method
 
-        parent_uuid = vdi1_uuid
+        base_uuid = vdi1_uuid
         mirror_uuid = vdi2_uuid
 
-        parent_vdi_ref = self.session.xenapi.VDI.get_by_uuid(parent_uuid)
+        base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         mirror_vdi_ref = self.session.xenapi.VDI.get_by_uuid(mirror_uuid)
 
-        parent_sm_config = self.session.xenapi.VDI.get_sm_config(parent_vdi_ref)
+        base_sm_config = self.session.xenapi.VDI.get_sm_config(base_vdi_ref)
         mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
-
-        if filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
-            for mirror_host_key in filter(lambda x: x.startswith('host_'), mirror_sm_config.keys()):
-                if filter(lambda x: x.startswith('host_'), parent_sm_config.keys()):
-                    for parent_host_key in filter(lambda x: x.startswith('host_'), parent_sm_config.keys()):
-                        self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, parent_host_key)
-                self.session.xenapi.VDI.add_to_sm_config(parent_vdi_ref, mirror_host_key,
-                                                         mirror_sm_config[mirror_host_key])
 
         if 'attached' in mirror_sm_config:
             if 'paused' not in mirror_sm_config:
@@ -326,8 +322,8 @@ class RBDDMPVDI(CVDI):
 
         if 'dmp-parent' in mirror_sm_config:
             self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, 'dmp-parent')
-        self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'dmp-parent', parent_uuid)
-        self.sm_config['dmp-parent'] = parent_uuid
+        self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'dmp-parent', base_uuid)
+        self.sm_config['dmp-parent'] = base_uuid
 
         self.attach(sr_uuid, mirror_uuid)
 
@@ -336,7 +332,7 @@ class RBDDMPVDI(CVDI):
                 if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_sm_config, None):
                     raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
 
-        self.sr.session.xenapi.VDI.set_managed(parent_vdi_ref, False)
+        self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
 
         util.SMlog("Compose done")
 
