@@ -297,9 +297,8 @@ class RBDVHDVDI(CVDI):
 
             RBDVHDVDI.detach(cloneVDI, sr_uuid, clone_uuid, host_uuid=local_host_uuid)
         else:
-            if bool(base_hostRefs):
-                for host_uuid in base_hostRefs.iterkeys():
-                    RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=host_uuid)
+            for host_uuid in base_hostRefs.iterkeys():
+                RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=host_uuid)
             if local_host_uuid not in base_hostRefs:
                 RBDVHDVDI.attach(baseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
             RBDVHDVDI.attach(cloneVDI, sr_uuid, clone_uuid, host_uuid=local_host_uuid)
