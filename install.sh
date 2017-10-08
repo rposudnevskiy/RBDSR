@@ -75,11 +75,7 @@ function installCeph {
   echo "Install RBDSR depenencies"
   yum install -y snappy leveldb gdisk python-argparse gperftools-libs fuse fuse-libs
   echo "Install Ceph"
-  if [ "$1" = "luminous" ]; then
-    yum install -y -x librados2-12.0.3 -x libradosstriper1-12.0.3 -x librados2-12.0.2 -x libradosstriper1-12.0.2 -x librados2-12.0.1 -x libradosstriper1-12.0.1 ceph-common-12.0.0 rbd-nbd-12.0.0 rbd-fuse-12.0.0
-  else
-    yum install -y ceph-common rbd-fuse rbd-nbd
-  fi
+  yum install -y ceph-common rbd-fuse rbd-nbd
 }
 
 function installFiles {
@@ -87,8 +83,12 @@ function installFiles {
   copyFile "bins/waitdmmerging.sh"      "/usr/bin/waitdmmerging.sh"
   copyFile "bins/ceph_plugin.py"        "/etc/xapi.d/plugins/ceph_plugin"
   copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR.py"
-  copyFile "bins/cephutils.py"          "/opt/xensource/sm/cephutils.py"
+  copyFile "bins/rbdsr_vhd.py"          "/opt/xensource/sm/rbdsr_vhd.py"
+  copyFile "bins/rbdsr_dmp.py"          "/opt/xensource/sm/rbdsr_dmp.py"
+  copyFile "bins/rbdsr_rbd.py"          "/opt/xensource/sm/rbdsr_rbd.py"
+  copyFile "bins/rbdsr_common.py"       "/opt/xensource/sm/rbdsr_common.py"
 
+  copyFile "bins/cleanup.py"            "/opt/xensource/sm/cleanup.py"
   copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
   copyFile "bins/vhd-tool"             "/bin/vhd-tool"
   copyFile "bins/sparse_dd"            "/usr/libexec/xapi/sparse_dd"
@@ -106,8 +106,12 @@ function removeFiles {
   rm -f "/usr/bin/waitdmmerging.sh"
   rm -f "/etc/xapi.d/plugins/ceph_plugin"
   rm -f "/opt/xensource/sm/RBDSR"
-  rm -f "/opt/xensource/sm/cephutils.py"
+  rm -f "/opt/xensource/sm/rbdsr_vhd.py"
+  rm -f "/opt/xensource/sm/rbdsr_dmp.py"
+  rm -f "/opt/xensource/sm/rbdsr_rbd.py"
+  rm -f "/opt/xensource/sm/rbdsr_common.py"
 
+  rm -f "/opt/xensource/sm/cleanup.py"
   rm -f "/sbin/tap-ctl"
   rm -f "/bin/vhd-tool"
   rm -f "/usr/libexec/xapi/sparse_dd"
@@ -134,6 +138,7 @@ function install {
   backupFile "/sbin/tap-ctl"
   backupFile "/bin/vhd-tool"
   backupFile "/usr/libexec/xapi/sparse_dd"
+  backupFile "/opt/xensource/sm/cleanup.py"
 
   installFiles
 
@@ -147,6 +152,7 @@ function deinstall {
   restoreFile "/sbin/tap-ctl"
   restoreFile "/bin/vhd-tool"
   restoreFile "/usr/libexec/xapi/sparse_dd"
+  restoreFile "/opt/xensource/sm/cleanup.py"
   deinstallRepo $1
 }
 

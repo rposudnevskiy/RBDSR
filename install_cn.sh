@@ -82,9 +82,13 @@ function installFiles {
   copyFile "bins/waitdmmerging.sh"      "/usr/bin/waitdmmerging.sh"
   copyFile "bins/ceph_plugin.py"        "/etc/xapi.d/plugins/ceph_plugin"
   copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR.py"
-  copyFile "bins/cephutils.py"          "/opt/xensource/sm/cephutils.py"
+  copyFile "bins/rbdsr_vhd.py"          "/opt/xensource/sm/rbdsr_vhd.py"
+  copyFile "bins/rbdsr_dmp.py"          "/opt/xensource/sm/rbdsr_dmp.py"
+  copyFile "bins/rbdsr_rbd.py"          "/opt/xensource/sm/rbdsr_rbd.py"
+  copyFile "bins/rbdsr_common.py"       "/opt/xensource/sm/rbdsr_common.py"
 
-  #copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
+  copyFile "bins/cleanup.py"            "/opt/xensource/sm/cleanup.py"
+  copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
   copyFile "bins/vhd-tool"             "/bin/vhd-tool"
   copyFile "bins/sparse_dd"            "/usr/libexec/xapi/sparse_dd"
 
@@ -101,8 +105,12 @@ function removeFiles {
   rm -f "/usr/bin/waitdmmerging.sh"
   rm -f "/etc/xapi.d/plugins/ceph_plugin"
   rm -f "/opt/xensource/sm/RBDSR"
-  rm -f "/opt/xensource/sm/cephutils.py"
+  rm -f "/opt/xensource/sm/rbdsr_vhd.py"
+  rm -f "/opt/xensource/sm/rbdsr_dmp.py"
+  rm -f "/opt/xensource/sm/rbdsr_rbd.py"
+  rm -f "/opt/xensource/sm/rbdsr_common.py"
 
+  rm -f "/opt/xensource/sm/cleanup.py"
   rm -f "/sbin/tap-ctl"
   rm -f "/bin/vhd-tool"
   rm -f "/usr/libexec/xapi/sparse_dd"
@@ -120,9 +128,10 @@ function install {
   installEpel
   installCeph
 
-  #backupFile "/sbin/tap-ctl"
+  backupFile "/sbin/tap-ctl"
   backupFile "/bin/vhd-tool"
   backupFile "/usr/libexec/xapi/sparse_dd"
+  backupFile "/opt/xensource/sm/cleanup.py"
 
   installFiles
 
@@ -135,13 +144,14 @@ function deinstall {
   restoreFile "/sbin/tap-ctl"
   restoreFile "/bin/vhd-tool"
   restoreFile "/usr/libexec/xapi/sparse_dd"
+  restoreFile "/opt/xensource/sm/cleanup.py"
   deinstallRepo $1
 }
 
 case $1 in
     update)
-  	yum update -y ceph-common rbd-fuse rbd-nbd --enablerepo=base,extras --releasever=7
-	;;
+    yum update -y ceph-common rbd-fuse rbd-nbd --enablerepo=base,extras --releasever=7
+    ;;
     install)
         if [ -z "$2" ]; then
             install $DEFAULT_CEPH_VERSION
