@@ -123,10 +123,12 @@ class RBDDMPVDI(CVDI):
 
             self._unmap_rbd(parent_uuid, rbd_size, host_uuid, devlinks, norefcount)
 
-    def attach(self, sr_uuid, vdi_uuid):
+    def attach(self, sr_uuid, vdi_uuid, host_uuid=None, dmmode='None'):
         """
         :param sr_uuid:
         :param vdi_uuid:
+        :param host_uuid:
+        :param dmmode:
         :return:
         """
         # TODO: Checked. Need to check for 'base_mirror'
@@ -134,26 +136,37 @@ class RBDDMPVDI(CVDI):
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
-        is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
+        if 'base_mirror' in sm_config:
+            if 'dmp-parent' in sm_config:
+                sxm_vdi_type = 'mirror'
+            else:
+                sxm_vdi_type = 'base'
+        else:
+            sxm_vdi_type = 'none'
 
         if 'base_mirror' in sm_config: # check if VDI is SXM created vdi
-            if is_a_snapshot:
-                # it's a mirror vdi of storage migrating VM
-                # it's attached first
-                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'mirror')
+            # ######### SXM VDIs
+            if dmmode == 'None':
+                if sxm_vdi_type == 'mirror':
+                    # it's a mirror vdi of storage migrating VM
+                    # it's attached first
+                    return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode='mirror')
+                elif sxm_vdi_type == 'base':
+                    # it's a base vdi of storage migrating VM
+                    # it's attached after mirror VDI and mirror snapshot VDI has been created
+                    return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode='linear')
             else:
-                # it's a base vdi of storage migrating VM
-                # it's attached after mirror VDI and mirror snapshot VDI has been created
-                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'linear')
+                self._map_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode=dmmode)
         else:
-            self._map_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
+            self._map_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
 
             if 'dmp-parent' in sm_config:
-                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'cow')
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode='cow')
             else:
-                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, 'linear')
+                return super(RBDDMPVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode='linear')
 
-    def detach(self, sr_uuid, vdi_uuid):
+    def detach(self, sr_uuid, vdi_uuid, host_uuid=None):
         """
         :param sr_uuid:
         :param vdi_uuid:
@@ -162,9 +175,9 @@ class RBDDMPVDI(CVDI):
         # TODO: Checked
         util.SMlog("rbdsr_dmp.RBDDMPVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
-        super(RBDDMPVDI, self).detach(sr_uuid, vdi_uuid)
+        super(RBDDMPVDI, self).detach(sr_uuid, vdi_uuid, host_uuid=host_uuid)
 
-        self._unmap_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'])
+        self._unmap_dmp_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
 
     def snapshot(self, sr_uuid, vdi_uuid):
         """
@@ -191,8 +204,6 @@ class RBDDMPVDI(CVDI):
         is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
         label = self.session.xenapi.VDI.get_name_label(vdi_ref)
         description = self.session.xenapi.VDI.get_name_description(vdi_ref)
-
-        local_host_uuid = inventory.get_localhost_uuid()
 
         if mode == 'snapshot' and is_a_snapshot:
             raise util.SMException("Can not make snapshot from snapshot %s" % vdi_uuid)
@@ -310,8 +321,9 @@ class RBDDMPVDI(CVDI):
         base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         mirror_vdi_ref = self.session.xenapi.VDI.get_by_uuid(mirror_uuid)
 
-        base_sm_config = self.session.xenapi.VDI.get_sm_config(base_vdi_ref)
         mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
+
+        BaseVDI = self.sr.vdi(base_uuid)
 
         if 'attached' in mirror_sm_config:
             if 'paused' not in mirror_sm_config:
@@ -324,8 +336,9 @@ class RBDDMPVDI(CVDI):
             self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, 'dmp-parent')
         self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'dmp-parent', base_uuid)
         self.sm_config['dmp-parent'] = base_uuid
+        self.update(sr_uuid, mirror_uuid)
 
-        self.attach(sr_uuid, mirror_uuid)
+        self.attach(sr_uuid, mirror_uuid, dmmode='cow')
 
         if 'attached' in mirror_sm_config:
             if 'paused' not in mirror_sm_config:
@@ -333,6 +346,7 @@ class RBDDMPVDI(CVDI):
                     raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
 
         self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
+        RBDDMPVDI.update(BaseVDI, sr_uuid, base_uuid) # TODO: Check if xapi invoke update after set_* op, if it's true then this line can be removed
 
         util.SMlog("Compose done")
 

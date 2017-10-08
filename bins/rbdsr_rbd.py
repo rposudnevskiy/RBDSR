@@ -16,6 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from rbdsr_common import *
+import inventory
 
 VDI_TYPE = 'aio'
 
@@ -56,10 +57,12 @@ class RBDRBDSR(CSR):
 
 class RBDRBDVDI(CVDI):
 
-    def attach(self, sr_uuid, vdi_uuid):
+    def attach(self, sr_uuid, vdi_uuid, host_uuid=None, dmmode='None'):
         """
         :param sr_uuid:
         :param vdi_uuid:
+        :param host_uuid:
+        :param dmmode:
         :return:
         """
         # TODO: Test the method
@@ -67,22 +70,30 @@ class RBDRBDVDI(CVDI):
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
-        is_a_snapshot = self.session.xenapi.VDI.get_is_a_snapshot(vdi_ref)
+        if 'base_mirror' in sm_config:
+            if 'dmp-parent' in sm_config:
+                sxm_vdi_type = 'mirror'
+            else:
+                sxm_vdi_type = 'base'
+        else:
+            sxm_vdi_type = 'none'
 
         if 'base_mirror' in sm_config:  # check if VDI is SXM created vdi
-            ########## SXM VDIs
-            if is_a_snapshot:
-                # it's a mirror vdi of storage migrating VM
-                # it's attached first
-                # creating dm snapshot dev
-                return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid, 'mirror')
+            # ######### SXM VDIs
+            if dmmode == 'None':
+                if sxm_vdi_type == 'mirror':
+                    # it's a mirror vdi of storage migrating VM
+                    # it's attached first
+                    return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode='mirror')
+                elif sxm_vdi_type == 'base':
+                    # it's a base vdi of storage migrating VM
+                    # it's attached after mirror VDI and mirror snapshot VDI has been created
+                    return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode='linear')
             else:
-                # it's a base vdi of storage migrating VM
-                # it's attached after mirror VDI and mirror snapshot VDI has been created
-                return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid)
+                return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode=dmmode)
         else:
             ########## not SXM VDIs
-            return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid)
+            return super(RBDRBDVDI, self).attach(sr_uuid, vdi_uuid, host_uuid=host_uuid, dmmode=dmmode)
 
     def snapshot(self, sr_uuid, vdi_uuid):
         """
@@ -231,3 +242,63 @@ class RBDRBDVDI(CVDI):
         """
         util.SMlog("rbdsr_dmp.RBDRBDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
         # TODO: Test the method
+
+        base_uuid = vdi1_uuid
+        mirror_uuid = vdi2_uuid
+        mirror_vdi_ref = self.session.xenapi.VDI.get_by_uuid(mirror_uuid)
+        mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
+        local_host_uuid = inventory.get_localhost_uuid()
+
+        if 'attached' in mirror_sm_config:
+            if 'paused' not in mirror_sm_config:
+                if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, mirror_uuid):
+                    raise util.SMException("failed to pause VDI %s" % mirror_uuid)
+            self._unmap_rbd(mirror_uuid, self.rbd_info[1]['size'], devlinks=True, norefcount=True)
+
+        self._map_rbd(mirror_uuid, self.rbd_info[1]['size'], host_uuid=local_host_uuid, dmmode='None', devlinks=True,
+                      norefcount=True)
+        self._map_rbd(base_uuid, self.rbd_info[1]['size'], host_uuid=local_host_uuid, dmmode='base', devlinks=True,
+                      norefcount=True)
+        ######## Execute merging dm snapshot to base
+        try:
+            _mirror_vdi_name = "%s%s" % (VDI_PREFIX, mirror_uuid)
+            _mirror_dev_name = "%s/%s" % (self.sr.DEV_ROOT, _mirror_vdi_name)
+            _base_vdi_name = "%s%s" % (VDI_PREFIX, base_uuid)
+            _base_dev_name = "%s/%s" % (self.sr.DEV_ROOT, _base_vdi_name)
+            _base_dm_name = "%s-%s-base" % (self.sr.CEPH_POOL_NAME, _base_vdi_name)
+
+            util.pread2(["dmsetup", "suspend", _base_dm_name])
+            util.pread2(["dmsetup", "reload", _base_dm_name, "--table",
+                         "0 %s snapshot-merge %s %s P 1" % (str(int(self.rbd_info[1]['size']) / 512), _base_dev_name, _mirror_dev_name)])
+            util.pread2(["dmsetup", "resume", _base_dm_name])
+            # we should wait until the merge is completed
+            util.pread2(["waitdmmerging.sh", _base_dm_name])
+        except Exception:
+            self._unmap_rbd(mirror_uuid, self.rbd_info[1]['size'], host_uuid=local_host_uuid, devlinks=True,
+                          norefcount=True)
+            self._unmap_rbd(base_uuid, self.rbd_info[1]['size'], host_uuid=local_host_uuid, devlinks=True,
+                          norefcount=True)
+            if 'attached' in mirror_sm_config:
+                self._map_rbd(mirror_uuid, self.rbd_info[1]['size'], devlinks=True, norefcount=True)
+                if 'paused' not in mirror_sm_config:
+                    if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_uuid, None):
+                        raise util.SMException("failed to unpause VDI %s" % mirror_uuid)
+        ########
+        self._unmap_rbd(base_uuid, self.rbd_info[1]['size'], host_uuid=local_host_uuid, devlinks=True,
+                        norefcount=True)
+        self._unmap_rbd(mirror_uuid, self.rbd_info[1]['size'], host_uuid=local_host_uuid, devlinks=True,
+                        norefcount=True)
+        ######## Swap snapshot and base
+        tmp_uuid = "temporary"  # util.gen_uuid()
+        self._rename_rbd(mirror_uuid, tmp_uuid)
+        self._rename_rbd(base_uuid, mirror_uuid)
+        self._rename_rbd(tmp_uuid, base_uuid)
+        ########
+
+        if 'attached' in mirror_sm_config:
+            self._unmap_rbd(mirror_uuid, self.rbd_info[1]['size'], dmmode='None', devlinks=True, norefcount=True)
+            if 'paused' not in mirror_sm_config:
+                if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_uuid, None):
+                    raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
+
+        util.SMlog("Compose done")

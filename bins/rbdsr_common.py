@@ -827,8 +827,9 @@ class CVDI(VDI.VDI):
                 "dmmode": dmmode,
                 "size": str(size)}
 
-        if 'dmp-parent' in sm_config:
-            args['_dmbasedev_name'] = "%s%s" % (self.sr.DM_ROOT, "%s%s-base" % (self.sr.VDI_PREFIX, sm_config['dmp-parent']))
+        if filter(lambda x: x.endswith('-parent'), sm_config.keys()):
+            for key in filter(lambda x: x.endswith('-parent'), sm_config.keys()):
+                args['_dmbasedev_name'] = "%s%s" % (self.sr.DM_ROOT, "%s%s-base" % (self.sr.VDI_PREFIX, sm_config[key]))
 
         def __call_plugin__():
             if not norefcount:

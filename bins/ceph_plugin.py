@@ -22,6 +22,7 @@ sys.path.append("/opt/xensource/sm/")
 import util
 import os.path
 
+
 def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
     if userbdmeta == 'True':
         util.pread2(['rbd', 'image-meta', 'set', "%s/%s" % (CEPH_POOL_NAME, _vdi_name), 'conf_rbd_cache', 'false'])
@@ -29,6 +30,7 @@ def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
         if not os.path.isfile("/etc/ceph/ceph.conf.nocaching"):
             os.system("printf \"[client]\\n\\trbd cache = false\\n\\n\" > /etc/ceph/ceph.conf.nocaching")
             os.system("cat /etc/ceph/ceph.conf >> /etc/ceph/ceph.conf.nocaching")
+
 
 def _map(session, arg_dict):
     mode = arg_dict['mode']
@@ -117,6 +119,7 @@ def _map(session, arg_dict):
 
     return 'mapped'
 
+
 def _unmap(session, arg_dict):
     mode = arg_dict['mode']
     dev_name = arg_dict['dev_name']
@@ -153,6 +156,7 @@ def _unmap(session, arg_dict):
         util.pread2(["unlink", _dev_name])
 
     return "unmapped"
+
 
 def __map(session, arg_dict):
     mode = arg_dict['mode']
@@ -200,6 +204,7 @@ def __map(session, arg_dict):
 
     return 'mapped'
 
+
 def __unmap(session, arg_dict):
     mode = arg_dict['mode']
     _dev_name = arg_dict['_dev_name']
@@ -220,6 +225,7 @@ def __unmap(session, arg_dict):
         util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
 
     return "unmapped"
+
 
 if __name__ == '__main__':
     XenAPIPlugin.dispatch({'map': _map,

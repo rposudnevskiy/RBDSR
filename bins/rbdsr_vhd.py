@@ -264,7 +264,7 @@ class RBDVHDVDI(CVDI):
                 if 'paused' not in sm_config:
                     if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
                         raise util.SMException("failed to pause VDI %s" % vdi_uuid)
-                self._unmap_rbd(vdi_uuid, self.size, devlinks=False, norefcount=True)
+                self._unmap_rbd(vdi_uuid, self.rbd_info[1]['size'], devlinks=False, norefcount=True)
             util.SMlog(
                 "rbdsr_vhd.RBDVHDVDI.clone: Swap Base and VDI: sr_uuid=%s, vdi_uuid=%s, base_uuid=%s" % (sr_uuid, vdi_uuid, base_uuid))
             tmp_uuid = "temporary"  # util.gen_uuid()
@@ -274,7 +274,7 @@ class RBDVHDVDI(CVDI):
 
         if not is_a_snapshot:
             if 'attached' in sm_config:
-                self._map_rbd(vdi_uuid, self.size, devlinks=False, norefcount=True)
+                self._map_rbd(vdi_uuid, self.rbd_info[1]['size'], devlinks=False, norefcount=True)
                 base_hostRefs = self._get_vdi_hostRefs(vdi_uuid)
                 if local_host_uuid not in base_hostRefs:
                     self.attach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
@@ -440,28 +440,33 @@ class RBDVHDVDI(CVDI):
         base_vdi_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         mirror_vdi_ref = self.session.xenapi.VDI.get_by_uuid(mirror_uuid)
 
-        base_sm_config = self.session.xenapi.VDI.get_sm_config(base_vdi_ref)
         mirror_sm_config = self.session.xenapi.VDI.get_sm_config(mirror_vdi_ref)
 
         mirror_hostRefs = self._get_vdi_hostRefs(mirror_uuid)
         local_host_uuid = inventory.get_localhost_uuid()
 
+        BaseVDI = self.sr.vdi(base_uuid)
+
         for host_uuid in mirror_hostRefs.iterkeys():
-            self.attach(sr_uuid, base_uuid, host_uuid=host_uuid)
+            RBDVHDVDI.attach(BaseVDI, sr_uuid, base_uuid, host_uuid=host_uuid)
         if local_host_uuid not in mirror_hostRefs:
-            self.attach(sr_uuid, base_uuid, host_uuid=local_host_uuid)
+            RBDVHDVDI.attach(BaseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
+            self.attach(sr_uuid, mirror_uuid, host_uuid=local_host_uuid)
 
         vhdutil.setParent(mirror_path, base_path, False)
         vhdutil.setHidden(base_path)
         self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
+        RBDVHDVDI.update(BaseVDI, sr_uuid, base_uuid) # TODO: Check if xapi invoke update after set_* op, if it's true then we can remove this line
 
         if 'vhd-parent' in mirror_sm_config:
             self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, 'vhd-parent')
         self.session.xenapi.VDI.add_to_sm_config(mirror_vdi_ref, 'vhd-parent', base_uuid)
         self.sm_config['vhd-parent'] = base_uuid
+        self.update(sr_uuid, mirror_uuid)
 
         if local_host_uuid not in mirror_hostRefs:
-            self.detach(sr_uuid, base_uuid, host_uuid=local_host_uuid)
+            self.detach(sr_uuid, mirror_uuid, host_uuid=local_host_uuid)
+            RBDVHDVDI.detach(BaseVDI, sr_uuid, base_uuid, host_uuid=local_host_uuid)
 
         if not blktap2.VDI.tap_refresh(self.session, self.sr.uuid, mirror_uuid, True):
             raise util.SMException("failed to refresh VDI %s" % mirror_uuid)
