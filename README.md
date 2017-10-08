@@ -1,19 +1,29 @@
-# RBDSR - XenServer Storage Manager plugin for CEPH
-This plugin adds support of Ceph block devices into XenServer.
-It supports creation of VDI as RBD device in Ceph pool.
-It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi Storage Migration (XSM) and XenServer High Availability (HA).
+# RBDSR - XenServer Storage Manager plugin for CEPH (v2.0)
+This plugin adds support for Ceph block devices into XenServer.
+It supports the creation of VDI as RBD device in Ceph pool.
+It uses three different approaches in three different driver types to handle VDI snapshots and clones:
+- VHD driver uses VHD Differencing images
+- DMP driver uses Device-Mapper snapshot* targets [(Device-mapper snapshot support)](https://www.kernel.org/doc/Documentation/device-mapper/snapshot.txt)
+- RBD driver uses native Ceph snapshots and clones.
 
-You can change the following device configs using device-config args when creating PBDs on each hosts:
-- cephx-id: the cephx user id to be used. Default is admin for the client.admin user.
-- rbd-mode: can be kernel, fuse or nbd. Default is nbd.
+It also supports Xapi Storage Migration (XSM) and XenServer High Availability (HA).
+
+You can change the following device configs using `device-config` args when creating PBDs on each host:
+ - `rbd-mode` - SR mount mode (optional): `kernel`, `fuse`, `nbd` (default)
+ - `driver-type` - Driver type (optional): `vhd` (default), `dmp`, `rbd`
+ - `cephx-id` - Cephx id to be used (optional): default is `admin`
+ - `use-rbd-meta` - Store VDI params in rbd metadata (optional): `True` (default), `False` (Use a separate image to store VDIs metadata. It's not implemented yet)
+ - `vdi-update-existing` - Update params of existing VDIs on scan (optional): `True`, `False` (default)
+
+Please note that `v1.0` and `v2.0` are not compatible. At the moment there is no mean to migrate from `v1.0` to `v2.0`. Hope to implement it later.
 
 ## Installation
 
-This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so the install script will install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
+This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD devices, so the install script will install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
 
 1. Run this command:
 
-		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/master/netinstall.sh) jewel
+		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/v2.0/netinstall.sh)
 
 2. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
@@ -24,15 +34,15 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 		# xe-toolstack-restart
 
 ## Removal
-		1. Remove all Ceph RBD SR out of XenServer with the appropriate commands.
+1. Remove all Ceph RBD SR out of XenServer with the appropriate commands.
 
-		2. Run this command:
+2. Run this command:
 
-				# ~/RDBSR/install.sh deinstall
+		# ~/RDBSR/install.sh deinstall
 
-		3. Restart XAPI tool-stack on XenServer hosts
+3. Restart XAPI tool-stack on XenServer hosts
 
-				# xe-toolstack-restart
+		# xe-toolstack-restart
 
 
 ## Usage
