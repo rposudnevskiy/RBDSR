@@ -32,7 +32,7 @@ CONFIGURATION = [['rbd-mode', 'SR mount mode (optional): kernel, fuse, nbd (defa
                  ['driver-type', 'Driver type (optional): vhd (default), dmp, rbd'],
                  ['cephx-id', 'Cephx id to be used (optional): default is admin'],
                  ['use-rbd-meta', 'Store VDI params in rbd metadata (optional): True (default), False'],
-                 ['vdi-update-existing', 'Update params of existing VDIs on scan (optional): True (default), False']]
+                 ['vdi-update-existing', 'Update params of existing VDIs on scan (optional): True, False (default)']]
 
 DRIVER_INFO = {
     'name': 'RBD',
@@ -59,9 +59,8 @@ MODE_DEFAULT = 'nbd'
 
 VDI_TYPES = ['vhd', 'aio']
 
-DRIVER_TYPES = ['vhd', 'dmp', 'raw']
+DRIVER_TYPES = ['vhd', 'dmp', 'rbd']
 DRIVER_TYPE_DEFAULT = 'vhd'
-
 
 class RBDSR(object):
     """Ceph Block Devices storage repository"""
@@ -77,11 +76,11 @@ class RBDSR(object):
         srcmd = args[0]
 
         if 'driver-type' in srcmd.dconf:
-            driver_type = srcmd.dconf['driver-type']
+            DRIVER_TYPE = srcmd.dconf['driver-type']
         else:
-            driver_type = DRIVER_TYPE_DEFAULT
+            DRIVER_TYPE = DRIVER_TYPE_DEFAULT
 
-        subtypeclass = "%sSR" % DRIVER_CLASS_PREFIX[driver_type]
+        subtypeclass = "%sSR" % DRIVER_CLASS_PREFIX[DRIVER_TYPE]
         return object.__new__(type('RBDSR',
                                    (RBDSR, globals()[subtypeclass]) + RBDSR.__bases__,
                                    dict(RBDSR.__dict__)),
@@ -95,17 +94,15 @@ class RBDSR(object):
         util.SMlog("RBDSR.SR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
 
         if 'driver-type' in srcmd.dconf:
-            self.driver_type = srcmd.dconf.get('driver-type')
+            self.DRIVER_TYPE = srcmd.dconf.get('driver-type')
         else:
-            self.driver_type = DRIVER_TYPE_DEFAULT
+            self.DRIVER_TYPE = DRIVER_TYPE_DEFAULT
 
         if 'cephx-id' in srcmd.dconf:
             self.CEPH_USER = ("client.%s" % srcmd.dconf.get('cephx-id'))
 
         if 'use-rbd-meta' in srcmd.dconf:
             self.USE_RBD_META = srcmd.dconf['use-rbd-meta']
-        else:
-            self.USE_RBD_META = USE_RBD_META_DEFAULT
 
         if 'vdi-update-existing' in srcmd.dconf:
             self.VDI_UPDATE_EXISTING = srcmd.dconf['vdi-update-existing']
@@ -167,7 +164,7 @@ class RBDVDI(object):
 
     def __new__(cls, *args, **kwargs):
         sr_ref = args[0]
-        subtypeclass = "%sVDI" % DRIVER_CLASS_PREFIX[sr_ref.driver_type]
+        subtypeclass = "%sVDI" % DRIVER_CLASS_PREFIX[sr_ref.DRIVER_TYPE]
         return object.__new__(type('RBDVDI',
                                    (RBDVDI, globals()[subtypeclass]) + RBDVDI.__bases__,
                                    dict(RBDVDI.__dict__)),
