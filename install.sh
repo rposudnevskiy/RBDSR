@@ -75,11 +75,7 @@ function installCeph {
   echo "Install RBDSR depenencies"
   yum install -y snappy leveldb gdisk python-argparse gperftools-libs fuse fuse-libs
   echo "Install Ceph"
-  if [ "$1" = "luminous" ]; then
-    yum install -y -x librados2-12.0.3 -x libradosstriper1-12.0.3 -x librados2-12.0.2 -x libradosstriper1-12.0.2 -x librados2-12.0.1 -x libradosstriper1-12.0.1 ceph-common-12.0.0 rbd-nbd-12.0.0 rbd-fuse-12.0.0
-  else
-    yum install -y ceph-common rbd-fuse rbd-nbd
-  fi
+  yum install -y ceph-common rbd-fuse rbd-nbd
 }
 
 function installFiles {
