@@ -32,9 +32,9 @@ function backupFile {
 
 # Usage: restoreFile <path>
 function restoreFile {
-  echo "Backing Up file $1"
+  echo "Restore file $1"
   if [ -e $1-orig ]; then
-    mv $1 $1-orig
+    mv $1-orig $1
   else
     echo "No $1-orig in place, not restoring!"
   fi
