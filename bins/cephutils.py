@@ -24,7 +24,9 @@ import os
 import blktap2
 import XenAPI
 import inventory
+import xs_errors
 
+DEFAULT_CEPH_USER = 'admin'
 
 RBDPOOL_PREFIX = "RBD_XenStorage-"
 VDI_PREFIX = "VHD-"
@@ -43,6 +45,8 @@ BLOCK_SIZE = 21 #2097152 bytes
 OBJECT_SIZE_IN_B = 2097152
 
 IMAGE_FORMAT = 2
+
+import rbdsr_lock
 
 class SR:
 
@@ -199,6 +203,8 @@ class SR:
 
         self.SR_ROOT = "%s/%s" % (SR_PREFIX, sr_uuid)
         self.DM_ROOT = "%s/%s-" % (DM_PREFIX, self.CEPH_POOL_NAME)
+
+        self.lock = rbdsr_lock.Lock(sr_uuid, cephx_id=self.CEPH_USER)
 
     def scan(self, sr_uuid):
         util.SMlog("Calling cephutils.SR.scan: sr_uuid=%s" % sr_uuid)
@@ -456,14 +462,14 @@ class VDI:
                 util.SMlog("Calling '%s' on host %s" % (op, host_ref))
                 if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
                     # Failed to pause node
-                    raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
+                    raise util.SMException("failed to %s VDI %s" % (op, vdi_uuid))
         else:
             host_uuid = inventory.get_localhost_uuid()
             host_ref = self.session.xenapi.host.get_by_uuid(host_uuid)
             util.SMlog("Calling '%s' on localhost %s" % (op, host_ref))
             if not self.session.xenapi.host.call_plugin(host_ref, "ceph_plugin", op, args):
                 # Failed to pause node
-                raise util.SMException("failed to %s VDI %s" % (op, mirror_uuid))
+                raise util.SMException("failed to %s VDI %s" % (op, vdi_uuid))
 
     def __map_VHD(self, vdi_uuid):
         _vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -728,30 +734,30 @@ class VDI:
         vdi_name = "%s" % (vdi_uuid)
         dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
 
+        host_uuid = inventory.get_localhost_uuid()
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
-        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
         dm="base"
 
-        if sr_sm_config.has_key("dev_instances"):
-            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
-        else:
-            sr_dev_instances={"hosts":{}}
+        self.sr.lock.acquire()
+
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
+        sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
 
         first_free_instance = -1
-        host_uuid = inventory.get_localhost_uuid()
-        if sr_dev_instances["hosts"].has_key(host_uuid):
-            for i in range(NBDS_MAX):
-                if sr_dev_instances["hosts"][host_uuid][i] == None:
-                    first_free_instance = i
-                    break
-            sr_dev_instances["hosts"][host_uuid][first_free_instance] = vdi_uuid
-        else:
-            #sr_dev_instances["hosts"].append({host_uuid:[None]*NBDS_MAX})
-            sr_dev_instances["hosts"][host_uuid] = [None]*NBDS_MAX
-            sr_dev_instances["hosts"][host_uuid][0] = "reserved"
-            sr_dev_instances["hosts"][host_uuid][1] = vdi_uuid
-            first_free_instance = 1
+        for i in range(NBDS_MAX):
+            if sr_dev_instances["hosts"][host_uuid][i] == None:
+                first_free_instance = i
+                break
+        sr_dev_instances["hosts"][host_uuid][first_free_instance] = vdi_uuid
+        self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+        if sm_config.has_key("dev_instance"):
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
+        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, "dev_instance", str(first_free_instance))
+
+        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dm', dm)
 
         dev = str(first_free_instance)
 
@@ -771,14 +777,20 @@ class VDI:
                 "CEPH_USER":self.sr.CEPH_USER,"sharable":sharable,
                 "dm":dm, "dev":dev,
                 "size":str(size)}
-        self._call_plugin('map',args)
-        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dm', dm)
 
-        self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
-        self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
-        if sm_config.has_key("dev_instance"):
+        try:
+           self._call_plugin('map',args)
+        except Exception, e:
+            self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
+            sr_dev_instances["hosts"][host_uuid][first_free_instance] = None
+            self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
             self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
-        self.session.xenapi.VDI.add_to_sm_config(vdi_ref, "dev_instance", str(first_free_instance))
+            self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dm')
+            raise xs_errors.XenError('VDIUnavailable', opterr='Failed to map RBD sr_uuid=%s, vdi_uuid=%s, \
+                                                               host_uuid=%s (%s)' % (self.sr.uuid, vdi_uuid,
+                                                                                     host_uuid, str(e)))
+
+        self.sr.lock.release()
 
     def _unmap_sxm_base(self, vdi_uuid, size):
         _vdi_name = "%s%s" % (VDI_PREFIX, vdi_uuid)
@@ -812,6 +824,8 @@ class VDI:
         self._call_plugin('unmap',args)
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dm')
 
+        self.sr.lock.acquire()
+
         sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
         self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
         host_uuid = inventory.get_localhost_uuid()
@@ -822,6 +836,8 @@ class VDI:
                     break
         self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
+
+        self.sr.lock.release()
 
     def _merge_sxm_diffs(self, mirror_uuid, base_uuid, size):
         util.SMlog("Calling cephutills.VDI._merge_sxm_diffs: mirror_uuid=%s, base_uuid=%s, size=%s" % (mirror_uuid, base_uuid, size))

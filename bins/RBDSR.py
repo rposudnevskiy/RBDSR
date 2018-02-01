@@ -61,7 +61,6 @@ PROVISIONING_DEFAULT = "thick"
 MODE_TYPES = ["kernel", "fuse", "nbd"]
 MODE_DEFAULT = "nbd"
 
-DEFAULT_CEPH_USER = 'admin'
 USE_RBD_META_DEFAULT = True
 VDI_UPDATE_EXISTING_DEFAULT = True
 
@@ -199,7 +198,7 @@ class RBDSR(SR.SR, cephutils.SR):
         self.use_rbd_meta = USE_RBD_META_DEFAULT
         self.vdi_update_existing = VDI_UPDATE_EXISTING_DEFAULT
         self.uuid = sr_uuid
-        ceph_user = DEFAULT_CEPH_USER
+        ceph_user = cephutils.DEFAULT_CEPH_USER
         if self.dconf.has_key('cephx-id'):
             ceph_user = self.dconf.get('cephx-id')
             util.SMlog("RBDSR.load using cephx id %s" % ceph_user)
@@ -221,9 +220,24 @@ class RBDSR(SR.SR, cephutils.SR):
         if not self.RBDPOOLs.has_key(self.uuid):
             raise xs_errors.XenError('SRUnavailable',opterr='no pool with uuid: %s' % sr_uuid)
 
+        host_uuid = inventory.get_localhost_uuid()
+
+        self.lock.acquire()
+
         sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr_ref)
+
         if sr_sm_config.has_key("dev_instances"):
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
             self.session.xenapi.SR.remove_from_sm_config(self.sr_ref, "dev_instances")
+        else:
+            sr_dev_instances={"hosts":{}}
+
+        sr_dev_instances["hosts"][host_uuid] = [None] * cephutils.NBDS_MAX
+        sr_dev_instances["hosts"][host_uuid][0] = "reserved"
+
+        self.session.xenapi.SR.add_to_sm_config(self.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+        self.lock.release()
 
         cephutils.SR.attach(self, sr_uuid)
 
@@ -234,9 +248,20 @@ class RBDSR(SR.SR, cephutils.SR):
     def detach(self, sr_uuid):
         util.SMlog("RBDSR.detach: sr_uuid=%s" % sr_uuid)
 
+        host_uuid = inventory.get_localhost_uuid()
+
+        self.lock.acquire()
+
         sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr_ref)
+
         if sr_sm_config.has_key("dev_instances"):
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
             self.session.xenapi.SR.remove_from_sm_config(self.sr_ref, "dev_instances")
+            sr_dev_instances["hosts"][host_uuid] = [None] * cephutils.NBDS_MAX
+            sr_dev_instances["hosts"][host_uuid][0] = "reserved"
+            self.session.xenapi.SR.add_to_sm_config(self.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+        self.lock.release()
 
         cephutils.SR.detach(self, sr_uuid)
 
@@ -413,31 +438,23 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
-        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
         host_uuid = inventory.get_localhost_uuid()
         self.size = int(self.session.xenapi.VDI.get_virtual_size(vdi_ref))
 
-        if sr_sm_config.has_key("dev_instances"):
-            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
-            self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
-        else:
-            sr_dev_instances={"hosts":{}}
+        self.sr.lock.acquire()
+
+        sr_sm_config = self.session.xenapi.SR.get_sm_config(self.sr.sr_ref)
+        sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
 
         first_free_instance = -1
-        if sr_dev_instances["hosts"].has_key(host_uuid):
-            for i in range(cephutils.NBDS_MAX):
-                if sr_dev_instances["hosts"][host_uuid][i] == None:
-                    first_free_instance = i
-                    break
-            sr_dev_instances["hosts"][host_uuid][first_free_instance] = vdi_uuid
-        else:
-            #sr_dev_instances["hosts"].append({host_uuid:[None]*cephutils.NBDS_MAX})
-            sr_dev_instances["hosts"][host_uuid] = [None]*cephutils.NBDS_MAX
-            sr_dev_instances["hosts"][host_uuid][0] = "reserved"
-            sr_dev_instances["hosts"][host_uuid][1] = vdi_uuid
-            first_free_instance = 1
-
+        for i in range(cephutils.NBDS_MAX):
+            if sr_dev_instances["hosts"][host_uuid][i] == None:
+                first_free_instance = i
+                break
+        sr_dev_instances["hosts"][host_uuid][first_free_instance] = vdi_uuid
         self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
         if sm_config.has_key("dev_instance"):
             self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
         self.session.xenapi.VDI.add_to_sm_config(vdi_ref, "dev_instance", str(first_free_instance))
@@ -493,11 +510,16 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                 self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
             self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
 
-        except:
+        except Exception, e:
             self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
             sr_dev_instances["hosts"][host_uuid][first_free_instance] = None
             self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
             self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
+            raise xs_errors.XenError('VDIUnavailable', opterr='Failed to map RBD sr_uuid=%s, vdi_uuid=%s, \
+                                                               host_uuid=%s (%s)' % (self.sr.uuid, vdi_uuid,
+                                                                                     host_uuid, str(e)))
+
+        self.sr.lock.release()
 
         return VDI.VDI.attach(self, self.sr.uuid, self.uuid)
 
@@ -522,6 +544,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         self.attached = False
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
 
+        self.sr.lock.acquire()
+
         sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
         self.session.xenapi.SR.remove_from_sm_config(self.sr.sr_ref, "dev_instances")
         if sr_dev_instances["hosts"].has_key(host_uuid):
@@ -531,6 +555,8 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
                     break
         self.session.xenapi.SR.add_to_sm_config(self.sr.sr_ref, "dev_instances", json.dumps(sr_dev_instances))
         self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, "dev_instance")
+
+        self.sr.lock.release()
 
     def clone(self, sr_uuid, snap_uuid):
         util.SMlog("RBDVDI.clone: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, snap_uuid))
@@ -660,7 +686,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         util.SMlog("RBDVDI.resize: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
 
         if size < cephutils.OBJECT_SIZE_IN_B:
-            image_size_M = OBJECT_SIZE_IN_B // 1024 // 1024
+            image_size_M = cephutils.OBJECT_SIZE_IN_B // 1024 // 1024
         else:
             image_size_M = size // 1024 // 1024
 
@@ -696,7 +722,7 @@ class RBDVDI(VDI.VDI, cephutils.VDI):
         """Resize the given VDI which may have active VBDs, which have
         been paused for the duration of this call."""
         util.SMlog("RBDVDI.resize_online: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
-        return resize(sr_uuid, vdi_uuid, size)
+        return self.resize(sr_uuid, vdi_uuid, size)
 
     def compose(self, sr_uuid, vdi1_uuid, vdi2_uuid):
         util.SMlog("RBDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))

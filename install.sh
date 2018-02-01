@@ -84,6 +84,7 @@ function installFiles {
   copyFile "bins/ceph_plugin.py"        "/etc/xapi.d/plugins/ceph_plugin"
   copyFile "bins/RBDSR.py"              "/opt/xensource/sm/RBDSR"
   copyFile "bins/cephutils.py"          "/opt/xensource/sm/cephutils.py"
+  copyFile "bins/rbdsr_lock.py"         "/opt/xensource/sm/rbdsr_lock.py"
 
   copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
   copyFile "bins/vhd-tool"             "/bin/vhd-tool"
@@ -102,6 +103,7 @@ function removeFiles {
   rm -f "/etc/xapi.d/plugins/ceph_plugin"
   rm -f "/opt/xensource/sm/RBDSR"
   rm -f "/opt/xensource/sm/cephutils.py"
+  rm -f "/opt/xensource/sm/rbdsr_lock.py"
 
   rm -f "/sbin/tap-ctl"
   rm -f "/bin/vhd-tool"
