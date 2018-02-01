@@ -401,7 +401,7 @@ class XAPI:
 #
 #  VDI
 #
-class VDI:
+class VDI(object):
     """Object representing a VDI of a VHD-based SR"""
 
     POLL_INTERVAL = 1
@@ -1295,7 +1295,7 @@ class LVHDVDI(VDI):
 #
 # SR
 #
-class SR:
+class SR(object):
     class LogFilter:
         def __init__(self, sr):
             self.sr = sr
@@ -1346,7 +1346,8 @@ class SR:
 
     TYPE_FILE = "file"
     TYPE_LVHD = "lvhd"
-    TYPES = [TYPE_LVHD, TYPE_FILE]
+    TYPE_RBD = "rbd"
+    TYPES = [TYPE_LVHD, TYPE_FILE, TYPE_RBD]
 
     LOCK_RETRY_INTERVAL = 3
     LOCK_RETRY_ATTEMPTS = 20
@@ -1367,6 +1368,9 @@ class SR:
             return FileSR(uuid, xapi, createLock, force)
         elif type == SR.TYPE_LVHD:
             return LVHDSR(uuid, xapi, createLock, force)
+        elif type == SR.TYPE_RBD:
+            from RBDSR import RBDSR_GC, RBDVDI_GC
+            return RBDSR_GC(uuid, xapi, createLock, force)
         raise util.SMException("SR type %s not recognized" % type)
     getInstance = staticmethod(getInstance)
 
@@ -2191,13 +2195,6 @@ class FileSR(SR):
         util.fistpoint.activate("LVHDRT_coaleaf_finish_end", self.uuid)
         Util.log("*** finished leaf-coalesce successfully")
 
-class RBDSR(SR):
-    TYPE = "rbd"
-
-    def __init__(self, uuid, xapi, createLock, force):
-        SR.__init__(self, uuid, xapi, createLock, force)
-
-
 class LVHDSR(SR):
     TYPE = SR.TYPE_LVHD
     SUBTYPES = ["lvhdoiscsi", "lvhdohba"]
@@ -2544,7 +2541,7 @@ def _gcLoop(sr, dryRun):
     try:
         # TODO: make the delay configurable
         Util.log("GC active, about to go quiet")
-        time.sleep(5 * 60)
+        #---time.sleep(5 * 60)
         Util.log("GC active, quiet period ended")
 
         while True:

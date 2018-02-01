@@ -302,3 +302,43 @@ class RBDRBDVDI(CVDI):
                     raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
 
         util.SMlog("Compose done")
+
+
+class RBDRBDSR_GC(CSR_GC):
+
+    def __init__(self, sr_uuid, xapi, createLock, force):
+        """
+        :param uuid:
+        :param xapi:
+        :param createLock:
+        :param force:
+        """
+        util.SMlog("rbdsr_rbd.RBDRBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+
+        super(RBDRBDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
+
+        self.VDI_PREFIX = VDI_PREFIX
+        self.vdi_type = VDI_TYPE
+
+    def vdi(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        :return:
+        """
+        util.SMlog("rbdsr_rbd.RBDRBDSR_GC.vdi uuid = %s" % uuid)
+
+        return RBDRBDVDI_GC(self, sr, uuid, raw)
+
+class RBDRBDVDI_GC(CVDI_GC):
+
+    def __init__(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        """
+        util.SMlog("rbdsr_rbd.RBDRBDVDI_GC.__init__: uuid = %s" % uuid)
+
+        super(RBDRBDVDI_GC, self).__init__(sr, uuid, raw)

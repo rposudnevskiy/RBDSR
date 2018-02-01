@@ -367,3 +367,43 @@ class RBDDMPVDI(CVDI):
         :return:
         """
         raise xs_errors.XenError('Unimplemented')
+
+
+class RBDDMPSR_GC(CSR_GC):
+
+    def __init__(self, sr_uuid, xapi, createLock, force):
+        """
+        :param uuid:
+        :param xapi:
+        :param createLock:
+        :param force:
+        """
+        util.SMlog("rbdsr_dmp.RBDDMPSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+
+        super(RBDDMPSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
+
+        self.VDI_PREFIX = VDI_PREFIX
+        self.vdi_type = VDI_TYPE
+
+    def vdi(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        :return:
+        """
+        util.SMlog("rbdsr_dmp.RBDDMPSR_GC.vdi uuid = %s" % uuid)
+
+        return RBDDMPVDI_GC(self, sr, uuid, raw)
+
+class RBDDMPVDI_GC(CSR_GC):
+
+    def __init__(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        """
+        util.SMlog("rbdsr_dmp.RBDDMPSR_GC.__init__: uuid = %s" % uuid)
+
+        super(RBDDMPVDI_GC, self).__init__(sr, uuid, raw)

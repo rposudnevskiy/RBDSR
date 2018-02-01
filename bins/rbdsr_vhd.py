@@ -472,3 +472,130 @@ class RBDVHDVDI(CVDI):
             raise util.SMException("failed to refresh VDI %s" % mirror_uuid)
 
         util.SMlog("Compose done")
+
+
+class RBDVHDSR_GC(CSR_GC):
+
+    def __init__(self, sr_uuid, xapi, createLock, force):
+        """
+        :param uuid:
+        :param xapi:
+        :param createLock:
+        :param force:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+
+        super(RBDVHDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
+
+        self.VDI_PREFIX = VDI_PREFIX
+        self.vdi_type = VDI_TYPE
+
+    def vdi(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        :return:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDSR_GC.vdi uuid = %s" % uuid)
+
+        return RBDVHDVDI_GC(self, sr, uuid, raw)
+
+class RBDVHDVDI_GC(CVDI_GC):
+
+    def __init__(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC.__init__: uuid = %s" % uuid)
+
+        super(RBDVHDVDI_GC, self).__init__(sr, uuid, raw)
+
+    def _map_vhd_chain(self, sr_uuid, vdi_uuid, rbd_size, host_uuid=None, read_only=None, dmmode='None', devlinks=True, norefcount=False):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._map_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+
+        vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
+
+        i = 0
+        vhd_chain=[]
+        #vhd_chain.append(vdi_uuid)
+        #i+=1
+        parent_sm_config = sm_config
+        while 'vhd-parent' in parent_sm_config:
+            parent_uuid = parent_sm_config['vhd-parent']
+            i+=1
+            vhd_chain.append(parent_uuid)
+            parent_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(parent_uuid)
+            parent_sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(parent_ref)
+        i_max = i
+
+        try:
+            for uuid_to_map in reversed(vhd_chain):
+                if read_only is not None:
+                    self._map_rbd(uuid_to_map, rbd_size , host_uuid, read_only, dmmode, devlinks, norefcount)
+                else:
+                    if i > 1:
+                        self._map_rbd(uuid_to_map, rbd_size, host_uuid, read_only, dmmode, devlinks, norefcount)
+                    elif i == 1:
+                        self._map_rbd(uuid_to_map, rbd_size, host_uuid, False, dmmode, devlinks, norefcount)
+                i -= 1
+        except:
+            for k in range(i, i_max):
+                self._unmap_rbd(vhd_chain[k], rbd_size, host_uuid, devlinks, norefcount)
+
+            raise xs_errors.XenError('VDIUnavailable', opterr="Could not map: %s" % vhd_chain[i])
+
+    def _unmap_vhd_chain(self, sr_uuid, vdi_uuid, rbd_size, host_uuid=None, devlinks=True, norefcount=False):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._unmap_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+
+        vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
+
+        #self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
+
+        parent_sm_config = sm_config
+        while 'vhd-parent' in parent_sm_config:
+            parent_uuid = parent_sm_config['vhd-parent']
+            parent_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(parent_uuid)
+            parent_sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(parent_ref)
+
+            self._unmap_rbd(parent_uuid, rbd_size, host_uuid, devlinks, norefcount)
+
+
+    def _activate(self, host_uuid=None, dmmode='None'):
+        """
+        :param host_uuid:
+        :param dmmode:
+        :return:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._activate: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (self.sr.uuid, self.uuid, host_uuid))
+
+        self._map_vhd_chain(self.sr.uuid, self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
+
+        return super(RBDVHDVDI_GC, self)._activate(host_uuid=host_uuid, dmmode=dmmode)
+
+    def _deactivate(self, host_uuid=None):
+        """
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._deactivate: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (self.sr.uuid, self.uuid, host_uuid))
+
+        super(RBDVHDVDI_GC, self)._deactivate(host_uuid=host_uuid)
+
+        self._unmap_vhd_chain(self.sr.uuid, self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)

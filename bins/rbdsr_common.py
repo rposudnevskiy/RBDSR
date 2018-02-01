@@ -15,6 +15,9 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
+import cleanup
+import XenAPI
+
 import util
 import xml.dom.minidom
 import re
@@ -53,6 +56,7 @@ MDVOLUME_SIZE_M = 4
 
 IMAGE_FORMAT_DEFAULT = 2
 
+import rbdsr_lock
 
 class CSR(SR.SR):
 
@@ -64,9 +68,9 @@ class CSR(SR.SR):
         util.SMlog("rbdsr_common.SR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
 
         self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
-        self.VDI_PREFIX = ''  # Should be defined in certain vdi type implementation
+        self.VDI_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
         #self.SNAPSHOT_PREFIX = "SNAP-"
-        self.SNAPSHOT_PREFIX = ''  # Should be defined in certain vdi type implementation
+        self.SNAPSHOT_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
         self.CEPH_POOL_NAME = "%s%s" % (self.RBDPOOL_PREFIX, sr_uuid)
         self.CEPH_USER = ("client.%s" % CEPH_USER_DEFAULT)
         self.USE_RBD_META = USE_RBD_META_DEFAULT
@@ -74,8 +78,8 @@ class CSR(SR.SR):
         self.MDVOLUME_NAME = MDVOLUME_NAME
         self.MDVOLUME_SIZE_M = MDVOLUME_SIZE_M
         self.IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_DEFAULT
-        self.mode = '' # Should be defined in certain vdi type implementation
-        self.vdi_type = '' # Should be defined in certain vdi type implementation
+        self.mode = '#$%' # Must be defined in certain vdi type implementation
+        self.vdi_type = '#$%' # Must be defined in certain vdi type implementation
 
         super(CSR, self).__init__(srcmd, sr_uuid)
 
@@ -122,6 +126,8 @@ class CSR(SR.SR):
         :return:
         """
 
+        self.lock.acquire()
+
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
         try:
@@ -141,8 +147,13 @@ class CSR(SR.SR):
                         sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME, 1]
                         sr_dev_instances["hosts"][host_uuid][1] = "reserved"
                         sr_dev_instances["hosts"][host_uuid][2] = "reserved"
+                    else:
+                        host_uuid = inventory.get_localhost_uuid()
+                        sr_dev_instances["hosts"][host_uuid] = [None] * NBDS_MAX
+                        sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME, 1]
+                        sr_dev_instances["hosts"][host_uuid][1] = "reserved"
+                        sr_dev_instances["hosts"][host_uuid][2] = "reserved"
             else:
-                host_uuid = inventory.get_localhost_uuid()
                 sr_dev_instances["hosts"][host_uuid] = [None] * NBDS_MAX
                 sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME,1]
                 sr_dev_instances["hosts"][host_uuid][1] = "reserved"
@@ -152,6 +163,7 @@ class CSR(SR.SR):
 
         ##
         def __allocate__():
+
             util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
                        % (sr_uuid, vdi_uuid, host_uuid))
 
@@ -174,6 +186,7 @@ class CSR(SR.SR):
 
             util.SMlog("rbdsr_common._allocate_dev_instance: Dev instance %s allocated on host %s for sr %s vdi %s"
                        % (dev_instance, host_uuid, sr_uuid, vdi_uuid))
+
         ##
 
         if host_uuid is None:
@@ -191,6 +204,8 @@ class CSR(SR.SR):
         if "dev_instances" in sr_sm_config:
             self.session.xenapi.SR.remove_from_sm_config(sr_ref, "dev_instances")
         self.session.xenapi.SR.add_to_sm_config(sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+        self.lock.release()
 
     def _get_dev_instance(self, sr_uuid, vdi_uuid, host_uuid):
         """
@@ -254,6 +269,8 @@ class CSR(SR.SR):
         util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
                    % (sr_uuid, vdi_uuid, host_uuid))
 
+        self.lock.acquire()
+
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
@@ -290,6 +307,8 @@ class CSR(SR.SR):
 
             self.session.xenapi.SR.remove_from_sm_config(sr_ref, "dev_instances")
             self.session.xenapi.SR.add_to_sm_config(sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+            self.lock.release()
 
     def _get_path(self, vdi_name):
         """
@@ -571,6 +590,8 @@ class CSR(SR.SR):
         self.DM_ROOT = "%s/%s-" % (DM_PREFIX, self.CEPH_POOL_NAME)
 
         self.mdpath = self._get_path(MDVOLUME_NAME)
+
+        self.lock = rbdsr_lock.Lock(sr_uuid, cephx_id=self.CEPH_USER)
 
         super(CSR, self).load(sr_uuid)
 
@@ -1166,6 +1187,12 @@ class CVDI(VDI.VDI):
             self.sr._updateStats(self.sr.uuid, -self.size)
             self._db_forget()
 
+        if self.USE_RBD_META:
+            pass
+        else:
+            # Delete metadata for VDI
+            pass
+
     def create(self, sr_uuid, vdi_uuid, size):
         """
         :param sr_uuid:
@@ -1732,7 +1759,7 @@ class CVDI(VDI.VDI):
                 pass
             elif self.mode == "nbd":
                 self._disable_rbd_caching()
-                cmdout = util.pread2(["rbd-nbd", "--device", "/dev/nbd0", "--nbds_max", str(NBDS_MAX), "-c",
+                cmdout = util.pread2(["rbd-nbd", "--device", "/dev/nbd1", "--nbds_max", str(NBDS_MAX), "-c",
                                       "/etc/ceph/ceph.conf.nocaching", "map",
                                       "%s/%s" % (self.sr.CEPH_POOL_NAME, _vdi_name), "--name",
                                       self.sr.CEPH_USER]).rstrip('\n')
@@ -1748,6 +1775,792 @@ class CVDI(VDI.VDI):
             util.logException("RBDVDI.attach_from_config")
             raise xs_errors.XenError('SRUnavailable', \
                         opterr='Unable to attach the heartbeat disk')
+
+
+class CSR_GC(cleanup.SR):
+
+    def __init__(self, sr_uuid, xapi, createLock, force):
+        """
+        :param uuid:
+        :param xapi:
+        :param createLock:
+        :param force:
+        """
+        util.SMlog("rbdsr_common.CSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+
+        super(CSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
+
+        self.ref = self.xapi.session.xenapi.SR.get_by_uuid(self.uuid)
+        self.sm_config = self.xapi.session.xenapi.SR.get_sm_config(self.ref)
+        self.SR_ROOT = "%s/%s" % (SR_PREFIX, sr_uuid)
+        self.CEPH_POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+        self.CEPH_USER = "client.%s" % CEPH_USER_DEFAULT
+        self.VDI_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
+        self.SNAPSHOT_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
+        self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
+        #self.mdpath = self._get_path(MDVOLUME_NAME)
+        self.USE_RBD_META = USE_RBD_META_DEFAULT
+
+    def _get_path(self, vdi_name):
+        """
+        :param vdi_name:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC._get_path: vdi_name = %s" % vdi_name)
+        return "%s/%s" % (self.SR_ROOT, vdi_name)
+
+    def _get_rbds_list(self, pool_name):
+        """
+        :param pool_name:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR._get_rbds_list: pool=%s" % pool_name)
+        cmd = ["rbd", "ls", "-l", "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
+        cmdout = util.pread2(cmd)
+        decoded = json.loads(cmdout)
+
+        return decoded
+
+    def _if_rbd_exist(self, rbd_name):
+        """
+        :param vdi_name:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC._if_vdi_exist: rbd_name=%s" % rbd_name)
+
+        try:
+            util.pread2(["rbd", "info", rbd_name, "--pool", self.CEPH_POOL_NAME, "--format", "json", "--name",
+                         self.CEPH_USER])
+            return True
+        except Exception:
+            return False
+
+    def _allocate_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+
+        sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
+        sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
+        try:
+            vdi_ref = self.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+            vdi_sm_config = self.xapi.session.xenapi.SR.get_sm_config(vdi_ref)
+        except Exception:
+            host_uuid = inventory.get_localhost_uuid()
+
+        if "dev_instances" not in sr_sm_config:
+            sr_dev_instances = {"hosts": {}}
+            if host_uuid is None:
+                if filter(lambda x: x.startswith('host_'), vdi_sm_config.keys()):
+                    for key in filter(lambda x: x.startswith('host_'), vdi_sm_config.keys()):
+                        host_ref = key[len('host_'):]
+                        host_uuid = self.xapi.xapi.session.xenapi.host.get_uuid(host_ref)
+                        sr_dev_instances["hosts"][host_uuid] = [None] * NBDS_MAX
+                        sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME, 1]
+                        sr_dev_instances["hosts"][host_uuid][1] = "reserved"
+                        sr_dev_instances["hosts"][host_uuid][2] = "reserved"
+            else:
+                host_uuid = inventory.get_localhost_uuid()
+                sr_dev_instances["hosts"][host_uuid] = [None] * NBDS_MAX
+                sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME,1]
+                sr_dev_instances["hosts"][host_uuid][1] = "reserved"
+                sr_dev_instances["hosts"][host_uuid][2] = "reserved"
+        else:
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+
+        ##
+        def __allocate__():
+            util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
+
+            dev_instance = self._get_dev_instance(sr_uuid, vdi_uuid, host_uuid)
+
+            if dev_instance is None:
+                for i in range(NBDS_MAX):
+                    if sr_dev_instances["hosts"][host_uuid][i] is None:
+                        dev_instance = i
+                        break
+
+            if dev_instance == -1:
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not allocate dev instance for sr %s vdi %s on \
+                                         host %s' % (sr_uuid, vdi_uuid, host_uuid))
+
+            if sr_dev_instances["hosts"][host_uuid][dev_instance] is None:
+                sr_dev_instances["hosts"][host_uuid][dev_instance] = [vdi_uuid, 1]
+            else:
+                sr_dev_instances["hosts"][host_uuid][dev_instance][1] += 1
+
+            util.SMlog("rbdsr_common._allocate_dev_instance: Dev instance %s allocated on host %s for sr %s vdi %s"
+                       % (dev_instance, host_uuid, sr_uuid, vdi_uuid))
+        ##
+
+        if host_uuid is None:
+            if filter(lambda x: x.startswith('host_'), vdi_sm_config.keys()):
+                for key in filter(lambda x: x.startswith('host_'), vdi_sm_config.keys()):
+                    host_ref = key[len('host_'):]
+                    host_uuid = self.xapi.session.xenapi.host.get_uuid(host_ref)
+                    __allocate__()
+            else:
+                host_uuid = inventory.get_localhost_uuid()
+                __allocate__()
+        else:
+            __allocate__()
+
+        if "dev_instances" in sr_sm_config:
+            self.xapi.session.xenapi.SR.remove_from_sm_config(sr_ref, "dev_instances")
+        self.xapi.session.xenapi.SR.add_to_sm_config(sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+    def _get_dev_instance(self, sr_uuid, vdi_uuid, host_uuid):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common._get_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+                   % (sr_uuid, vdi_uuid, host_uuid))
+
+        sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
+        sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
+
+        dev_instance = None
+
+        if "dev_instances" in sr_sm_config:
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+            if host_uuid in sr_dev_instances["hosts"]:
+                for i in range(NBDS_MAX):
+                    if sr_dev_instances["hosts"][host_uuid][i] is not None:
+                        if sr_dev_instances["hosts"][host_uuid][i][0] == vdi_uuid:
+                            dev_instance = i
+                            break
+
+        return dev_instance
+
+    def _get_instance_ref_count(self, sr_uuid, vdi_uuid, host_uuid):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+                   % (sr_uuid, vdi_uuid, host_uuid))
+
+        sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
+        sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
+
+        ref_count = 0
+
+        if "dev_instances" in sr_sm_config:
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+            if host_uuid in sr_dev_instances["hosts"]:
+                for i in range(NBDS_MAX):
+                    if sr_dev_instances["hosts"][host_uuid][i] is not None:
+                        if sr_dev_instances["hosts"][host_uuid][i][0] == vdi_uuid:
+                            ref_count = sr_dev_instances["hosts"][host_uuid][i][1]
+                            break
+
+        return ref_count
+
+    def _free_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+                   % (sr_uuid, vdi_uuid, host_uuid))
+
+        sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
+        sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
+        vdi_ref = self.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        vdi_sm_config = self.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
+        sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+
+        ##
+        def __free__():
+            if host_uuid in sr_dev_instances["hosts"]:
+                for i in range(NBDS_MAX):
+                    if sr_dev_instances["hosts"][host_uuid][i] is not None:
+                        if sr_dev_instances["hosts"][host_uuid][i][0] == vdi_uuid:
+                            if sr_dev_instances["hosts"][host_uuid][i][1] == 1:
+                                sr_dev_instances["hosts"][host_uuid][i] = None
+                                ref_count = 0
+                            else:
+                                sr_dev_instances["hosts"][host_uuid][i][1] -= 1
+                                ref_count = sr_dev_instances["hosts"][host_uuid][i][1]
+                            break
+        ##
+
+        if "dev_instances" in sr_sm_config:
+            if host_uuid is None:
+                if filter(lambda x: x.startswith('host_'), vdi_sm_config.keys()):
+                    for key in filter(lambda x: x.startswith('host_'), vdi_sm_config.keys()):
+                        host_ref = key[len('host_'):]
+                        host_uuid = self.xapi.session.xenapi.host.get_uuid(host_ref)
+                        __free__()
+                else:
+                    host_uuid = inventory.get_localhost_uuid()
+                    __free__()
+            else:
+                __free__()
+
+            self.xapi.session.xenapi.SR.remove_from_sm_config(sr_ref, "dev_instances")
+            self.xapi.session.xenapi.SR.add_to_sm_config(sr_ref, "dev_instances", json.dumps(sr_dev_instances))
+
+    def vdi(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC.vdi uuid = %s" % uuid)
+
+        return CVDI_GC(self, sr, uuid, raw)
+
+    def deleteVDI(self, vdi):
+        """
+        :param vdi:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC.deleteVDI vdi=%s" % vdi)
+
+        #self._checkSlaves(vdi)
+        super(CSR_GC, self).deleteVDI(vdi)
+
+    def forgetVDI(self, vdiUuid):
+        """
+        :param vdiUuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC.forgetVDI vdiUuid = %s" % vdiUuid)
+
+        super(CSR_GC, self).forgetVDI(vdiUuid)
+
+        if self.USE_RBD_META:
+            pass
+        else:
+            pass
+            # Delete metadata for VDI
+            #LVMMetadataHandler(self.mdpath).deleteVdiFromMetadata(vdiUuid)
+
+    def updateBlockInfo(self):
+        """
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC.updateBlockInfo")
+
+        numUpdated = 0
+        for vdi in self.vdis.values():
+            if vdi.scanError or vdi.raw or len(vdi.children) == 0:
+                continue
+            if not vdi.getConfig(vdi.DB_VHD_BLOCKS):
+                vdi.updateBlockInfo()
+                numUpdated += 1
+        if numUpdated:
+            # deactivate the LVs back sooner rather than later. If we don't
+            # now, by the time this thread gets to deactivations, another one
+            # might have leaf-coalesced a node and deleted it, making the child
+            # inherit the refcount value and preventing the correct decrement
+            self.cleanup()
+
+    def _finishInterruptedCoalesceLeaf(self, childUuid, parentUuid):
+        cleanup.Util.log("*** FINISH LEAF-COALESCE")
+        vdi = self.getVDI(childUuid)
+        if not vdi:
+            raise util.SMException("VDI %s not found" % childUuid)
+        #vdi.inflateFully()
+        #util.fistpoint.activate("LVHDRT_coaleaf_finish_after_inflate", self.uuid)
+        try:
+            self.forgetVDI(parentUuid)
+        except XenAPI.Failure:
+            pass
+        #self._updateSlavesOnResize(vdi)
+        #util.fistpoint.activate("LVHDRT_coaleaf_finish_end", self.uuid)
+        cleanup.Util.log("*** finished leaf-coalesce successfully")
+
+    def _handleInterruptedCoalesceLeaf(self):
+        entries = self.journaler.getAll(VDI.JRN_LEAF)
+        for uuid, parentUuid in entries.iteritems():
+            child = "%s%s" % (self.VDI_PREFIX, uuid)
+            tmpChild = "%s%s%s" % (self.VDI_PREFIX, self.TMP_RENAME_PREFIX, uuid)
+            parent = "%s%s" % (self.VDI_PREFIX, parentUuid)
+            parentPresent = self._if_rbd_exist(parent)
+            tmpChildPresent = self._if_rbd_exist(tmpChild)
+            if parentPresent or tmpChildPresent:
+                self._undoInterruptedCoalesceLeaf(uuid, parentUuid)
+            else:
+                self._finishInterruptedCoalesceLeaf(uuid, parentUuid)
+            self.journaler.remove(VDI.JRN_LEAF, uuid)
+            vdi = self.getVDI(uuid)
+            if vdi:
+                vdi.ensureUnpaused()
+
+    def _scan(self, force):
+        """
+        :param force:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC._scan force=%s" % force)
+
+        rbds_list = self._get_rbds_list("%s%s" % (self.RBDPOOL_PREFIX, self.uuid))
+        vdi_info = {':uuid': ''}
+        vdis = {}
+        error = False
+
+        for rbd in rbds_list:
+            if rbd['image'].startswith(self.VDI_PREFIX):
+                regex = re.compile(self.VDI_PREFIX)
+                rbd_vdi_uuid = str(regex.sub('', rbd['image']))
+                if 'snapshot' in rbd:
+                    if rbd['snapshot'].startswith(self.SNAPSHOT_PREFIX):
+                        regex = re.compile(self.SNAPSHOT_PREFIX)
+                        rbd_snap_uuid = regex.sub('', rbd['snapshot'])
+                        meta_source = rbd_vdi_uuid
+                        rbd_vdi_uuid = rbd_snap_uuid
+                        tag_prefix = "%s:" % rbd_snap_uuid
+                    else:
+                        break
+                else:
+                    meta_source = rbd_vdi_uuid
+                    tag_prefix = ':'
+
+                if vdi_info[':uuid'] != meta_source:
+                    if self.USE_RBD_META:
+                        vdi_info = RBDMetadataHandler(self, meta_source).retrieveMetadata()
+                    else:
+                        # TODO: Implement handler for MGT image if we dont use RBD metadata
+                        vdi_info = {}
+
+                vdis[rbd_vdi_uuid] = lambda: None
+                vdis[rbd_vdi_uuid].uuid = rbd_vdi_uuid
+                vdis[rbd_vdi_uuid].fileName = "%s%s" % (self.VDI_PREFIX, rbd_vdi_uuid)
+                vdis[rbd_vdi_uuid].path = self._get_path("%s%s" % (self.VDI_PREFIX, rbd_vdi_uuid))
+
+                for key in filter(lambda x: x.startswith(tag_prefix), vdi_info.keys()):
+                    tag = key[len(tag_prefix):]
+                    util.SMlog("rbdsr_common.CSR_GC._scan tag=%s" % tag)
+                    if tag == UUID_TAG:
+                        vdis[rbd_vdi_uuid].uuid = vdi_info[key]
+                    if tag == NAME_LABEL_TAG:
+                        vdis[rbd_vdi_uuid].label = vdi_info[key]
+                    elif tag == NAME_DESCRIPTION_TAG:
+                        vdis[rbd_vdi_uuid].description = vdi_info[key]
+                    elif tag == IS_A_SNAPSHOT_TAG:
+                        vdis[rbd_vdi_uuid].is_a_snapshot = bool(int(vdi_info[key]))
+                    elif tag == SNAPSHOT_TIME_TAG:
+                        vdis[rbd_vdi_uuid].snapshot_time = str(vdi_info[key])
+                    elif tag == TYPE_TAG:
+                        vdis[rbd_vdi_uuid].type = vdi_info[key]
+                    elif tag == VDI_TYPE_TAG:
+                        vdis[rbd_vdi_uuid].vdi_type = vdi_info[key]
+                        vdis[rbd_vdi_uuid].vdiType = vdi_info[key] # ---
+                        if vdis[rbd_vdi_uuid].vdiType == 'vhd':
+                            ##self._map_rbd(rbd_vdi_uuid, rbd['size'], norefcount=True)
+                            #retval = util.pread2(['/usr/bin/vhd-util', 'scan', '-f', '-c', '-m',
+                            #                      vdis[rbd_vdi_uuid].path])
+                            ##self._unmap_rbd(rbd_vdi_uuid, rbd['size'], norefcount=True)
+                            #valueMap = retval.split()
+                            #for keyval in valueMap:
+                            #    (key, val) = keyval.split('=')
+                            #    if key == "scan-error":
+                            #        vdis[rbd_vdi_uuid].scanError = True
+                            #        util.SMlog("***** VHD scan error: %s" % retval)
+                            #        error = True
+                            #        if not force:
+                            #            break
+                            pass
+                        elif vdis[rbd_vdi_uuid].vdiType == 'aio':
+                            vdis[rbd_vdi_uuid].raw = True
+                    elif tag == READ_ONLY_TAG:
+                        vdis[rbd_vdi_uuid].read_only = bool(int(vdi_info[key]))
+                    elif tag == MANAGED_TAG:
+                        vdis[rbd_vdi_uuid].managed = bool(int(vdi_info[key]))
+                        vdis[rbd_vdi_uuid].hidden = not bool(int(vdi_info[key])) # ---
+                    elif tag == 'shareable':
+                        vdis[rbd_vdi_uuid].shareable = bool(int(vdi_info[key]))
+                    # elif tag == METADATA_OF_POOL_TAG:
+                    #    vdis[rbd_vdi_uuid].metadata_of_pool = vdi_info[key]
+                    elif tag == 'sm_config':
+                        vdis[rbd_vdi_uuid].sm_config = json.loads(vdi_info[key])
+                    #elif tag == SNAPSHOT_OF_TAG:
+                    #    snaps_of[rbd_vdi_uuid] = vdi_info[key]
+
+                vdis[rbd_vdi_uuid].size = rbd['size']
+                vdis[rbd_vdi_uuid].sizeVirt = rbd['size'] # ---
+
+                if filter(lambda x: x.endswith('-parent'), vdis[rbd_vdi_uuid].sm_config.keys()):
+                    for key in filter(lambda x: x.endswith('-parent'), vdis[rbd_vdi_uuid].sm_config.keys()):
+                        vdis[rbd_vdi_uuid].parentUuid = vdis[rbd_vdi_uuid].sm_config[key]
+                else:
+                    vdis[rbd_vdi_uuid].parentUuid = ''
+
+        if error:
+            if force:
+                return vdis
+            else:
+                raise util.SMException("Scan error")
+        else:
+            return vdis
+
+    def scan(self, force = False):
+        """
+        :param force:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CSR_GC.scan force=%s" % force)
+
+        vdis = self._scan(force)
+        for uuid, vdiInfo in vdis.iteritems():
+            vdi = self.getVDI(uuid)
+            if not vdi:
+                self.logFilter.logNewVDI(uuid)
+                if vdiInfo.vdiType == 'vhd':
+                    vdi = self.vdi(self, uuid, False)
+                else:
+                    vdi = self.vdi(self, uuid, True)
+                self.vdis[uuid] = vdi
+            vdi.load(vdiInfo)
+        self._removeStaleVDIs(vdis.keys())
+        self._buildTree(force)
+        self.logFilter.logState()
+        self._handleInterruptedCoalesceLeaf()
+
+class CVDI_GC(cleanup.VDI):
+
+    def __init__(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        """
+        util.SMlog("rbdsr_common.CVDI_GC.__init__: uuid = %s" % uuid)
+
+        super(CVDI_GC, self).__init__(sr, uuid, raw)
+
+        self.rbd_info = self._get_rbd_info(uuid)
+
+        try:
+            vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(uuid)
+            self.exist = True
+        except Exception:
+            self.exist = False
+
+    def load(self, vdiInfo):
+        self.parent     = None
+        self.children   = []
+        self._sizeVHD   = -1
+        ###???self.scanError  = vdiInfo.scanError #commented because can't mount rbd on _scan
+        #self.sizeLV     = vdiInfo.sizeLV
+        self.sizeVirt   = vdiInfo.sizeVirt
+        self.fileName   = vdiInfo.uuid
+        #self.lvActive   = vdiInfo.lvActive
+        #self.lvOpen     = vdiInfo.lvOpen
+        #self.lvReadonly = vdiInfo.lvReadonly
+        self.hidden     = vdiInfo.hidden
+        self.parentUuid = vdiInfo.parentUuid
+        self.path       = os.path.join(self.sr.path, self.fileName)
+
+    def getDriverName(self):
+        if self.raw:
+            return 'aio'
+        return 'vhd'
+
+    def updateBlockInfo(self):
+        if not self.raw:
+            return super(CVDI_GC, self).updateBlockInfo()
+
+    def validate(self, fast = False):
+        if not self.raw:
+            super(CVDI_GC, self).validate(fast)
+
+    def rename(self, uuid):
+        oldUuid = self.uuid
+        oldfileName = self.fileName
+        super(CVDI_GC, self).rename(uuid)
+        self.fileName = "%s%s" % (self.sr.VDI_PREFIX, self.uuid)
+        self.path = self.sr._get_path(self.fileName)
+        assert(not self.sr._if_rbd_exist(self.fileName))
+
+        self._rename_rbd(oldUuid, self.uuid)
+
+        #ns = lvhdutil.NS_PREFIX_LVM + self.sr.uuid
+        #(cnt, bcnt) = RefCounter.check(oldUuid, ns)
+        #RefCounter.set(self.uuid, cnt, bcnt, ns)
+        #RefCounter.reset(oldUuid, ns)
+
+    def _get_rbd_info(self, vdi_uuid):
+        """
+        :param vdi_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.VDI._get_rbd_info: vdi_uuid = %s" % vdi_uuid)
+
+        rbds_list = self.sr._get_rbds_list("%s%s" % (self.sr.RBDPOOL_PREFIX, self.sr.uuid))
+
+        retval = None
+
+        for rbd_info in rbds_list:
+            if "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid) == rbd_info['image']:
+                # vdi is and rbd image
+                retval = ('image', rbd_info)
+                break
+            elif 'snapshot' in rbd_info:
+                if "%s%s" % (self.sr.SNAPSHOT_PREFIX, vdi_uuid) == rbd_info['snapshot']:
+                    # vdi is and rbd snapshot
+                    retval = ('snapshot', rbd_info)
+                    break
+
+        return retval
+
+    def _call_plugin(self, op, args, plugin, host_uuid):
+        """
+        :param op:
+        :param args:
+        :param host_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CVDI_GC._call_plugin: Calling plugin '%s' on host with id '%s' for op '%s'"
+                   % (plugin, host_uuid, op))
+
+        vdi_uuid = args['vdi_uuid']
+        vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
+
+        host_ref = self.sr.xapi.session.xenapi.host.get_by_uuid(host_uuid)
+        args['dev'] = str(self.sr._get_dev_instance(self.sr.uuid, vdi_uuid, host_uuid))
+        if args['dev'] == 'None':
+            args['dev'] = '2'
+        util.SMlog("Calling '%s' of plugin '%s' on localhost %s" % (op, plugin, host_ref))
+        if not self.sr.xapi.session.xenapi.host.call_plugin(host_ref, plugin, op, args):
+            # Failed to execute op for vdi
+            raise util.SMException("Failed to execute '%s' on host with id '%s' VDI %s" % (op, host_uuid, vdi_uuid))
+
+    def _rename_rbd(self, orig_uuid, new_uuid):
+        """
+        :param orig_uuid:
+        :param new_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CVDI_GC._rename_rbd: orig_uuid=%s, new_uuid=%s" % (orig_uuid, new_uuid))
+        orig_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, self.sr.VDI_PREFIX, orig_uuid)
+        new_name = "%s/%s%s" % (self.sr.CEPH_POOL_NAME, self.sr.VDI_PREFIX, new_uuid)
+        util.pread2(["rbd", "mv", orig_name, new_name, "--name", self.sr.CEPH_USER])
+
+    def _map_rbd(self, vdi_uuid, size, host_uuid=None, read_only=None, dmmode='None', devlinks=True, norefcount=False):
+        """
+        :param vdi_uuid:
+        :param size:
+        :param host_uuid:
+        :param read_only:
+        :param dmmode:
+        :param devlinks:
+        :param norefcount:
+        :return:
+        """
+        util.SMlog("rbdsr_common.VDI._map_rbd: vdi_uuid = %s, size = %s, host_uuid = %s, read_only = %s, dmmode = %s, \
+                   devlinks = %s, norefcount = %s" % (vdi_uuid, size, host_uuid, read_only, dmmode, devlinks,
+                                                      norefcount))
+
+        _vdi_name = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
+        _dev_name = "%s/%s" % (self.sr.DEV_ROOT, _vdi_name)
+        _dmdev_name = "%s%s" % (self.sr.DM_ROOT, _vdi_name)
+        _dm_name = "%s-%s" % (self.sr.CEPH_POOL_NAME, _vdi_name)
+        vdi_name = "%s" % vdi_uuid
+        dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
+
+        vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if read_only is None:
+            read_only = self.sr.xapi.session.xenapi.VDI.get_read_only(vdi_ref)
+        sharable = self.sr.xapi.session.xenapi.VDI.get_sharable(vdi_ref)
+
+        args = {"mode": self.sr.mode, "vdi_uuid": vdi_uuid,
+                "vdi_name": vdi_name,  "dev_name": dev_name,
+                "_vdi_name": _vdi_name,  "_dev_name": _dev_name,
+                "_dmdev_name": _dmdev_name, "_dm_name": _dm_name,
+                "CEPH_POOL_NAME": self.sr.CEPH_POOL_NAME,
+                "NBDS_MAX": str(NBDS_MAX),
+                "CEPH_USER": self.sr.CEPH_USER, "sharable": str(sharable),
+                "read_only": str(read_only), "userbdmeta": str(self.sr.USE_RBD_META),
+                "dmmode": dmmode,
+                "size": str(size)}
+
+        if filter(lambda x: x.endswith('-parent'), sm_config.keys()):
+            for key in filter(lambda x: x.endswith('-parent'), sm_config.keys()):
+                args['_dmbasedev_name'] = "%s%s" % (self.sr.DM_ROOT, "%s%s-base" % (self.sr.VDI_PREFIX, sm_config[key]))
+
+        def __call_plugin__():
+            if not norefcount:
+                self.sr._allocate_dev_instance(self.sr.uuid, vdi_uuid, host_uuid)
+
+            if self.sr._get_instance_ref_count(self.sr.uuid, vdi_uuid, host_uuid) == 1 or norefcount:
+                try:
+                    if devlinks:
+                        self._call_plugin('map', args, 'ceph_plugin', host_uuid)
+                    else:
+                        self._call_plugin('_map', args, 'ceph_plugin', host_uuid)
+
+                    if 'attached' not in sm_config and self.exist:
+                        self.sr.xapi.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'attached', 'true')
+
+                except Exception, e:
+                   if not norefcount:
+                       self.sr._free_dev_instance(self.sr.uuid, vdi_uuid, host_uuid)
+                   raise xs_errors.XenError('VDIUnavailable', opterr='Failed to map RBD sr_uuid=%s, vdi_uuid=%s, \
+                                            host_uuid=%s (%s)' % (self.sr.uuid, vdi_uuid, host_uuid, str(e)))
+
+        if host_uuid is None:
+            if filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                for key in filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                    host_ref = key[len('host_'):]
+                    host_uuid = self.sr.xapi.session.xenapi.host.get_uuid(host_ref)
+                    __call_plugin__()
+            else:
+                host_uuid = inventory.get_localhost_uuid()
+                __call_plugin__()
+        else:
+            __call_plugin__()
+
+        if self.exist:
+            if 'dmmode' in sm_config:
+                self.sr.xapi.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dmmode')
+            self.sr.xapi.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dmmode', dmmode)
+
+    def _unmap_rbd(self, vdi_uuid, size, host_uuid=None, devlinks=True, norefcount=False):
+
+        """
+        :param vdi_uuid:
+        :param size:
+        :param host_uuid:
+        :param devlinks:
+        :param norefcount:
+        :return:
+        """
+
+        vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
+        sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
+        if 'dmmode' in sm_config:
+            dmmode = sm_config['dmmode']
+        else:
+            dmmode = 'None'
+
+        util.SMlog("rbdsr_common.VDI._unmap_rbd: vdi_uuid = %s, size = %s, host_uuid = %s, dmmode = %s, \
+                   devlinks = %s, norefcount = %s" % (vdi_uuid, size, host_uuid, dmmode, devlinks,
+                                                      norefcount))
+
+        _vdi_name = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
+        _dev_name = "%s/%s" % (self.sr.DEV_ROOT, _vdi_name)
+        _dmdev_name = "%s%s" % (self.sr.DM_ROOT, _vdi_name)
+        _dm_name = "%s-%s" % (self.sr.CEPH_POOL_NAME, _vdi_name)
+        vdi_name = "%s" % vdi_uuid
+        dev_name = "%s/%s" % (self.sr.SR_ROOT, vdi_name)
+
+        args = {"mode": self.sr.mode, "vdi_uuid": vdi_uuid,
+                "vdi_name": vdi_name,  "dev_name": dev_name,
+                "_vdi_name": _vdi_name,  "_dev_name": _dev_name,
+                "_dmdev_name": _dmdev_name, "_dm_name": _dm_name,
+                "CEPH_POOL_NAME": self.sr.CEPH_POOL_NAME,
+                "NBDS_MAX": str(NBDS_MAX),
+                "CEPH_USER": self.sr.CEPH_USER,
+                "userbdmeta": str(self.sr.USE_RBD_META),
+                "dmmode": dmmode,
+                "size": str(size)}
+
+        def __call_plugin__():
+            if self.sr._get_instance_ref_count(self.sr.uuid, vdi_uuid, host_uuid) == 1 or norefcount:
+                try:
+                    if devlinks:
+                        self._call_plugin('unmap',args, 'ceph_plugin', host_uuid)
+                    else:
+                        self._call_plugin('_unmap', args, 'ceph_plugin', host_uuid)
+
+                    if 'attached' in sm_config and self.exist:
+                        self.sr.xapi.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'attached')
+
+                except Exception, e:
+                    raise xs_errors.XenError('VDIUnavailable', opterr='Failed to unmap RBD for %s (%s)' % (vdi_uuid, str(e)))
+
+            if not norefcount:
+                self.sr._free_dev_instance(self.sr.uuid, vdi_uuid, host_uuid)
+
+        if host_uuid is None:
+            if filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                for key in filter(lambda x: x.startswith('host_'), sm_config.keys()):
+                    host_ref = key[len('host_'):]
+                    host_uuid = self.sr.xapi.session.xenapi.host.get_uuid(host_ref)
+                    __call_plugin__()
+            else:
+                host_uuid = inventory.get_localhost_uuid()
+                __call_plugin__()
+        else:
+            __call_plugin__()
+
+        if self.exist:
+            if 'dmmode' in sm_config:
+                self.sr.xapi.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dmmode')
+
+
+    def _activate(self, host_uuid=None, read_only=None, dmmode='None'):
+        """
+        :return:
+        """
+        util.SMlog("rbdsr_common.CVDI_GC._activate: uuid = %s" % self.uuid)
+
+        if self.rbd_info is not None:
+            if self.rbd_info[0] == 'image':
+                self._map_rbd(self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, read_only=read_only, dmmode=dmmode)
+            else:
+                self._map_rbd_snap(self.rbd_info[1]['image'], self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid,
+                                   read_only=read_only, dmmode=dmmode)
+        else:
+            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
+                                                              (self.uuid, self.sr.uuid))
+
+    def _deactivate(self, host_uuid=None):
+        """
+        :param sr_uuid:
+        :param vdi_uuid:
+        :return:
+        """
+        util.SMlog("rbdsr_common.CVDI.detach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (self.sr.uuid, self.uuid, host_uuid))
+        # TODO: Test the method
+
+        if self.rbd_info is not None:
+            if self.rbd_info[0] == 'image':
+                self._unmap_rbd(self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
+            else:
+                self._unmap_rbd_snap(self.rbd_info[1]['image'], self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
+        else:
+            raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
+                                                              (self.uuid, self.sr.uuid))
+
+    def _doCoalesce(self):
+        """
+        :return:
+        """
+        util.SMlog("rbdsr_common.CVDI_GC._doCoalesce: uuid = %s" % self.uuid)
+
+        try:
+            self._activate()
+            self.validate()
+            self.parent.validate(True)
+
+            self.parent._increaseSizeVirt(self.sizeVirt)
+            self.sr._updateSlavesOnResize(self.parent)
+            self._coalesceVHD(0)
+            self.parent.validate(True)
+            # self._verifyContents(0)
+            self.parent.updateBlockInfo()
+
+            ##VDI._doCoalesce(self)
+        finally:
+            self.parent._loadInfoSizeVHD()
 
 
 class RBDMetadataHandler:

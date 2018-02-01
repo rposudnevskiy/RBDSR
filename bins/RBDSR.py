@@ -21,7 +21,6 @@ from rbdsr_rbd import *
 import SRCommand
 import SR
 import util
-from lock import Lock
 
 CAPABILITIES = ["VDI_CREATE", "VDI_DELETE", "VDI_ATTACH", "VDI_DETACH", "VDI_CLONE", "VDI_SNAPSHOT",
                 "VDI_INTRODUCE", "VDI_RESIZE", "VDI_RESIZE_ONLINE", "VDI_UPDATE", "VDI_MIRROR",
@@ -71,7 +70,7 @@ class RBDSR(object):
         :param kwargs:
         :return:
         """
-        util.SMlog("RBDSR.SR.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
+        util.SMlog("RBDSR.RBDSR.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
 
         srcmd = args[0]
 
@@ -91,7 +90,9 @@ class RBDSR(object):
         :param srcmd:
         :param sr_uuid:
         """
-        util.SMlog("RBDSR.SR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
+        util.SMlog("RBDSR.RBDSR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
+
+        super(RBDSR, self).__init__(srcmd, sr_uuid)
 
         if 'driver-type' in srcmd.dconf:
             self.DRIVER_TYPE = srcmd.dconf.get('driver-type')
@@ -110,17 +111,14 @@ class RBDSR(object):
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
 
-        super(RBDSR, self).__init__(srcmd, sr_uuid)
-
-        util.SMlog("RBDSR.SR.__init__: Using cephx id %s" % self.CEPH_USER)
+        util.SMlog("RBDSR.RBDSR.__init__: Using cephx id %s" % self.CEPH_USER)
 
     def load(self, sr_uuid):
         """
         :param sr_uuid:
         """
-        util.SMlog("RBDSR.SR.load: sr_uuid= %s" % sr_uuid)
+        util.SMlog("RBDSR.RBDSR.load: sr_uuid= %s" % sr_uuid)
 
-        self.lock = Lock('sr', self.uuid)
         self.ops_exclusive = OPS_EXCLUSIVE
         self.mode = MODE_DEFAULT
 
@@ -131,7 +129,7 @@ class RBDSR(object):
         :param type:
         :return:
         """
-        util.SMlog("RBDSR.SR.handles type = %s" % type)
+        util.SMlog("RBDSR.RBDSR.handles type = %s" % type)
 
         if type == TYPE:
             return True
@@ -144,7 +142,7 @@ class RBDSR(object):
         :param sr_uuid:
         :return: content_type XML
         """
-        util.SMlog("RBDSR.SR.content_type sr_uuid = %s" % sr_uuid)
+        util.SMlog("RBDSR.RBDSR.content_type sr_uuid = %s" % sr_uuid)
 
         return self.content_type(sr_uuid)
 
@@ -154,7 +152,7 @@ class RBDSR(object):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("RBDSR.SR.vdi vdi_uuid = %s" % vdi_uuid)
+        util.SMlog("RBDSR.RBDSR.vdi vdi_uuid = %s" % vdi_uuid)
 
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDVDI(self, vdi_uuid)
@@ -168,6 +166,95 @@ class RBDVDI(object):
         return object.__new__(type('RBDVDI',
                                    (RBDVDI, globals()[subtypeclass]) + RBDVDI.__bases__,
                                    dict(RBDVDI.__dict__)),
+                              *args, **kwargs)
+
+
+class RBDSR_GC(object):
+
+    def __new__(cls, *args, **kwargs):
+        """
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        util.SMlog("RBDSR.RBDSR_GC.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
+
+        sr_uuid = args[0]
+        xapi = args[1]
+        sr_ref = xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
+
+        host_ref = util.get_localhost_uuid(xapi.session)
+
+        _PBD = xapi.session.xenapi.PBD
+        pbds = _PBD.get_all_records_where('field "SR" = "%s" and' % sr_ref +
+                                          'field "host" = "%s"' % host_ref)
+        pbd_ref, pbd = pbds.popitem()
+        assert not pbds
+
+        device_config = _PBD.get_device_config(pbd_ref)
+
+        if 'driver-type' in device_config:
+            DRIVER_TYPE = device_config['driver-type']
+        else:
+            DRIVER_TYPE = DRIVER_TYPE_DEFAULT
+
+        subtypeclass = "%sSR_GC" % DRIVER_CLASS_PREFIX[DRIVER_TYPE]
+        return object.__new__(type('RBDSR_GC',
+                                   (RBDSR_GC, globals()[subtypeclass]) + RBDSR_GC.__bases__,
+                                   dict(RBDSR_GC.__dict__)),
+                              *args, **kwargs)
+
+    def __init__(self, sr_uuid, xapi, createLock, force):
+        """
+        :param uuid:
+        :param xapi:
+        :param createLock:
+        :param force:
+        """
+        util.SMlog("RBDSR.RBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+
+        super(RBDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
+
+        host_ref = util.get_localhost_uuid(self.xapi.session)
+
+        _PBD = xapi.session.xenapi.PBD
+        pbds = _PBD.get_all_records_where('field "SR" = "%s" and' % self.ref +
+                                          'field "host" = "%s"' % host_ref)
+        pbd_ref, pbd = pbds.popitem()
+        assert not pbds
+
+        device_config = _PBD.get_device_config(pbd_ref)
+
+        if 'driver-type' in device_config:
+            self.DRIVER_TYPE = device_config['driver-type']
+        else:
+            self.DRIVER_TYPE = DRIVER_TYPE_DEFAULT
+
+        if 'use-rbd-meta' in self.sm_config:
+            self.USE_RBD_META = self.sm_config['use-rbd-meta']
+
+        if 'cephx-id' in self.sm_config:
+            self.CEPH_USER = "client.%s" % self.sm_config['cephx-id']
+
+    def vdi(self, sr, uuid, raw):
+        """
+        :param sr:
+        :param uuid:
+        :param raw:
+        :return:
+        """
+        util.SMlog("RBDSR.RBDSR_GC.vdi uuid = %s" % uuid)
+
+        return RBDVDI_GC(sr, uuid, raw)
+
+class RBDVDI_GC(object):
+
+    def __new__(cls, *args, **kwargs):
+        sr_ref = args[0]
+        subtypeclass = "%sVDI_GC" % DRIVER_CLASS_PREFIX[sr_ref.DRIVER_TYPE]
+        return object.__new__(type('RBDVDI_GC',
+                                   (RBDVDI_GC, globals()[subtypeclass]) + RBDVDI_GC.__bases__,
+                                   dict(RBDVDI_GC.__dict__)),
                               *args, **kwargs)
 
 
