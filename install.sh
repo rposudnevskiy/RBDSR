@@ -87,6 +87,7 @@ function installFiles {
   copyFile "bins/rbdsr_dmp.py"          "/opt/xensource/sm/rbdsr_dmp.py"
   copyFile "bins/rbdsr_rbd.py"          "/opt/xensource/sm/rbdsr_rbd.py"
   copyFile "bins/rbdsr_common.py"       "/opt/xensource/sm/rbdsr_common.py"
+  copyFile "bins/rbdsr_lock.py"         "/opt/xensource/sm/rbdsr_lock.py"
 
   copyFile "bins/cleanup.py"            "/opt/xensource/sm/cleanup.py"
   copyFile "bins/tap-ctl"              "/sbin/tap-ctl"
@@ -110,6 +111,7 @@ function removeFiles {
   rm -f "/opt/xensource/sm/rbdsr_dmp.py"
   rm -f "/opt/xensource/sm/rbdsr_rbd.py"
   rm -f "/opt/xensource/sm/rbdsr_common.py"
+  rm -f "/opt/xensource/sm/rbdsr_lock.py"
 
   rm -f "/opt/xensource/sm/cleanup.py"
   rm -f "/sbin/tap-ctl"
