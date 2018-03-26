@@ -70,7 +70,7 @@ def _map(session, arg_dict):
     vdi_name = arg_dict['vdi_name']
 
     if mode == "kernel":
-        dev = util.pread2(["rbd", "map", _vdi_name, "--pool", CEPH_POOL_NAME, "--name", CEPH_USER])
+        dev = util.pread2(["rbd", "map", _vdi_name, "--pool", CEPH_POOL_NAME, "--name", CEPH_USER]).rstrip('\n')
     elif mode == "fuse":
         pass
     elif mode == "nbd":
