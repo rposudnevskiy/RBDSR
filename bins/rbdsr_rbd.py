@@ -235,6 +235,9 @@ class RBDRBDVDI(CVDI):
                      "%s/%s" % (self.sr.CEPH_POOL_NAME, clone_name),
                      "--name", self.sr.CEPH_USER])
 
+        sm_config = self.session.xenapi.VDI.get_sm_config(cloneVDI.ref)
+        if 'rbd-parent' in sm_config:
+            self.session.xenapi.VDI.remove_from_sm_config(cloneVDI.ref, 'rbd-parent')
         cloneVDI.sm_config["rbd-parent"] = base_uuid
         self.session.xenapi.VDI.add_to_sm_config(cloneVDI.ref, 'rbd-parent', base_uuid)
         RBDRBDVDI.update(cloneVDI, sr_uuid, clone_uuid)
