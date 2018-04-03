@@ -587,7 +587,7 @@ class CSR(SR.SR):
                 self.session.xenapi.VDI.set_snapshot_of(self.session.xenapi.VDI.get_by_uuid(snap_uuid),
                                                         self.session.xenapi.VDI.get_by_uuid(vdi_uuid))
             except Exception as e:
-                util.SMlog("CSR.SR.scan: sr_uuid=%s VDI.set_snapshot ERROR: %s" % str(e))
+                util.SMlog("CSR.SR.scan: sr_uuid=%s VDI.set_snapshot ERROR: %s" % (sr_uuid, str(e)))
                 raise xs_errors.XenError('CSR scan error', opterr='Failed to scan(%s)' % (str(e)))
 
         util.SMlog("CSR.SR.scan: sr_uuid=%s facts: found %s rbd images (using %s)"
