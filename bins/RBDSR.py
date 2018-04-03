@@ -42,11 +42,11 @@ DRIVER_INFO = {
     'required_api_version': '1.0',
     'capabilities': CAPABILITIES,
     'configuration': CONFIGURATION
-    }
+}
 
 OPS_EXCLUSIVE = ['sr_create', 'sr_delete', 'sr_attach', 'sr_detach', 'sr_scan',
-        'sr_update', 'vdi_create', 'vdi_delete', 'vdi_resize', 'vdi_snapshot',
-        'vdi_clone']
+                 'sr_update', 'vdi_create', 'vdi_delete', 'vdi_resize', 'vdi_snapshot',
+                 'vdi_clone']
 
 TYPE = 'rbd'
 
@@ -60,6 +60,7 @@ VDI_TYPES = ['vhd', 'aio']
 
 DRIVER_TYPES = ['vhd', 'dmp', 'rbd']
 DRIVER_TYPE_DEFAULT = 'vhd'
+
 
 class RBDSR(object):
     """Ceph Block Devices storage repository"""
@@ -135,6 +136,7 @@ class RBDSR(object):
             return True
         else:
             return False
+
     handles = staticmethod(handles)
 
     def content_type(self, sr_uuid):
@@ -157,6 +159,7 @@ class RBDSR(object):
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDVDI(self, vdi_uuid)
         return self.vdis[vdi_uuid]
+
 
 class RBDVDI(object):
 
@@ -246,6 +249,7 @@ class RBDSR_GC(object):
         util.SMlog("RBDSR.RBDSR_GC.vdi uuid = %s" % uuid)
 
         return RBDVDI_GC(sr, uuid, raw)
+
 
 class RBDVDI_GC(object):
 
