@@ -166,7 +166,7 @@ class CSR(SR.SR):
         def __allocate__():
 
             util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                         % (sr_uuid, vdi_uuid, host_uuid))
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
             dev_instance = self._get_dev_instance(sr_uuid, vdi_uuid, host_uuid)
 
@@ -186,7 +186,7 @@ class CSR(SR.SR):
                 sr_dev_instances["hosts"][host_uuid][dev_instance][1] += 1
 
             util.SMlog("rbdsr_common._allocate_dev_instance: Dev instance %s allocated on host %s for sr %s vdi %s"
-                         % (dev_instance, host_uuid, sr_uuid, vdi_uuid))
+                       % (dev_instance, host_uuid, sr_uuid, vdi_uuid))
 
         ##
 
@@ -216,7 +216,7 @@ class CSR(SR.SR):
         :return:
         """
         util.SMlog("rbdsr_common._get_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                     % (sr_uuid, vdi_uuid, host_uuid))
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
@@ -242,7 +242,7 @@ class CSR(SR.SR):
         :return:
         """
         util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                     % (sr_uuid, vdi_uuid, host_uuid))
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
@@ -268,7 +268,7 @@ class CSR(SR.SR):
         :return:
         """
         util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                     % (sr_uuid, vdi_uuid, host_uuid))
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         self.lock.acquire()
 
@@ -526,7 +526,7 @@ class CSR(SR.SR):
                         tag_prefix = "%s:" % rbd_snap_uuid
                     else:
                         util.SMlog("CSR.SR.scan: Snapshot '%s' not starting with configured PREFIX(%s): %s... not using" %
-                                     (rbd['image'], self.SNAPSHOT_PREFIX, rbd['snapshot']))
+                                   (rbd['image'], self.SNAPSHOT_PREFIX, rbd['snapshot']))
                         continue
                 else:
                     meta_source = rbd_vdi_uuid
@@ -579,7 +579,7 @@ class CSR(SR.SR):
         self.physical_utilisation = self.RBDPOOLs[sr_uuid]['stats']['bytes_used']
         super(CSR, self).scan(sr_uuid)
         util.SMlog("CSR.SR.scan: sr_uuid=%s Allocation: virt. %s bytes, phys. %s bytes, phys. used %s bytes"
-                     % (sr_uuid, str(self.virtual_allocation), str(self.physical_size), str(self.physical_utilisation)))
+                   % (sr_uuid, str(self.virtual_allocation), str(self.physical_size), str(self.physical_utilisation)))
 
         for snap_uuid, vdi_uuid in snaps_of.iteritems():
             util.SMlog("CSR.SR.scan: snap_of=%s" % snap_uuid)
@@ -588,10 +588,10 @@ class CSR(SR.SR):
                                                         self.session.xenapi.VDI.get_by_uuid(vdi_uuid))
             except Exception as e:
                 util.SMlog("CSR.SR.scan: sr_uuid=%s VDI.set_snapshot ERROR: %s" % (sr_uuid, str(e)))
-                raise xs_errors.XenError('CSR scan error', opterr='Failed to scan(%s)' % (str(e)))
+                raise xs_errors.XenError('SRScan', opterr="Failed to scan SR: %s" % str(e))
 
         util.SMlog("CSR.SR.scan: sr_uuid=%s facts: found %s rbd images (using %s)"
-                     % (sr_uuid, len(rbds_list), len(self.vdis.keys())))
+                   % (sr_uuid, len(rbds_list), len(self.vdis.keys())))
         util.SMlog("CSR.SR.scan: sr_uuid=%s scan complete" % sr_uuid)
 
     def load(self, sr_uuid):
@@ -1010,7 +1010,7 @@ class CVDI(VDI.VDI):
         """
         util.SMlog("rbdsr_common.CVDI._map_rbd_snap: vdi_uuid = %s, snap_uuis = %s, size = %s, host_uuid = %s, \
                       read_only = %s, dmmode = %s, devlinks = %s, refcounter = %s"
-                     % (vdi_uuid, snap_uuid, size, host_uuid, read_only, dmmode, devlinks, norefcount))
+                   % (vdi_uuid, snap_uuid, size, host_uuid, read_only, dmmode, devlinks, norefcount))
         pass
 
     def _unmap_rbd_snap(self, vdi_uuid, snap_uuid, size, host_uuid=None, read_only=None, dmmode='None', devlinks=True,
@@ -1028,7 +1028,7 @@ class CVDI(VDI.VDI):
         """
         util.SMlog("rbdsr_common.CVDI._unmap_rbd_snap: vdi_uuid = %s, snap_uuis = %s, size = %s, host_uuid = %s, \
                    read_only = %s, dmmode = %s, devlinks = %s, refcounter = %s"
-                     % (vdi_uuid, snap_uuid, size, host_uuid, read_only, dmmode, devlinks, norefcount))
+                   % (vdi_uuid, snap_uuid, size, host_uuid, read_only, dmmode, devlinks, norefcount))
         pass
 
     def _call_plugin(self, op, args, plugin, host_uuid):
@@ -1039,7 +1039,7 @@ class CVDI(VDI.VDI):
         :return:
         """
         util.SMlog("rbdsr_common.CVDI._call_plugin: Calling plugin '%s' on host with id '%s' for op '%s', args: %s"
-                     % (plugin, host_uuid, op, args))
+                   % (plugin, host_uuid, op, args))
 
         vdi_uuid = args['vdi_uuid']
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
@@ -1055,14 +1055,14 @@ class CVDI(VDI.VDI):
             call_out = self.session.xenapi.host.call_plugin(host_ref, plugin, op, args)
         except Exception as e:
             util.SMlog("rbdsr_common.CVDI._call_plugin: Exception: Failed to execute '%s' on host with id '%s' VDI %s, args %s: %s"
-                         % (op, host_uuid, vdi_uuid, args, str(e)))
+                       % (op, host_uuid, vdi_uuid, args, str(e)))
             raise util.SMException("rbdsr_common.CVDI._call_plugin: Exception: Failed to execute '%s' on host with id '%s' VDI %s, args %s: %s"
                                    % (op, host_uuid, vdi_uuid, args, str(e)))
 
         if not call_out:
             # Failed to execute op for vdi
             util.SMlog("rbdsr_common.CVDI._call_plugin: ERROR: Failed to execute '%s' on host with id '%s' VDI %s, args %s"
-                         % (op, host_uuid, vdi_uuid, args))
+                       % (op, host_uuid, vdi_uuid, args))
             raise util.SMException("Failed to execute '%s' on host with id '%s' VDI %s, args %s" % (op, host_uuid, vdi_uuid, args))
 
         util.SMlog("rbdsr_common.CVDI._call_plugin: Calling '%s' of plugin '%s' on host_ref %s DONE" % (op, plugin, host_ref))
@@ -1141,7 +1141,7 @@ class CVDI(VDI.VDI):
 
         if retval is None:
             util.SMlog("rbdsr_common.CVDI.get_rbd_info: vdi_uuid = %s: NOT FOUND in SR uuid=%s"
-                         % (vdi_uuid, self.sr.uuid))
+                       % (vdi_uuid, self.sr.uuid))
 
         return retval
 
@@ -1157,7 +1157,7 @@ class CVDI(VDI.VDI):
         :return:
         """
         util.SMlog("rbdsr_common.CVDI._disable_rbd_caching: userbdmeta=%s, ceph_pool_name=%s, _vdi_name=%s" %
-                     (userbdmeta, ceph_pool_name, _vdi_name))
+                   (userbdmeta, ceph_pool_name, _vdi_name))
 
         if userbdmeta == 'True':
             util.pread2(['rbd', 'image-meta', 'set', "%s/%s" % (ceph_pool_name, _vdi_name), 'conf_rbd_cache', 'false'])
@@ -1262,7 +1262,7 @@ class CVDI(VDI.VDI):
 
         if not self.sr.isSpaceAvailable(size):
             util.SMlog('rbdsr_common.CVDI.create: vdi size is too big: ' + \
-                         '(vdi size: %d, sr free space size: %d)' % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
+                       '(vdi size: %d, sr free space size: %d)' % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
             raise xs_errors.XenError('VDISize', opterr='vdi size is too big: vdi size: %d, sr free space size: %d'
                                                        % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
         ####
@@ -1277,7 +1277,7 @@ class CVDI(VDI.VDI):
             size_M = size // 1024 // 1024
 
         util.SMlog("rbdsr_common.CVDI.create: rbd_name = %s, size_M = %s, format = %s"
-                     % (rbd_name, size_M, self.sr.IMAGE_FORMAT_DEFAULT))
+                   % (rbd_name, size_M, self.sr.IMAGE_FORMAT_DEFAULT))
         ###
         try:
             util.pread2(["rbd", "create", rbd_name, "--size", str(size_M), "--object-size",
@@ -1285,7 +1285,7 @@ class CVDI(VDI.VDI):
                          self.sr.CEPH_POOL_NAME, "--name", self.sr.CEPH_USER])
         except Exception as e:
             util.SMlog("rbdsr_common.CVDI.create_rbd: Failed to create: rbd_name = %s, size_M = %s, format = %s"
-                         % (rbd_name, size_M, self.sr.IMAGE_FORMAT_DEFAULT))
+                       % (rbd_name, size_M, self.sr.IMAGE_FORMAT_DEFAULT))
             raise xs_errors.XenError('VDICreate', opterr='Failed to create Volume: %s' % str(e))
         ###
         self.size = size
@@ -1519,7 +1519,7 @@ class CVDI(VDI.VDI):
         :return:
         """
         util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s" % (sr_uuid, vdi_uuid,
-                                                                                                     dmmode, host_uuid))
+                                                                                                   dmmode, host_uuid))
         # TODO: Test the method
 
         if not hasattr(self, 'xenstore_data'):
@@ -1537,12 +1537,12 @@ class CVDI(VDI.VDI):
             if self.rbd_info[0] == 'image':
                 self._map_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
                 util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s - mapped image"
-                             % (sr_uuid, vdi_uuid, dmmode, host_uuid))
+                           % (sr_uuid, vdi_uuid, dmmode, host_uuid))
             else:
                 self._map_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid,
                                    dmmode=dmmode)
                 util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s - mapped snapshot"
-                             % (sr_uuid, vdi_uuid, dmmode, host_uuid))
+                           % (sr_uuid, vdi_uuid, dmmode, host_uuid))
             return super(CVDI, self).attach(sr_uuid, vdi_uuid)
         else:
             util.SMlog("rbdsr_common.CVDI.attach: ERROR: VDIUnavailable, Could not find image %s in pool %s" % (vdi_uuid, sr_uuid))
@@ -1725,12 +1725,12 @@ class CVDI(VDI.VDI):
                     return self.get_params(self)
                 elif size < self.size:
                     util.SMlog('rbdsr_common.CVDI.resize: shrinking not supported yet: ' +
-                                 '(current size: %d, new size: %d)' % (self.size, size))
+                               '(current size: %d, new size: %d)' % (self.size, size))
                     raise xs_errors.XenError('VDIResize', opterr='shrinking not allowed')
 
                 if not self.sr.isSpaceAvailable(size - self.size):
                     util.SMlog('rbdsr_common.VDI.create: vdi size is too big: (vdi size: %d, sr free space size: %d)' %
-                                 (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
+                               (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
                     raise xs_errors.XenError('VDIResize', opterr='size is too big: vdi size: %d, sr free space size: %d'
                                                                  % (size, self.sr.RBDPOOLs[sr_uuid]['stats']['max_avail']))
                 ####
@@ -1854,7 +1854,7 @@ class CVDI(VDI.VDI):
             return VDI.VDI.attach(self, sr_uuid, vdi_uuid)
         except:
             util.logException("RBDVDI.attach_from_config")
-            raise xs_errors.XenError('SRUnavailable', \
+            raise xs_errors.XenError('SRUnavailable',
                                      opterr='Unable to attach the heartbeat disk')
 
 
@@ -1955,7 +1955,7 @@ class CSR_GC(cleanup.SR):
         ##
         def __allocate__():
             util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                         % (sr_uuid, vdi_uuid, host_uuid))
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
             dev_instance = self._get_dev_instance(sr_uuid, vdi_uuid, host_uuid)
 
@@ -1975,7 +1975,7 @@ class CSR_GC(cleanup.SR):
                 sr_dev_instances["hosts"][host_uuid][dev_instance][1] += 1
 
             util.SMlog("rbdsr_common._allocate_dev_instance: Dev instance %s allocated on host %s for sr %s vdi %s"
-                         % (dev_instance, host_uuid, sr_uuid, vdi_uuid))
+                       % (dev_instance, host_uuid, sr_uuid, vdi_uuid))
 
         ##
 
@@ -2003,7 +2003,7 @@ class CSR_GC(cleanup.SR):
         :return:
         """
         util.SMlog("rbdsr_common._get_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                     % (sr_uuid, vdi_uuid, host_uuid))
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
@@ -2029,7 +2029,7 @@ class CSR_GC(cleanup.SR):
         :return:
         """
         util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                     % (sr_uuid, vdi_uuid, host_uuid))
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
@@ -2055,7 +2055,7 @@ class CSR_GC(cleanup.SR):
         :return:
         """
         util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
-                     % (sr_uuid, vdi_uuid, host_uuid))
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.xapi.session.xenapi.SR.get_sm_config(sr_ref)
@@ -2411,7 +2411,7 @@ class CVDI_GC(cleanup.VDI):
         :return:
         """
         util.SMlog("rbdsr_common.CVDI_GC._call_plugin: Calling plugin '%s' on host with id '%s' for op '%s', args %s"
-                     % (plugin, host_uuid, op, args))
+                   % (plugin, host_uuid, op, args))
 
         vdi_uuid = args['vdi_uuid']
         vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
@@ -2426,14 +2426,14 @@ class CVDI_GC(cleanup.VDI):
             cmdout = self.sr.xapi.session.xenapi.host.call_plugin(host_ref, plugin, op, args)
         except Exception as e:
             util.SMlog("rbdsr_common.CVDI_GC._call_plugin: Exception: Failed to execute '%s' on host with id '%s' VDI %s, args %s: %s"
-                         % (op, host_uuid, vdi_uuid, args, str(e)))
+                       % (op, host_uuid, vdi_uuid, args, str(e)))
             raise util.SMException("rbdsr_common.CVDI_GC._call_plugin: Exception: Failed to execute '%s' on host with id '%s' VDI %s: %s"
                                    % (op, host_uuid, vdi_uuid, str(e)))
 
         if not cmdout:
             # Failed to execute op for vdi
             util.SMlog("rbdsr_common.CVDI_GC._call_plugin: Exception: Failed to execute '%s' on host with id '%s' VDI %s, args %s: %s"
-                         % (op, host_uuid, vdi_uuid, args, str(e)))
+                       % (op, host_uuid, vdi_uuid, args, str(e)))
             raise util.SMException("Failed to execute '%s' on host with id '%s' VDI %s" % (op, host_uuid, vdi_uuid))
 
     def _rename_rbd(self, orig_uuid, new_uuid):
