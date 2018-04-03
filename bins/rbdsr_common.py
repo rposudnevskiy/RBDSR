@@ -1241,7 +1241,7 @@ class CVDI(VDI.VDI):
             self.sr._updateStats(self.sr.uuid, -self.size)
             self._db_forget()
 
-        if self.USE_RBD_META:
+        if self.sr.USE_RBD_META:
             pass
         else:
             # Delete metadata for VDI
