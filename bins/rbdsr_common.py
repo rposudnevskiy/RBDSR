@@ -68,19 +68,30 @@ class CSR(SR.SR):
         """
         util.SMlog("rbdsr_common.SR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
 
-        self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
-        self.VDI_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
-        # self.SNAPSHOT_PREFIX = "SNAP-"
-        self.SNAPSHOT_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
-        self.CEPH_POOL_NAME = "%s%s" % (self.RBDPOOL_PREFIX, sr_uuid)
-        self.CEPH_USER = ("client.%s" % CEPH_USER_DEFAULT)
-        self.USE_RBD_META = USE_RBD_META_DEFAULT
-        self.VDI_UPDATE_EXISTING = VDI_UPDATE_EXISTING_DEFAULT
-        self.MDVOLUME_NAME = MDVOLUME_NAME
-        self.MDVOLUME_SIZE_M = MDVOLUME_SIZE_M
-        self.IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_DEFAULT
-        self.mode = '#$%'  # Must be defined in certain vdi type implementation
-        self.vdi_type = '#$%'  # Must be defined in certain vdi type implementation
+        if not hasattr(self, 'RBDPOOL_PREFIX'):
+            self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
+        if not hasattr(self, 'VDI_PREFIX'):
+            self.VDI_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
+        if not hasattr(self, 'SNAPSHOT_PREFIX'):
+            self.SNAPSHOT_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
+        if not hasattr(self, 'CEPH_POOL_NAME'):
+            self.CEPH_POOL_NAME = "%s%s" % (self.RBDPOOL_PREFIX, sr_uuid)
+        if not hasattr(self, 'CEPH_USER'):
+            self.CEPH_USER = ("client.%s" % CEPH_USER_DEFAULT)
+        if not hasattr(self, 'USE_RBD_META'):
+            self.USE_RBD_META = USE_RBD_META_DEFAULT
+        if not hasattr(self, 'VDI_UPDATE_EXISTING'):
+            self.VDI_UPDATE_EXISTING = VDI_UPDATE_EXISTING_DEFAULT
+        if not hasattr(self, 'MDVOLUME_NAME'):
+            self.MDVOLUME_NAME = MDVOLUME_NAME
+        if not hasattr(self, 'MDVOLUME_SIZE_M'):
+            self.MDVOLUME_SIZE_M = MDVOLUME_SIZE_M
+        if not hasattr(self, 'IMAGE_FORMAT_DEFAULT'):
+            self.IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_DEFAULT
+        if not hasattr(self, 'mode'):
+            self.mode = '#$%'  # Must be defined in certain vdi type implementation
+        if not hasattr(self, 'vdi_type'):
+            self.vdi_type = '#$%'  # Must be defined in certain vdi type implementation
 
         super(CSR, self).__init__(srcmd, sr_uuid)
 
