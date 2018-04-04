@@ -129,32 +129,32 @@ def _unmap(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     dmmode = arg_dict['dmmode']
 
-    dev = util.pread2(["realpath", _dev_name]).rstrip('\n')
+    dev = util.pread2(['realpath', _dev_name]).rstrip('\n')
 
-    util.pread2(["unlink", dev_name])
-    if dmmode == "linear":
-        util.pread2(["dmsetup", "remove", _dm_name])
-    elif dmmode == "mirror":
+    util.pread2(['unlink', dev_name])
+    if dmmode == 'linear':
+        util.pread2(['dmsetup', 'remove', _dm_name])
+    elif dmmode == 'mirror':
         _dmzero_name = "%s%s" % (_dm_name, "-zero")
-        util.pread2(["dmsetup", "remove", _dm_name])
-        util.pread2(["dmsetup", "remove", _dmzero_name])
-    elif dmmode == "base":
+        util.pread2(['dmsetup', 'remove', _dm_name])
+        util.pread2(['dmsetup', 'remove', _dmzero_name])
+    elif dmmode == 'base':
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        util.pread2(["dmsetup", "remove", _dmbase_name])
-    elif dmmode == "cow":
-        util.pread2(["dmsetup", "remove", _dm_name])
-    elif dmmode == "cow2base":
+        util.pread2(['dmsetup', 'remove', _dmbase_name])
+    elif dmmode == 'cow':
+        util.pread2(['dmsetup', 'remove', _dm_name])
+    elif dmmode == 'cow2base':
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        util.pread2(["dmsetup", "remove", _dmbase_name])
-        util.pread2(["dmsetup", "remove", _dm_name])
+        util.pread2(['dmsetup', 'remove', _dmbase_name])
+        util.pread2(['dmsetup', 'remove', _dm_name])
 
-    if mode == "kernel":
-        util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])
-    elif mode == "fuse":
+    if mode == 'kernel':
+        util.pread2(['rbd', 'unmap', dev, '--name', CEPH_USER])
+    elif mode == 'fuse':
         pass
-    elif mode == "nbd":
-        util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
-        util.pread2(["unlink", _dev_name])
+    elif mode == 'nbd':
+        util.pread2(['rbd-nbd', 'unmap', dev, '--name', CEPH_USER])
+        util.pread2(['unlink', _dev_name])
 
     return "unmapped"
 
@@ -213,17 +213,17 @@ def __unmap(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     dmmode = arg_dict['dmmode']
 
-    dev = util.pread2(["realpath", _dev_name]).rstrip('\n')
+    dev = util.pread2(['realpath', _dev_name]).rstrip('\n')
 
-    if dmmode != "None":
-        util.pread2(["dmsetup", "suspend", _dm_name])
+    if dmmode != 'None':
+        util.pread2(['dmsetup', 'suspend', _dm_name])
 
-    if mode == "kernel":
-        util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])
-    elif mode == "fuse":
+    if mode == 'kernel':
+        util.pread2(['rbd', 'unmap', dev, '--name', CEPH_USER])
+    elif mode == 'fuse':
         pass
-    elif mode == "nbd":
-        util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
+    elif mode == 'nbd':
+        util.pread2(['rbd-nbd', 'unmap', dev, '--name', CEPH_USER])
 
     return "unmapped"
 
