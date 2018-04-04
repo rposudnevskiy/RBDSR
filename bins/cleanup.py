@@ -54,7 +54,7 @@ from srmetadata import LVMMetadataHandler
 # the VM first)
 AUTO_ONLINE_LEAF_COALESCE_ENABLED = True
 
-FLAG_TYPE_ABORT = "abort"     # flag to request aborting of GC/coalesce
+FLAG_TYPE_ABORT = "abort"  # flag to request aborting of GC/coalesce
 
 # process "lock", used simply as an indicator that a process already exists
 # that is doing GC/coalesce on this SR (such a process holds the lock, and we
@@ -69,20 +69,22 @@ lockActive = None
 
 # Default coalesce error rate limit, in messages per minute. A zero value
 # disables throttling, and a negative value disables error reporting.
-DEFAULT_COALESCE_ERR_RATE = 1.0/60
+DEFAULT_COALESCE_ERR_RATE = 1.0 / 60
 
 COALESCE_LAST_ERR_TAG = 'last-coalesce-error'
 COALESCE_ERR_RATE_TAG = 'coalesce-error-rate'
 
+
 class AbortException(util.SMException):
     pass
+
 
 ################################################################################
 #
 #  Util
 #
 class Util:
-    RET_RC     = 1
+    RET_RC = 1
     RET_STDOUT = 2
     RET_STDERR = 4
 
@@ -92,6 +94,7 @@ class Util:
 
     def log(text):
         util.SMlog(text, ident="SMGC")
+
     log = staticmethod(log)
 
     def logException(tag):
@@ -107,15 +110,16 @@ class Util:
         Util.log("%s: EXCEPTION %s, %s" % (tag, info[0], info[1]))
         Util.log(tb)
         Util.log("*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*")
+
     logException = staticmethod(logException)
 
     def doexec(args, expectedRC, inputtext=None, ret=None, log=True):
         "Execute a subprocess, then return its return code, stdout, stderr"
         proc = subprocess.Popen(args,
-                                stdin=subprocess.PIPE,\
-                                stdout=subprocess.PIPE,\
-                                stderr=subprocess.PIPE,\
-                                shell=True,\
+                                stdin=subprocess.PIPE, \
+                                stdout=subprocess.PIPE, \
+                                stderr=subprocess.PIPE, \
+                                shell=True, \
                                 close_fds=True)
         (stdout, stderr) = proc.communicate(inputtext)
         stdout = str(stdout)
@@ -137,12 +141,13 @@ class Util:
         if ret == Util.RET_STDERR:
             return stderr
         return stdout
+
     doexec = staticmethod(doexec)
 
     def runAbortable(func, ret, ns, abortTest, pollInterval, timeOut):
         """execute func in a separate thread and kill it if abortTest signals
         so"""
-        abortSignaled = abortTest() # check now before we clear resultFlag
+        abortSignaled = abortTest()  # check now before we clear resultFlag
         resultFlag = IPCFlag(ns)
         resultFlag.clearAll()
         pid = os.fork()
@@ -175,6 +180,7 @@ class Util:
                 resultFlag.set("failure")
                 Util.log("Child process failed with : (%s)" % e)
             os._exit(0)
+
     runAbortable = staticmethod(runAbortable)
 
     def num2str(number):
@@ -182,6 +188,7 @@ class Util:
             if number >= Util.PREFIX[prefix]:
                 return "%.3f%s" % (float(number) / Util.PREFIX[prefix], prefix)
         return "%s" % number
+
     num2str = staticmethod(num2str)
 
     def numBits(val):
@@ -190,6 +197,7 @@ class Util:
             count += val & 1
             val = val >> 1
         return count
+
     numBits = staticmethod(numBits)
 
     def countBits(bitmap1, bitmap2):
@@ -213,6 +221,7 @@ class Util:
             val = ord(bitmapLong[i])
             count += Util.numBits(val)
         return count
+
     countBits = staticmethod(countBits)
 
     def getThisScript():
@@ -220,6 +229,7 @@ class Util:
         if thisScript.endswith(".pyc"):
             thisScript = thisScript[:-1]
         return thisScript
+
     getThisScript = staticmethod(getThisScript)
 
 
@@ -235,9 +245,9 @@ class XAPI:
     CONFIG_OTHER = 1
     CONFIG_ON_BOOT = 2
     CONFIG_NAME = {
-            CONFIG_SM: "sm-config",
-            CONFIG_OTHER: "other-config",
-            CONFIG_ON_BOOT: "on-boot",
+        CONFIG_SM: "sm-config",
+        CONFIG_OTHER: "other-config",
+        CONFIG_ON_BOOT: "on-boot",
     }
 
     class LookupError(util.SMException):
@@ -247,6 +257,7 @@ class XAPI:
         session = XenAPI.xapi_local()
         session.xenapi.login_with_password(XAPI.USER, '', '', 'SM')
         return session
+
     getSession = staticmethod(getSession)
 
     def __init__(self, session, srUuid):
@@ -305,8 +316,8 @@ class XAPI:
         return util.get_online_hosts(self.session)
 
     def ensureInactive(self, hostRef, args):
-        text = self.session.xenapi.host.call_plugin( \
-                hostRef, self.PLUGIN_ON_SLAVE, "multi", args)
+        text = self.session.xenapi.host.call_plugin(
+            hostRef, self.PLUGIN_ON_SLAVE, "multi", args)
         Util.log("call-plugin returned: '%s'" % text)
 
     def _getRefVDI(self, uuid):
@@ -324,7 +335,7 @@ class XAPI:
 
     def singleSnapshotVDI(self, vdi):
         return self.session.xenapi.VDI.snapshot(vdi.getRef(),
-                {"type":"internal"})
+                                                {"type": "internal"})
 
     def forgetVDI(self, srUuid, vdiUuid):
         """Forget the VDI, but handle the case where the VDI has already been
@@ -344,7 +355,7 @@ class XAPI:
         elif kind == self.CONFIG_ON_BOOT:
             cfg = self.session.xenapi.VDI.get_on_boot(vdi.getRef())
         else:
-            assert(False)
+            assert (False)
         Util.log("Got %s for %s: %s" % (self.CONFIG_NAME[kind], vdi, repr(cfg)))
         return cfg
 
@@ -355,7 +366,7 @@ class XAPI:
         elif kind == self.CONFIG_OTHER:
             self.session.xenapi.VDI.remove_from_other_config(vdi.getRef(), key)
         else:
-            assert(False)
+            assert (False)
 
     def addToConfigVDI(self, vdi, key, val):
         kind = vdi.CONFIG_TYPE[key]
@@ -364,14 +375,14 @@ class XAPI:
         elif kind == self.CONFIG_OTHER:
             self.session.xenapi.VDI.add_to_other_config(vdi.getRef(), key, val)
         else:
-            assert(False)
+            assert (False)
 
     def isSnapshot(self, vdi):
         return self.session.xenapi.VDI.get_is_a_snapshot(vdi.getRef())
 
     def markCacheSRsDirty(self):
         sr_refs = self.session.xenapi.SR.get_all_records_where( \
-                'field "local_cache_enabled" = "true"')
+            'field "local_cache_enabled" = "true"')
         for sr_ref in sr_refs:
             Util.log("Marking SR %s dirty" % sr_ref)
             util.set_dirty(self.session, sr_ref)
@@ -405,8 +416,8 @@ class VDI(object):
     """Object representing a VDI of a VHD-based SR"""
 
     POLL_INTERVAL = 1
-    POLL_TIMEOUT  = 30
-    DEVICE_MAJOR  = 202
+    POLL_TIMEOUT = 30
+    DEVICE_MAJOR = 202
     DRIVER_NAME_VHD = "vhd"
 
     # config keys & values
@@ -416,54 +427,54 @@ class VDI(object):
     DB_VDI_PAUSED = "paused"
     DB_GC = "gc"
     DB_COALESCE = "coalesce"
-    DB_LEAFCLSC = "leaf-coalesce" # config key
+    DB_LEAFCLSC = "leaf-coalesce"  # config key
     LEAFCLSC_DISABLED = "false"  # set by user; means do not leaf-coalesce
-    LEAFCLSC_FORCE = "force"     # set by user; means skip snap-coalesce
-    LEAFCLSC_OFFLINE = "offline" # set here for informational purposes: means
-                                 # no space to snap-coalesce or unable to keep
-                                 # up with VDI. This is not used by the SM, it
-                                 # might be used by external components.
+    LEAFCLSC_FORCE = "force"  # set by user; means skip snap-coalesce
+    LEAFCLSC_OFFLINE = "offline"  # set here for informational purposes: means
+    # no space to snap-coalesce or unable to keep
+    # up with VDI. This is not used by the SM, it
+    # might be used by external components.
     DB_ONBOOT = "on-boot"
     ONBOOT_RESET = "reset"
 
     CONFIG_TYPE = {
-            DB_VHD_PARENT:   XAPI.CONFIG_SM,
-            DB_VDI_TYPE:     XAPI.CONFIG_SM,
-            DB_VHD_BLOCKS:   XAPI.CONFIG_SM,
-            DB_VDI_PAUSED:   XAPI.CONFIG_SM,
-            DB_GC:           XAPI.CONFIG_OTHER,
-            DB_COALESCE:     XAPI.CONFIG_OTHER,
-            DB_LEAFCLSC:     XAPI.CONFIG_OTHER,
-            DB_ONBOOT:       XAPI.CONFIG_ON_BOOT,
+        DB_VHD_PARENT: XAPI.CONFIG_SM,
+        DB_VDI_TYPE: XAPI.CONFIG_SM,
+        DB_VHD_BLOCKS: XAPI.CONFIG_SM,
+        DB_VDI_PAUSED: XAPI.CONFIG_SM,
+        DB_GC: XAPI.CONFIG_OTHER,
+        DB_COALESCE: XAPI.CONFIG_OTHER,
+        DB_LEAFCLSC: XAPI.CONFIG_OTHER,
+        DB_ONBOOT: XAPI.CONFIG_ON_BOOT,
     }
 
-    LIVE_LEAF_COALESCE_MAX_SIZE = 20 * 1024 * 1024 # bytes
-    LIVE_LEAF_COALESCE_TIMEOUT = 10 # seconds
+    LIVE_LEAF_COALESCE_MAX_SIZE = 20 * 1024 * 1024  # bytes
+    LIVE_LEAF_COALESCE_TIMEOUT = 10  # seconds
 
-    JRN_RELINK = "relink" # journal entry type for relinking children
-    JRN_COALESCE = "coalesce" # to communicate which VDI is being coalesced
-    JRN_LEAF = "leaf" # used in coalesce-leaf
+    JRN_RELINK = "relink"  # journal entry type for relinking children
+    JRN_COALESCE = "coalesce"  # to communicate which VDI is being coalesced
+    JRN_LEAF = "leaf"  # used in coalesce-leaf
 
     STR_TREE_INDENT = 4
 
     def __init__(self, sr, uuid, raw):
-        self.sr         = sr
-        self.scanError  = True
-        self.uuid       = uuid
-        self.raw        = raw
-        self.fileName   = ""
+        self.sr = sr
+        self.scanError = True
+        self.uuid = uuid
+        self.raw = raw
+        self.fileName = ""
         self.parentUuid = ""
-        self.sizeVirt   = -1
-        self._sizeVHD   = -1
-        self.hidden     = False
-        self.parent     = None
-        self.children   = []
-        self._vdiRef    = None
+        self.sizeVirt = -1
+        self._sizeVHD = -1
+        self.hidden = False
+        self.parent = None
+        self.children = []
+        self._vdiRef = None
         self._clearRef()
 
     def load(self):
         """Load VDI info"""
-        pass # abstract
+        pass  # abstract
 
     def getDriverName(self):
         return self.DRIVER_NAME_VHD
@@ -473,7 +484,7 @@ class VDI(object):
             self._vdiRef = self.sr.xapi.getRefVDI(self)
         return self._vdiRef
 
-    def getConfig(self, key, default = None):
+    def getConfig(self, key, default=None):
         config = self.sr.xapi.getConfigVDI(self, key)
         if key == self.DB_ONBOOT:
             val = config
@@ -499,7 +510,7 @@ class VDI(object):
 
     def pause(self, failfast=False):
         if not blktap2.VDI.tap_pause(self.sr.xapi.session, self.sr.uuid,
-                self.uuid, failfast):
+                                     self.uuid, failfast):
             raise util.SMException("Failed to pause VDI %s" % self)
 
     def _report_tapdisk_unpause_error(self):
@@ -508,25 +519,25 @@ class VDI(object):
             sr_ref = xapi.SR.get_by_uuid(self.sr.uuid)
             msg_name = "failed to unpause tapdisk"
             msg_body = "Failed to unpause tapdisk for VDI %s, " \
-                    "VMs using this tapdisk have lost access " \
-                    "to the corresponding disk(s)" % self.uuid
+                       "VMs using this tapdisk have lost access " \
+                       "to the corresponding disk(s)" % self.uuid
             xapi.message.create(msg_name, "4", "SR", self.sr.uuid, msg_body)
         except Exception, e:
             util.SMlog("failed to generate message: %s" % e)
 
     def unpause(self):
         if not blktap2.VDI.tap_unpause(self.sr.xapi.session, self.sr.uuid,
-                self.uuid):
+                                       self.uuid):
             self._report_tapdisk_unpause_error()
             raise util.SMException("Failed to unpause VDI %s" % self)
 
-    def refresh(self, ignoreNonexistent = True):
+    def refresh(self, ignoreNonexistent=True):
         """Pause-unpause in one step"""
         self.sr.lock()
         try:
             try:
                 if not blktap2.VDI.tap_refresh(self.sr.xapi.session,
-                        self.sr.uuid, self.uuid):
+                                               self.sr.uuid, self.uuid):
                     self._report_tapdisk_unpause_error()
                     raise util.SMException("Failed to refresh %s" % self)
             except XenAPI.Failure, e:
@@ -542,7 +553,7 @@ class VDI(object):
 
     def isAttachedRW(self):
         return util.is_attached_rw(
-                self.sr.xapi.session.xenapi.VDI.get_sm_config(self.getRef()))
+            self.sr.xapi.session.xenapi.VDI.get_sm_config(self.getRef()))
 
     def getVHDBlocks(self):
         val = self.updateBlockInfo()
@@ -552,27 +563,27 @@ class VDI(object):
     def isCoalesceable(self):
         """A VDI is coalesceable if it has no siblings and is not a leaf"""
         return not self.scanError and \
-                self.parent and \
-                len(self.parent.children) == 1 and \
-                self.hidden and \
-                len(self.children) > 0
+               self.parent and \
+               len(self.parent.children) == 1 and \
+               self.hidden and \
+               len(self.children) > 0
 
     def isLeafCoalesceable(self):
         """A VDI is leaf-coalesceable if it has no siblings and is a leaf"""
         return not self.scanError and \
-                self.parent and \
-                len(self.parent.children) == 1 and \
-                not self.hidden and \
-                len(self.children) == 0
+               self.parent and \
+               len(self.parent.children) == 1 and \
+               not self.hidden and \
+               len(self.children) == 0
 
     def canLiveCoalesce(self):
         """Can we stop-and-leaf-coalesce this VDI? The VDI must be
         isLeafCoalesceable() already"""
         return self.getSizeVHD() <= self.LIVE_LEAF_COALESCE_MAX_SIZE or \
-                self.getConfig(self.DB_LEAFCLSC) == self.LEAFCLSC_FORCE
+               self.getConfig(self.DB_LEAFCLSC) == self.LEAFCLSC_FORCE
 
     def getAllPrunable(self):
-        if len(self.children) == 0: # base case
+        if len(self.children) == 0:  # base case
             # it is possible to have a hidden leaf that was recently coalesced
             # onto its parent, its children already relinked but not yet
             # reloaded - in which case it may not be garbage collected yet:
@@ -635,7 +646,7 @@ class VDI(object):
 
     def rename(self, uuid):
         "Rename the VDI file"
-        assert(not self.sr.vdis.get(uuid))
+        assert (not self.sr.vdis.get(uuid))
         self._clearRef()
         oldUuid = self.uuid
         self.uuid = uuid
@@ -666,10 +677,10 @@ class VDI(object):
             strSizeVHD = ""
 
         return "%s%s(%s%s)%s" % (strHidden, self.uuid[0:8], strSizeVirt,
-                strSizeVHD, strType)
+                                 strSizeVHD, strType)
 
-    def validate(self, fast = False):
-        if not vhdutil.check(self.path, fast = fast):
+    def validate(self, fast=False):
+        if not vhdutil.check(self.path, fast=fast):
             raise util.SMException("VHD %s corrupted" % self)
 
     def _clear(self):
@@ -693,20 +704,20 @@ class VDI(object):
         self.sr._updateSlavesOnResize(self.parent)
         self._coalesceVHD(0)
         self.parent.validate(True)
-        #self._verifyContents(0)
+        # self._verifyContents(0)
         self.parent.updateBlockInfo()
 
     def _verifyContents(self, timeOut):
         Util.log("  Coalesce verification on %s" % self)
-        abortTest = lambda:IPCFlag(self.sr.uuid).test(FLAG_TYPE_ABORT)
+        abortTest = lambda: IPCFlag(self.sr.uuid).test(FLAG_TYPE_ABORT)
         Util.runAbortable(lambda: self._runTapdiskDiff(), True,
-                self.sr.uuid, abortTest, VDI.POLL_INTERVAL, timeOut)
+                          self.sr.uuid, abortTest, VDI.POLL_INTERVAL, timeOut)
         Util.log("  Coalesce verification succeeded")
 
     def _runTapdiskDiff(self):
         cmd = "tapdisk-diff -n %s:%s -m %s:%s" % \
-                (self.getDriverName(), self.path, \
-                self.parent.getDriverName(), self.parent.path)
+              (self.getDriverName(), self.path, \
+               self.parent.getDriverName(), self.parent.path)
         Util.doexec(cmd, 0)
         return True
 
@@ -728,7 +739,7 @@ class VDI(object):
         else:
             msg_body = ''
         util.SMlog('Coalesce failed on SR %s: %s (%s)'
-                % (vdi.sr.uuid, msg_name, msg_body))
+                   % (vdi.sr.uuid, msg_name, msg_body))
 
         # Create a XenCenter message, but don't spam.
         xapi = vdi.sr.xapi.session.xenapi
@@ -748,20 +759,21 @@ class VDI(object):
             if COALESCE_LAST_ERR_TAG in sm_cfg:
                 # seconds per message (minimum distance in time between two
                 # messages in seconds)
-                spm = datetime.timedelta(seconds=(1.0/coalesce_err_rate)*60)
+                spm = datetime.timedelta(seconds=(1.0 / coalesce_err_rate) * 60)
                 last = datetime.datetime.fromtimestamp(
-                        float(sm_cfg[COALESCE_LAST_ERR_TAG]))
+                    float(sm_cfg[COALESCE_LAST_ERR_TAG]))
                 if now - last >= spm:
                     xapi.SR.remove_from_sm_config(sr_ref,
-                            COALESCE_LAST_ERR_TAG)
+                                                  COALESCE_LAST_ERR_TAG)
                     xcmsg = True
             else:
                 xcmsg = True
             if xcmsg:
                 xapi.SR.add_to_sm_config(sr_ref, COALESCE_LAST_ERR_TAG,
-                        str(now.strftime('%s')))
+                                         str(now.strftime('%s')))
         if xcmsg:
             xapi.message.create(msg_name, "3", "SR", vdi.sr.uuid, msg_body)
+
     _reportCoalesceError = staticmethod(_reportCoalesceError)
 
     def _doCoalesceVHD(vdi):
@@ -779,16 +791,17 @@ class VDI(object):
             raise ce
         except:
             raise
+
     _doCoalesceVHD = staticmethod(_doCoalesceVHD)
 
     def _coalesceVHD(self, timeOut):
         Util.log("  Running VHD coalesce on %s" % self)
-        abortTest = lambda:IPCFlag(self.sr.uuid).test(FLAG_TYPE_ABORT)
+        abortTest = lambda: IPCFlag(self.sr.uuid).test(FLAG_TYPE_ABORT)
         try:
             Util.runAbortable(lambda: VDI._doCoalesceVHD(self), None,
-                    self.sr.uuid, abortTest, VDI.POLL_INTERVAL, timeOut)
+                              self.sr.uuid, abortTest, VDI.POLL_INTERVAL, timeOut)
         except:
-            #exception at this phase could indicate a failure in vhd coalesce
+            # exception at this phase could indicate a failure in vhd coalesce
             # or a kill of vhd coalesce by runAbortable due to  timeOut
             # Try a repair and reraise the exception
             parent = ""
@@ -804,7 +817,7 @@ class VDI(object):
                            (parent, self.path, e))
             raise
 
-        util.fistpoint.activate("LVHDRT_coalescing_VHD_data",self.sr.uuid)
+        util.fistpoint.activate("LVHDRT_coalescing_VHD_data", self.sr.uuid)
 
     def _relinkSkip(self):
         """Relink children of this VDI to point to the parent of this VDI"""
@@ -813,8 +826,8 @@ class VDI(object):
             if abortFlag.test(FLAG_TYPE_ABORT):
                 raise AbortException("Aborting due to signal")
             Util.log("  Relinking %s from %s to %s" % \
-                    (child, self, self.parent))
-            util.fistpoint.activate("LVHDRT_relinking_grandchildren",self.sr.uuid)
+                     (child, self, self.parent))
+            util.fistpoint.activate("LVHDRT_relinking_grandchildren", self.sr.uuid)
             child._setParent(self.parent)
         self.children = []
 
@@ -861,11 +874,11 @@ class VDI(object):
         hidden = vhdutil.getHidden(self.path)
         self.hidden = (hidden != 0)
 
-    def _setHidden(self, hidden = True):
+    def _setHidden(self, hidden=True):
         vhdutil.setHidden(self.path, hidden)
         self.hidden = hidden
 
-    def _increaseSizeVirt(self, size, atomic = True):
+    def _increaseSizeVirt(self, size, atomic=True):
         """ensure the virtual size of 'self' is at least 'size'. Note that
         resizing a VHD must always be offline and atomically: the file must
         not be open by anyone and no concurrent operations may take place.
@@ -875,7 +888,7 @@ class VDI(object):
         if self.sizeVirt >= size:
             return
         Util.log("  Expanding VHD virt size for VDI %s: %s -> %s" % \
-                (self, Util.num2str(self.sizeVirt), Util.num2str(size)))
+                 (self, Util.num2str(self.sizeVirt), Util.num2str(size)))
 
         msize = vhdutil.getMaxResizeSize(self.path) * 1024 * 1024
         if (size <= msize):
@@ -920,13 +933,13 @@ class VDI(object):
         numBlocks = Util.countBits(blocksChild, blocksParent)
         Util.log("Num combined blocks = %d" % numBlocks)
         sizeData = numBlocks * vhdutil.VHD_BLOCK_SIZE
-        assert(sizeData <= self.sizeVirt)
+        assert (sizeData <= self.sizeVirt)
         return sizeData
 
     def _calcExtraSpaceForCoalescing(self):
         sizeData = self._getCoalescedSizeData()
         sizeCoalesced = sizeData + vhdutil.calcOverheadBitmap(sizeData) + \
-                vhdutil.calcOverheadEmpty(self.sizeVirt)
+                        vhdutil.calcOverheadEmpty(self.sizeVirt)
         Util.log("Coalesced size = %s" % Util.num2str(sizeCoalesced))
         return sizeCoalesced - self.parent.getSizeVHD()
 
@@ -940,7 +953,7 @@ class VDI(object):
         """How much extra space in the SR will be required to
         snapshot-coalesce this VDI"""
         return self._calcExtraSpaceForCoalescing() + \
-                vhdutil.calcOverheadEmpty(self.sizeVirt) # extra snap leaf
+               vhdutil.calcOverheadEmpty(self.sizeVirt)  # extra snap leaf
 
     def _getAllSubtree(self):
         """Get self and all VDIs in the subtree of self as a flat list"""
@@ -959,9 +972,10 @@ class FileVDI(VDI):
                 path.endswith(vhdutil.FILE_EXTN_RAW)):
             return None
         uuid = path.replace(vhdutil.FILE_EXTN_VHD, "").replace( \
-                vhdutil.FILE_EXTN_RAW, "")
+            vhdutil.FILE_EXTN_RAW, "")
         # TODO: validate UUID format
         return uuid
+
     extractUuid = staticmethod(extractUuid)
 
     def __init__(self, sr, uuid, raw):
@@ -971,7 +985,7 @@ class FileVDI(VDI):
         else:
             self.fileName = "%s%s" % (self.uuid, vhdutil.FILE_EXTN_VHD)
 
-    def load(self, info = None):
+    def load(self, info=None):
         if not info:
             if not util.pathexists(self.path):
                 raise util.SMException("%s not found" % self.path)
@@ -980,29 +994,29 @@ class FileVDI(VDI):
             except util.SMException:
                 Util.log(" [VDI %s: failed to read VHD metadata]" % self.uuid)
                 return
-        self.parent     = None
-        self.children   = []
+        self.parent = None
+        self.children = []
         self.parentUuid = info.parentUuid
-        self.sizeVirt   = info.sizeVirt
-        self._sizeVHD   = info.sizePhys
-        self.hidden     = info.hidden
-        self.scanError  = False
-        self.path       = os.path.join(self.sr.path, "%s%s" % \
-                (self.uuid, vhdutil.FILE_EXTN_VHD))
+        self.sizeVirt = info.sizeVirt
+        self._sizeVHD = info.sizePhys
+        self.hidden = info.hidden
+        self.scanError = False
+        self.path = os.path.join(self.sr.path, "%s%s" %
+                                 (self.uuid, vhdutil.FILE_EXTN_VHD))
 
     def rename(self, uuid):
         oldPath = self.path
         VDI.rename(self, uuid)
         self.fileName = "%s%s" % (self.uuid, vhdutil.FILE_EXTN_VHD)
         self.path = os.path.join(self.sr.path, self.fileName)
-        assert(not util.pathexists(self.path))
+        assert (not util.pathexists(self.path))
         Util.log("Renaming %s -> %s" % (oldPath, self.path))
         os.rename(oldPath, self.path)
 
     def delete(self):
         if len(self.children) > 0:
-            raise util.SMException("VDI %s has children, can't delete" % \
-                    self.uuid)
+            raise util.SMException("VDI %s has children, can't delete" %
+                                   self.uuid)
         try:
             self.sr.lock()
             try:
@@ -1018,23 +1032,23 @@ class FileVDI(VDI):
 class LVHDVDI(VDI):
     """Object representing a VDI in an LVHD SR"""
 
-    JRN_ZERO = "zero" # journal entry type for zeroing out end of parent
+    JRN_ZERO = "zero"  # journal entry type for zeroing out end of parent
     DRIVER_NAME_RAW = "aio"
 
     def load(self, vdiInfo):
-        self.parent     = None
-        self.children   = []
-        self._sizeVHD   = -1
-        self.scanError  = vdiInfo.scanError
-        self.sizeLV     = vdiInfo.sizeLV
-        self.sizeVirt   = vdiInfo.sizeVirt
-        self.fileName   = vdiInfo.lvName
-        self.lvActive   = vdiInfo.lvActive
-        self.lvOpen     = vdiInfo.lvOpen
+        self.parent = None
+        self.children = []
+        self._sizeVHD = -1
+        self.scanError = vdiInfo.scanError
+        self.sizeLV = vdiInfo.sizeLV
+        self.sizeVirt = vdiInfo.sizeVirt
+        self.fileName = vdiInfo.lvName
+        self.lvActive = vdiInfo.lvActive
+        self.lvOpen = vdiInfo.lvOpen
         self.lvReadonly = vdiInfo.lvReadonly
-        self.hidden     = vdiInfo.hidden
+        self.hidden = vdiInfo.hidden
         self.parentUuid = vdiInfo.parentUuid
-        self.path       = os.path.join(self.sr.path, self.fileName)
+        self.path = os.path.join(self.sr.path, self.fileName)
 
     def getDriverName(self):
         if self.raw:
@@ -1049,7 +1063,7 @@ class LVHDVDI(VDI):
         self.sr.lock()
         try:
             lvhdutil.inflate(self.sr.journaler, self.sr.uuid, self.uuid, size)
-            util.fistpoint.activate("LVHDRT_inflating_the_parent",self.sr.uuid)
+            util.fistpoint.activate("LVHDRT_inflating_the_parent", self.sr.uuid)
         finally:
             self.sr.unlock()
         self.sizeLV = self.sr.lvmCache.getSize(self.fileName)
@@ -1078,7 +1092,7 @@ class LVHDVDI(VDI):
             return
         inc = self._calcExtraSpaceForCoalescing()
         if inc > 0:
-            util.fistpoint.activate("LVHDRT_coalescing_before_inflate_grandparent",self.sr.uuid)
+            util.fistpoint.activate("LVHDRT_coalescing_before_inflate_grandparent", self.sr.uuid)
             self.parent.inflate(self.parent.sizeLV + inc)
 
     def updateBlockInfo(self):
@@ -1093,7 +1107,7 @@ class LVHDVDI(VDI):
         if self.raw:
             self.fileName = lvhdutil.LV_PREFIX[vhdutil.VDI_TYPE_RAW] + self.uuid
         self.path = os.path.join(self.sr.path, self.fileName)
-        assert(not self.sr.lvmCache.checkLV(self.fileName))
+        assert (not self.sr.lvmCache.checkLV(self.fileName))
 
         self.sr.lvmCache.rename(oldLVName, self.fileName)
         if self.sr.lvActivator.get(oldUuid, False):
@@ -1107,7 +1121,7 @@ class LVHDVDI(VDI):
     def delete(self):
         if len(self.children) > 0:
             raise util.SMException("VDI %s has children, can't delete" % \
-                    self.uuid)
+                                   self.uuid)
         self.sr.lock()
         try:
             self.sr.lvmCache.remove(self.fileName)
@@ -1133,7 +1147,7 @@ class LVHDVDI(VDI):
         self._sizeVHD = vhdutil.getSizePhys(self.path)
         if self._sizeVHD <= 0:
             raise util.SMException("phys size of %s = %d" % \
-                    (self, self._sizeVHD))
+                                   (self, self._sizeVHD))
 
     def _loadInfoHidden(self):
         if self.raw:
@@ -1141,7 +1155,7 @@ class LVHDVDI(VDI):
         else:
             VDI._loadInfoHidden(self)
 
-    def _setHidden(self, hidden = True):
+    def _setHidden(self, hidden=True):
         if self.raw:
             self.sr.lvmCache.setHidden(self.fileName, hidden)
             self.hidden = hidden
@@ -1164,10 +1178,10 @@ class LVHDVDI(VDI):
         if self.lvOpen:
             strActive += "o"
         return "%s%s[%s](%s/%s/%s|%s)" % (strHidden, self.uuid[0:8], strType,
-                Util.num2str(self.sizeVirt), strSizeVHD,
-                Util.num2str(self.sizeLV), strActive)
+                                          Util.num2str(self.sizeVirt), strSizeVHD,
+                                          Util.num2str(self.sizeLV), strActive)
 
-    def validate(self, fast = False):
+    def validate(self, fast=False):
         if not self.raw:
             VDI.validate(self, fast)
 
@@ -1218,7 +1232,7 @@ class LVHDVDI(VDI):
     def _deactivate(self):
         self.sr.lvActivator.deactivate(self.uuid, False)
 
-    def _increaseSizeVirt(self, size, atomic = True):
+    def _increaseSizeVirt(self, size, atomic=True):
         "ensure the virtual size of 'self' is at least 'size'"
         self._activate()
         if not self.raw:
@@ -1246,12 +1260,12 @@ class LVHDVDI(VDI):
             Util.log("  ==> Redoing unfinished zeroing out")
         else:
             self.sr.journaler.create(self.JRN_ZERO, self.uuid, \
-                    str(offset))
+                                     str(offset))
         Util.log("  Zeroing %s: from %d, %dB" % (self.path, offset, length))
-        abortTest = lambda:IPCFlag(self.sr.uuid).test(FLAG_TYPE_ABORT)
+        abortTest = lambda: IPCFlag(self.sr.uuid).test(FLAG_TYPE_ABORT)
         func = lambda: util.zeroOut(self.path, offset, length)
         Util.runAbortable(func, True, self.sr.uuid, abortTest,
-                VDI.POLL_INTERVAL, 0)
+                          VDI.POLL_INTERVAL, 0)
         self.sr.journaler.remove(self.JRN_ZERO, self.uuid)
 
     def _setSizeVirt(self, size):
@@ -1260,10 +1274,10 @@ class LVHDVDI(VDI):
         of the operation): this operation is only safe for offline VHDs"""
         self._activate()
         jFile = lvhdutil.createVHDJournalLV(self.sr.lvmCache, self.uuid,
-                vhdutil.MAX_VHD_JOURNAL_SIZE)
+                                            vhdutil.MAX_VHD_JOURNAL_SIZE)
         try:
             lvhdutil.setSizeVirt(self.sr.journaler, self.sr.uuid, self.uuid,
-                    size, jFile)
+                                 size, jFile)
         finally:
             lvhdutil.deleteVHDJournalLV(self.sr.lvmCache, self.uuid)
 
@@ -1273,7 +1287,7 @@ class LVHDVDI(VDI):
 
     def _calcExtraSpaceForCoalescing(self):
         if self.parent.raw:
-            return 0 # raw parents are never deflated in the first place
+            return 0  # raw parents are never deflated in the first place
         sizeCoalesced = lvhdutil.calcSizeVHDLV(self._getCoalescedSizeData())
         Util.log("Coalesced size = %s" % Util.num2str(sizeCoalesced))
         return sizeCoalesced - self.parent.sizeLV
@@ -1287,8 +1301,7 @@ class LVHDVDI(VDI):
 
     def _calcExtraSpaceForSnapshotCoalescing(self):
         return self._calcExtraSpaceForCoalescing() + \
-                lvhdutil.calcSizeLV(self.getSizeVHD())
-
+               lvhdutil.calcSizeLV(self.getSizeVHD())
 
 
 ################################################################################
@@ -1317,7 +1330,7 @@ class SR(object):
                     changes += "Tree %s gone\n" % uuid
 
             result = "SR %s (%d VDIs in %d VHD trees): " % \
-                    (self.sr, len(self.sr.vdis), len(self.sr.vdiTrees))
+                     (self.sr, len(self.sr.vdis), len(self.sr.vdiTrees))
 
             if len(changes) > 0:
                 if self.stateLogged:
@@ -1337,12 +1350,11 @@ class SR(object):
             if self.stateLogged:
                 Util.log("Found new VDI when scanning: %s" % uuid)
 
-        def _getTreeStr(self, vdi, indent = 8):
+        def _getTreeStr(self, vdi, indent=8):
             treeStr = "%s%s\n" % (" " * indent, vdi)
             for child in vdi.children:
                 treeStr += self._getTreeStr(child, indent + VDI.STR_TREE_INDENT)
             return treeStr
-
 
     TYPE_FILE = "file"
     TYPE_LVHD = "lvhd"
@@ -1355,13 +1367,13 @@ class SR(object):
 
     SCAN_RETRY_ATTEMPTS = 3
 
-    JRN_CLONE = "clone" # journal entry type for the clone operation (from SM)
+    JRN_CLONE = "clone"  # journal entry type for the clone operation (from SM)
     TMP_RENAME_PREFIX = "OLD_"
 
     KEY_OFFLINE_COALESCE_NEEDED = "leaf_coalesce_need_offline"
     KEY_OFFLINE_COALESCE_OVERRIDE = "leaf_coalesce_offline_override"
 
-    def getInstance(uuid, xapiSession, createLock = True, force = False):
+    def getInstance(uuid, xapiSession, createLock=True, force=False):
         xapi = XAPI(xapiSession, uuid)
         type = normalizeType(xapi.srRecord["type"])
         if type == SR.TYPE_FILE:
@@ -1372,6 +1384,7 @@ class SR(object):
             from RBDSR import RBDSR_GC, RBDVDI_GC
             return RBDSR_GC(uuid, xapi, createLock, force)
         raise util.SMException("SR type %s not recognized" % type)
+
     getInstance = staticmethod(getInstance)
 
     def __init__(self, uuid, xapi, createLock, force):
@@ -1403,21 +1416,21 @@ class SR(object):
         elif not self.xapi.isMaster():
             raise util.SMException("This host is NOT master, will not run")
 
-    def gcEnabled(self, refresh = True):
+    def gcEnabled(self, refresh=True):
         if refresh:
             self.xapi.srRecord = \
-                    self.xapi.session.xenapi.SR.get_record(self.xapi._srRef)
+                self.xapi.session.xenapi.SR.get_record(self.xapi._srRef)
         if self.xapi.srRecord["other_config"].get(VDI.DB_GC) == "false":
             Util.log("GC is disabled for this SR, abort")
             return False
         return True
 
-    def scan(self, force = False):
+    def scan(self, force=False):
         """Scan the SR and load VDI info for each VDI. If called repeatedly,
         update VDI objects if they already exist"""
-        pass # abstract
+        pass  # abstract
 
-    def scanLocked(self, force = False):
+    def scanLocked(self, force=False):
         self.lock()
         try:
             self.scan(force)
@@ -1482,7 +1495,7 @@ class SR(object):
                     return c
                 else:
                     Util.log("No space to coalesce %s (free space: %d)" % \
-                            (c, freeSpace))
+                             (c, freeSpace))
         return None
 
     def findLeafCoalesceable(self):
@@ -1508,7 +1521,7 @@ class SR(object):
             if vdi.getConfig(vdi.DB_LEAFCLSC) == vdi.LEAFCLSC_DISABLED:
                 Util.log("Leaf-coalesce disabled for %s" % vdi)
                 continue
-            if not (AUTO_ONLINE_LEAF_COALESCE_ENABLED or \
+            if not (AUTO_ONLINE_LEAF_COALESCE_ENABLED or
                     vdi.getConfig(vdi.DB_LEAFCLSC) == vdi.LEAFCLSC_FORCE):
                 continue
             candidates.append(vdi)
@@ -1528,11 +1541,11 @@ class SR(object):
                 return candidate
             else:
                 Util.log("No space to leaf-coalesce %s (free space: %d)" % \
-                        (candidate, freeSpace))
+                         (candidate, freeSpace))
                 if spaceNeededLive <= freeSpace:
                     Util.log("...but enough space if skip snap-coalesce")
                     candidate.setConfig(VDI.DB_LEAFCLSC,
-                            VDI.LEAFCLSC_OFFLINE)
+                                        VDI.LEAFCLSC_OFFLINE)
 
         return None
 
@@ -1579,7 +1592,7 @@ class SR(object):
                 Util.log("Leaf-coalesce failed, skipping")
         self.cleanup()
 
-    def garbageCollect(self, dryRun = False):
+    def garbageCollect(self, dryRun=False):
         vdiList = self.findGarbage()
         Util.log("Found %d VDIs for deletion:" % len(vdiList))
         for vdi in vdiList:
@@ -1602,7 +1615,7 @@ class SR(object):
             self.deleteVDI(vdi)
 
     def deleteVDI(self, vdi):
-        assert(len(vdi.children) == 0)
+        assert (len(vdi.children) == 0)
         del self.vdis[vdi.uuid]
         if vdi.parent:
             vdi.parent.children.remove(vdi)
@@ -1661,7 +1674,7 @@ class SR(object):
         if not self._srLock:
             return
 
-        if self._locked == 0 :
+        if self._locked == 0:
             abortFlag = IPCFlag(self.uuid)
             for i in range(SR.LOCK_RETRY_ATTEMPTS_LOCK):
                 if self._srLock.acquireNoblock():
@@ -1677,7 +1690,7 @@ class SR(object):
     def unlock(self):
         if not self._srLock:
             return
-        assert(self._locked > 0)
+        assert (self._locked > 0)
         self._locked -= 1
         if self._locked == 0:
             self._srLock.release()
@@ -1715,11 +1728,11 @@ class SR(object):
                     if self.getVDI(baseUuid):
                         continue
                 Util.log("  Deleting stale '%s' journal entry for %s "
-                        "(%s)" % (t, uuid, jval))
+                         "(%s)" % (t, uuid, jval))
                 if not dryRun:
                     self.journaler.remove(t, uuid)
 
-    def cleanupCache(self, maxAge = -1):
+    def cleanupCache(self, maxAge=-1):
         return 0
 
     def _coalesce(self, vdi):
@@ -1736,7 +1749,7 @@ class SR(object):
             vdi._doCoalesce()
             self.journaler.remove(vdi.JRN_COALESCE, vdi.uuid)
 
-            util.fistpoint.activate("LVHDRT_before_create_relink_journal",self.uuid)
+            util.fistpoint.activate("LVHDRT_before_create_relink_journal", self.uuid)
 
             # we now need to relink the children: lock the SR to prevent ops
             # like SM.clone from manipulating the VDIs we'll be relinking and
@@ -1773,7 +1786,7 @@ class SR(object):
         # Note that because we are not holding any locks here, concurrent SM
         # operations may change this tree under our feet. In particular, vdi
         # can be deleted, or it can be snapshotted.
-        assert(AUTO_ONLINE_LEAF_COALESCE_ENABLED)
+        assert (AUTO_ONLINE_LEAF_COALESCE_ENABLED)
         Util.log("Single-snapshotting %s" % vdi)
         util.fistpoint.activate("LVHDRT_coaleaf_delay_1", self.uuid)
         try:
@@ -1851,7 +1864,7 @@ class SR(object):
         vdi._coalesceVHD(timeout)
         util.fistpoint.activate("LVHDRT_coaleaf_after_coalesce", self.uuid)
         vdi.parent.validate(True)
-        #vdi._verifyContents(timeout / 2)
+        # vdi._verifyContents(timeout / 2)
 
         # rename
         vdiUuid = vdi.uuid
@@ -1898,7 +1911,7 @@ class SR(object):
         self.journaler.remove(VDI.JRN_LEAF, vdiUuid)
 
     def _calcExtraSpaceNeeded(self, child, parent):
-        assert(not parent.raw) # raw parents not supported
+        assert (not parent.raw)  # raw parents not supported
         extra = child.getSizeVHD() - parent.getSizeVHD()
         if extra < 0:
             extra = 0
@@ -1926,7 +1939,7 @@ class SR(object):
         for uuid in self.vdis.keys():
             if not uuid in uuidsPresent:
                 Util.log("VDI %s disappeared since last scan" % \
-                        self.vdis[uuid])
+                         self.vdis[uuid])
                 del self.vdis[uuid]
 
     def _handleInterruptedCoalesceLeaf(self):
@@ -1948,12 +1961,12 @@ class SR(object):
                         continue
                     if force:
                         Util.log("ERROR: Parent VDI %s not found! (for %s)" % \
-                                (vdi.parentUuid, vdi.uuid))
+                                 (vdi.parentUuid, vdi.uuid))
                         self.vdiTrees.append(vdi)
                         continue
                     else:
                         raise util.SMException("Parent VDI %s of %s not " \
-                                "found" % (vdi.parentUuid, vdi.uuid))
+                                               "found" % (vdi.parentUuid, vdi.uuid))
                 vdi.parent = parent
                 parent.children.append(vdi)
             else:
@@ -1968,13 +1981,12 @@ class FileSR(SR):
     CACHE_ACTION_REMOVE = 1
     CACHE_ACTION_REMOVE_IF_INACTIVE = 2
 
-
     def __init__(self, uuid, xapi, createLock, force):
         SR.__init__(self, uuid, xapi, createLock, force)
         self.path = "/var/run/sr-mount/%s" % self.uuid
         self.journaler = fjournaler.Journaler(self.path)
 
-    def scan(self, force = False):
+    def scan(self, force=False):
         if not util.pathexists(self.path):
             raise util.SMException("directory %s not found!" % self.uuid)
         vhds = self._scan(force)
@@ -1987,7 +1999,7 @@ class FileSR(SR):
             vdi.load(vhdInfo)
         uuidsPresent = vhds.keys()
         rawList = filter(lambda x: x.endswith(vhdutil.FILE_EXTN_RAW),
-                os.listdir(self.path))
+                         os.listdir(self.path))
         for rawName in rawList:
             uuid = FileVDI.extractUuid(rawName)
             uuidsPresent.append(uuid)
@@ -2014,8 +2026,7 @@ class FileSR(SR):
         if self.xapi.srRecord["type"] == "nfs" and rootDeleted:
             self.xapi.markCacheSRsDirty()
 
-
-    def cleanupCache(self, maxAge = -1):
+    def cleanupCache(self, maxAge=-1):
         """Clean up IntelliCache cache files. Caches for leaf nodes are
         removed when the leaf node no longer exists or its allow-caching
         attribute is not set. Caches for parent nodes are removed when the
@@ -2026,7 +2037,7 @@ class FileSR(SR):
         numRemoved = 0
         cacheFiles = filter(self._isCacheFileName, os.listdir(self.path))
         Util.log("Found %d cache files" % len(cacheFiles))
-        cutoff = datetime.datetime.now() - datetime.timedelta(hours = maxAge)
+        cutoff = datetime.datetime.now() - datetime.timedelta(hours=maxAge)
         for cacheFile in cacheFiles:
             uuid = cacheFile[:-len(self.CACHE_FILE_EXT)]
             action = self.CACHE_ACTION_KEEP
@@ -2039,7 +2050,7 @@ class FileSR(SR):
                 action = self.CACHE_ACTION_REMOVE
             elif not rec["managed"] and maxAge >= 0:
                 lastAccess = datetime.datetime.fromtimestamp( \
-                        os.path.getatime(os.path.join(self.path, cacheFile)))
+                    os.path.getatime(os.path.join(self.path, cacheFile)))
                 if lastAccess < cutoff:
                     Util.log("Cache %s: older than %d hrs" % (uuid, maxAge))
                     action = self.CACHE_ACTION_REMOVE_IF_INACTIVE
@@ -2065,7 +2076,7 @@ class FileSR(SR):
         return numRemoved
 
     def _cleanupCache(self, uuid, action):
-        assert(action != self.CACHE_ACTION_KEEP)
+        assert (action != self.CACHE_ACTION_KEEP)
         rec = self.xapi.getRecordVDI(uuid)
         if rec and rec["allow_caching"]:
             Util.log("Cache %s appears to have become valid" % uuid)
@@ -2086,7 +2097,7 @@ class FileSR(SR):
 
     def _isCacheFileName(self, name):
         return (len(name) == Util.UUID_LEN + len(self.CACHE_FILE_EXT)) and \
-                name.endswith(self.CACHE_FILE_EXT)
+               name.endswith(self.CACHE_FILE_EXT)
 
     def _scan(self, force):
         for i in range(SR.SCAN_RETRY_ATTEMPTS):
@@ -2124,10 +2135,10 @@ class FileSR(SR):
                     raise
 
     def _checkSlave(self, hostRef, vdi):
-        call  = (hostRef, "nfs-on-slave", "check", { 'path': vdi.path })
+        call = (hostRef, "nfs-on-slave", "check", {'path': vdi.path})
         Util.log("Checking with slave: %s" % repr(call))
         _host = self.xapi.session.xenapi.host
-        text  = _host.call_plugin(*call)
+        text = _host.call_plugin(*call)
 
     def _handleInterruptedCoalesceLeaf(self):
         entries = self.journaler.getAll(VDI.JRN_LEAF)
@@ -2154,7 +2165,7 @@ class FileSR(SR):
             parent = self.getVDI(childUuid)
             if not parent:
                 raise util.SMException("Neither %s nor %s found" % \
-                        (parentUuid, childUuid))
+                                       (parentUuid, childUuid))
             Util.log("Renaming parent back: %s -> %s" % (childUuid, parentUuid))
             parent.rename(parentUuid)
         util.fistpoint.activate("LVHDRT_coaleaf_undo_after_rename", self.uuid)
@@ -2164,7 +2175,7 @@ class FileSR(SR):
             child = self.getVDI(self.TMP_RENAME_PREFIX + childUuid)
             if not child:
                 raise util.SMException("Neither %s nor %s found" % \
-                        (childUuid, self.TMP_RENAME_PREFIX + childUuid))
+                                       (childUuid, self.TMP_RENAME_PREFIX + childUuid))
             Util.log("Renaming child back to %s" % childUuid)
             child.rename(childUuid)
             Util.log("Updating the VDI record")
@@ -2194,6 +2205,7 @@ class FileSR(SR):
         self._updateSlavesOnResize(vdi)
         util.fistpoint.activate("LVHDRT_coaleaf_finish_end", self.uuid)
         Util.log("*** finished leaf-coalesce successfully")
+
 
 class LVHDSR(SR):
     TYPE = SR.TYPE_LVHD
@@ -2249,14 +2261,14 @@ class LVHDSR(SR):
             # inherit the refcount value and preventing the correct decrement
             self.cleanup()
 
-    def scan(self, force = False):
+    def scan(self, force=False):
         vdis = self._scan(force)
         for uuid, vdiInfo in vdis.iteritems():
             vdi = self.getVDI(uuid)
             if not vdi:
                 self.logFilter.logNewVDI(uuid)
                 vdi = LVHDVDI(self, uuid,
-                        vdiInfo.vdiType == vhdutil.VDI_TYPE_RAW)
+                              vdiInfo.vdiType == vhdutil.VDI_TYPE_RAW)
                 self.vdis[uuid] = vdi
             vdi.load(vdiInfo)
         self._removeStaleVDIs(vdis.keys())
@@ -2284,7 +2296,7 @@ class LVHDSR(SR):
         for uuid in self.vdis.keys():
             if not uuid in uuidsPresent:
                 Util.log("VDI %s disappeared since last scan" % \
-                        self.vdis[uuid])
+                         self.vdis[uuid])
                 del self.vdis[uuid]
                 if self.lvActivator.get(uuid, False):
                     self.lvActivator.remove(uuid, False)
@@ -2317,7 +2329,7 @@ class LVHDSR(SR):
         cCnt, cBcnt = RefCounter.check(vdi.uuid, ns)
         pCnt, pBcnt = RefCounter.check(vdi.parent.uuid, ns)
         pCnt = pCnt - cBcnt
-        assert(pCnt >= 0)
+        assert (pCnt >= 0)
         RefCounter.set(vdi.parent.uuid, pCnt, cBcnt, ns)
 
     def _finishCoalesceLeaf(self, parent):
@@ -2334,11 +2346,11 @@ class LVHDSR(SR):
         for uuid, parentUuid in entries.iteritems():
             childLV = lvhdutil.LV_PREFIX[vhdutil.VDI_TYPE_VHD] + uuid
             tmpChildLV = lvhdutil.LV_PREFIX[vhdutil.VDI_TYPE_VHD] + \
-                    self.TMP_RENAME_PREFIX + uuid
+                         self.TMP_RENAME_PREFIX + uuid
             parentLV1 = lvhdutil.LV_PREFIX[vhdutil.VDI_TYPE_VHD] + parentUuid
             parentLV2 = lvhdutil.LV_PREFIX[vhdutil.VDI_TYPE_RAW] + parentUuid
             parentPresent = (self.lvmCache.checkLV(parentLV1) or \
-                    self.lvmCache.checkLV(parentLV2))
+                             self.lvmCache.checkLV(parentLV2))
             if parentPresent or self.lvmCache.checkLV(tmpChildLV):
                 self._undoInterruptedCoalesceLeaf(uuid, parentUuid)
             else:
@@ -2355,7 +2367,7 @@ class LVHDSR(SR):
             parent = self.getVDI(childUuid)
             if not parent:
                 raise util.SMException("Neither %s nor %s found" % \
-                        (parentUuid, childUuid))
+                                       (parentUuid, childUuid))
             Util.log("Renaming parent back: %s -> %s" % (childUuid, parentUuid))
             parent.rename(parentUuid)
         util.fistpoint.activate("LVHDRT_coaleaf_undo_after_rename", self.uuid)
@@ -2365,7 +2377,7 @@ class LVHDSR(SR):
             child = self.getVDI(self.TMP_RENAME_PREFIX + childUuid)
             if not child:
                 raise util.SMException("Neither %s nor %s found" % \
-                        (childUuid, self.TMP_RENAME_PREFIX + childUuid))
+                                       (childUuid, self.TMP_RENAME_PREFIX + childUuid))
             Util.log("Renaming child back to %s" % childUuid)
             child.rename(childUuid)
             Util.log("Updating the VDI record")
@@ -2418,12 +2430,12 @@ class LVHDSR(SR):
         try to check all slaves, including those that the Agent believes are
         offline, but ignore failures for offline hosts. This is to avoid cases
         where the Agent thinks a host is offline but the host is up."""
-        args = {"vgName" : self.vgName,
+        args = {"vgName": self.vgName,
                 "action1": "deactivateNoRefcount",
                 "lvName1": vdi.fileName,
                 "action2": "cleanupLockAndRefcount",
-                "uuid2"  : vdi.uuid,
-                "ns2"    : lvhdutil.NS_PREFIX_LVM + self.uuid}
+                "uuid2": vdi.uuid,
+                "ns2": lvhdutil.NS_PREFIX_LVM + self.uuid}
         onlineHosts = self.xapi.getOnlineHosts()
         abortFlag = IPCFlag(self.uuid)
         for pbdRecord in self.xapi.getAttachedPBDs():
@@ -2443,12 +2455,12 @@ class LVHDSR(SR):
         slaves = util.get_slaves_attached_on(self.xapi.session, [child.uuid])
         if not slaves:
             Util.log("Update-on-leaf-undo: VDI %s not attached on any slave" % \
-                    child)
+                     child)
             return
 
         tmpName = lvhdutil.LV_PREFIX[vhdutil.VDI_TYPE_VHD] + \
-                self.TMP_RENAME_PREFIX + child.uuid
-        args = {"vgName" : self.vgName,
+                  self.TMP_RENAME_PREFIX + child.uuid
+        args = {"vgName": self.vgName,
                 "action1": "deactivateNoRefcount",
                 "lvName1": tmpName,
                 "action2": "deactivateNoRefcount",
@@ -2459,9 +2471,9 @@ class LVHDSR(SR):
                 "lvName4": parent.fileName}
         for slave in slaves:
             Util.log("Updating %s, %s, %s on slave %s" % \
-                    (tmpName, child.fileName, parent.fileName, slave))
-            text = self.xapi.session.xenapi.host.call_plugin( \
-                    slave, self.xapi.PLUGIN_ON_SLAVE, "multi", args)
+                     (tmpName, child.fileName, parent.fileName, slave))
+            text = self.xapi.session.xenapi.host.call_plugin(
+                slave, self.xapi.PLUGIN_ON_SLAVE, "multi", args)
             Util.log("call-plugin returned: '%s'" % text)
 
     def _updateSlavesOnRename(self, vdi, oldNameLV, origParentUuid):
@@ -2470,19 +2482,19 @@ class LVHDSR(SR):
             Util.log("Update-on-rename: VDI %s not attached on any slave" % vdi)
             return
 
-        args = {"vgName" : self.vgName,
+        args = {"vgName": self.vgName,
                 "action1": "deactivateNoRefcount",
                 "lvName1": oldNameLV,
                 "action2": "refresh",
                 "lvName2": vdi.fileName,
                 "action3": "cleanupLockAndRefcount",
-                "uuid3"  : origParentUuid,
-                "ns3"    : lvhdutil.NS_PREFIX_LVM + self.uuid}
+                "uuid3": origParentUuid,
+                "ns3": lvhdutil.NS_PREFIX_LVM + self.uuid}
         for slave in slaves:
-            Util.log("Updating %s to %s on slave %s" % \
-                    (oldNameLV, vdi.fileName, slave))
-            text = self.xapi.session.xenapi.host.call_plugin( \
-                    slave, self.xapi.PLUGIN_ON_SLAVE, "multi", args)
+            Util.log("Updating %s to %s on slave %s" %
+                     (oldNameLV, vdi.fileName, slave))
+            text = self.xapi.session.xenapi.host.call_plugin(
+                slave, self.xapi.PLUGIN_ON_SLAVE, "multi", args)
             Util.log("call-plugin returned: '%s'" % text)
 
     def _updateSlavesOnResize(self, vdi):
@@ -2492,7 +2504,7 @@ class LVHDSR(SR):
             util.SMlog("Update-on-resize: %s not attached on any slave" % vdi)
             return
         lvhdutil.lvRefreshOnSlaves(self.xapi.session, self.uuid, self.vgName,
-                vdi.fileName, vdi.uuid, slaves)
+                                   vdi.fileName, vdi.uuid, slaves)
 
 
 ################################################################################
@@ -2522,6 +2534,7 @@ def daemonize():
     sys.stdout = open("/dev/null", 'w')
     return True
 
+
 def normalizeType(type):
     if type in LVHDSR.SUBTYPES:
         type = SR.TYPE_LVHD
@@ -2534,6 +2547,7 @@ def normalizeType(type):
         raise util.SMException("Unsupported SR type: %s" % type)
     return type
 
+
 def _gcLoop(sr, dryRun):
     if not lockActive.acquireNoblock():
         Util.log("Another GC instance already active, exiting")
@@ -2541,7 +2555,7 @@ def _gcLoop(sr, dryRun):
     try:
         # TODO: make the delay configurable
         Util.log("GC active, about to go quiet")
-        #---time.sleep(5 * 60)
+        # ---time.sleep(5 * 60)
         Util.log("GC active, quiet period ended")
 
         while True:
@@ -2589,6 +2603,7 @@ def _gcLoop(sr, dryRun):
         Util.log("GC process exiting, no work left")
         lockActive.release()
 
+
 def _gc(session, srUuid, dryRun):
     init(srUuid)
     sr = SR.getInstance(srUuid, session)
@@ -2602,6 +2617,7 @@ def _gc(session, srUuid, dryRun):
         sr.cleanup()
         sr.logFilter.logState()
         del sr.xapi
+
 
 def _abort(srUuid, soft=False):
     """Aborts an GC/coalesce.
@@ -2629,8 +2645,9 @@ def _abort(srUuid, soft=False):
         abortFlag.clear(FLAG_TYPE_ABORT)
         if not gotLock:
             raise util.CommandException(code=errno.ETIMEDOUT,
-                    reason="SR %s: error aborting existing process" % srUuid)
+                                        reason="SR %s: error aborting existing process" % srUuid)
     return True
+
 
 def init(srUuid):
     global lockRunning
@@ -2639,6 +2656,7 @@ def init(srUuid):
     global lockActive
     if not lockActive:
         lockActive = lock.Lock(LOCK_TYPE_GC_ACTIVE, srUuid)
+
 
 def usage():
     output = """Garbage collect and/or coalesce VHDs in a VHD-based SR
@@ -2669,8 +2687,9 @@ Debug:
                      "deflate".
     -v --vdi_uuid    VDI UUID
     """
-   #-d --dry-run     don't actually perform any SR-modifying operations
-    print output
+    # -d --dry-run     don't actually perform any SR-modifying operations
+    print
+    output
     Util.log("(Invalid usage)")
     sys.exit(1)
 
@@ -2689,7 +2708,8 @@ def abort(srUuid, soft=False):
     else:
         return False
 
-def gc(session, srUuid, inBackground, dryRun = False):
+
+def gc(session, srUuid, inBackground, dryRun=False):
     """Garbage collect all deleted VDIs in SR "srUuid". Fork & return
     immediately if inBackground=True.
 
@@ -2722,7 +2742,8 @@ def gc(session, srUuid, inBackground, dryRun = False):
     else:
         _gc(session, srUuid, dryRun)
 
-def gc_force(session, srUuid, force = False, dryRun = False, lockSR = False):
+
+def gc_force(session, srUuid, force=False, dryRun=False, lockSR=False):
     """Garbage collect all deleted VDIs in SR "srUuid". The caller must ensure
     the SR lock is held.
     The following algorithm is used:
@@ -2752,6 +2773,7 @@ def gc_force(session, srUuid, force = False, dryRun = False, lockSR = False):
         sr.logFilter.logState()
         lockRunning.release()
 
+
 def get_state(srUuid):
     """Return whether GC/coalesce is currently running or not. The information
     is not guaranteed for any length of time if the call is not protected by
@@ -2762,6 +2784,7 @@ def get_state(srUuid):
         lockActive.release()
         return False
     return True
+
 
 def should_preempt(session, srUuid):
     sr = SR.getInstance(srUuid, session)
@@ -2778,6 +2801,7 @@ def should_preempt(session, srUuid):
             return True
     return False
 
+
 def get_coalesceable_leaves(session, srUuid, vdiUuids):
     coalesceable = []
     sr = SR.getInstance(srUuid, session)
@@ -2790,26 +2814,33 @@ def get_coalesceable_leaves(session, srUuid, vdiUuids):
             coalesceable.append(uuid)
     return coalesceable
 
+
 def cache_cleanup(session, srUuid, maxAge):
     sr = SR.getInstance(srUuid, session)
     return sr.cleanupCache(maxAge)
+
 
 def debug(sr_uuid, cmd, vdi_uuid):
     Util.log("Debug command: %s" % cmd)
     sr = SR.getInstance(sr_uuid, None)
     if not isinstance(sr, LVHDSR):
-        print "Error: not an LVHD SR"
+        print
+        "Error: not an LVHD SR"
         return
     sr.scanLocked()
     vdi = sr.getVDI(vdi_uuid)
     if not vdi:
-        print "Error: VDI %s not found"
+        print
+        "Error: VDI %s not found"
         return
-    print "Running %s on SR %s" % (cmd, sr)
-    print "VDI before: %s" % vdi
+    print
+    "Running %s on SR %s" % (cmd, sr)
+    print
+    "VDI before: %s" % vdi
     if cmd == "activate":
         vdi._activate()
-        print "VDI file: %s" % vdi.path
+        print
+        "VDI file: %s" % vdi.path
     if cmd == "deactivate":
         ns = lvhdutil.NS_PREFIX_LVM + sr.uuid
         sr.lvmCache.deactivate(ns, vdi.uuid, vdi.fileName, False)
@@ -2820,23 +2851,25 @@ def debug(sr_uuid, cmd, vdi_uuid):
         vdi.deflate()
         sr.cleanup()
     sr.scanLocked()
-    print "VDI after:  %s" % vdi
+    print
+    "VDI after:  %s" % vdi
+
 
 ##############################################################################
 #
 #  CLI
 #
 def main():
-    action     = ""
-    uuid       = ""
+    action = ""
+    uuid = ""
     background = False
-    force      = False
-    dryRun     = False
-    debug_cmd  = ""
-    vdi_uuid   = ""
-    shortArgs  = "gGc:aqxu:bfdt:v:"
-    longArgs   = ["gc", "gc_force", "clean_cache", "abort", "query", "disable",
-            "uuid=", "background", "force", "dry-run", "debug=", "vdi_uuid="]
+    force = False
+    dryRun = False
+    debug_cmd = ""
+    vdi_uuid = ""
+    shortArgs = "gGc:aqxu:bfdt:v:"
+    longArgs = ["gc", "gc_force", "clean_cache", "abort", "query", "disable",
+                "uuid=", "background", "force", "dry-run", "debug=", "vdi_uuid="]
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortArgs, longArgs)
@@ -2878,7 +2911,8 @@ def main():
         usage()
 
     if action != "query" and action != "debug":
-        print "All output goes to log"
+        print
+        "All output goes to log"
 
     if action == "gc":
         gc(None, uuid, background, dryRun)
@@ -2889,12 +2923,15 @@ def main():
     elif action == "abort":
         abort(uuid)
     elif action == "query":
-        print "Currently running: %s" % get_state(uuid)
+        print
+        "Currently running: %s" % get_state(uuid)
     elif action == "disable":
-        print "Disabling GC/coalesce for %s" % uuid
+        print
+        "Disabling GC/coalesce for %s" % uuid
         _abort(uuid)
         raw_input("Press enter to re-enable...")
-        print "GC/coalesce re-enabled"
+        print
+        "GC/coalesce re-enabled"
         lockRunning.release()
     elif action == "debug":
         debug(uuid, debug_cmd, vdi_uuid)

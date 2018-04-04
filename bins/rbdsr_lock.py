@@ -19,7 +19,6 @@
 
 import util
 import json
-import os
 import time
 from rbdsr_common import RBDPOOL_PREFIX, CEPH_USER_DEFAULT
 
@@ -82,13 +81,12 @@ class Lock(object):
                 util.SMlog("rbdsr_lock: Can't release %s" % _locker)
             return False
 
-
     def acquire(self):
         """Blocking lock aquisition, with warnings."""
         util.SMlog("rbdsr_lock.Lock.acquire")
         if not self._trylock():
             _locker = self._get_srlocker()
-            util.SMlog("rbdsr_lock: Failed to lock on first attempt, blocked by %s" % _locker)
+            util.SMlog("rbdsr_lock: Failed to lock on first attempt, blocked by %s... waiting for lock..." % _locker)
             self._lock()
         if VERBOSE:
             _locker = self._get_srlocker()
@@ -103,7 +101,7 @@ class Lock(object):
 
         if VERBOSE:
             util.SMlog("rbdsr_lock: tried lock, acquired: %s (exists: %s)" % \
-                    (ret, exists))
+                       (ret, exists))
         return ret
 
     def held(self):
@@ -138,7 +136,7 @@ class Lock(object):
         if not self.held():
             try:
                 util.pread2(["rbd", "--name", self._cephx_id, "--pool", self._pool,
-                         "lock", "add", self._srlock_image, '__locked__'])
+                             "lock", "add", self._srlock_image, '__locked__'])
                 if VERBOSE:
                     util.SMlog("rbdsr_lock: acquired")
                 return True
@@ -153,9 +151,11 @@ class Lock(object):
         while not self._trylock():
             time.sleep(TIMEOUT)
 
+
 if __debug__:
     import sys
     from datetime import datetime
+
 
     def test():
 
@@ -193,9 +193,10 @@ if __debug__:
         delta = t2 - t1
         print("'release' takes %s seconds" % delta.total_seconds())
 
-        #lock.cleanup('test')
+        # lock.cleanup('test')
+
 
     if __name__ == '__main__':
-        print >>sys.stderr, "Running self tests..."
+        print >> sys.stderr, "Running self tests..."
         test()
-        print >>sys.stderr, "OK."
+        print >> sys.stderr, "OK."

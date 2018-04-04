@@ -71,13 +71,13 @@ class RBDDMPVDI(CVDI):
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
 
         i = 0
-        dmp_chain=[]
-        #dmp_chain.append(vdi_uuid)
-        #i+=1
+        dmp_chain = []
+        # dmp_chain.append(vdi_uuid)
+        # i+=1
         parent_sm_config = sm_config
         while 'dmp-parent' in parent_sm_config:
             parent_uuid = parent_sm_config['dmp-parent']
-            i+=1
+            i += 1
             dmp_chain.append(parent_uuid)
             parent_ref = self.session.xenapi.VDI.get_by_uuid(parent_uuid)
             parent_sm_config = self.session.xenapi.VDI.get_sm_config(parent_ref)
@@ -87,7 +87,7 @@ class RBDDMPVDI(CVDI):
         try:
             for uuid_to_map in reversed(dmp_chain):
                 if not is_first_base_mounted:
-                    self._map_rbd(uuid_to_map, rbd_size , host_uuid, read_only, 'base', devlinks, norefcount)
+                    self._map_rbd(uuid_to_map, rbd_size, host_uuid, read_only, 'base', devlinks, norefcount)
                     is_first_base_mounted = True
                 else:
                     self._map_rbd(uuid_to_map, rbd_size, host_uuid, read_only, 'cow2base', devlinks, norefcount)
@@ -113,7 +113,7 @@ class RBDDMPVDI(CVDI):
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
 
-        #self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
+        # self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
 
         parent_sm_config = sm_config
         while 'dmp-parent' in parent_sm_config:
@@ -144,7 +144,7 @@ class RBDDMPVDI(CVDI):
         else:
             sxm_vdi_type = 'none'
 
-        if 'base_mirror' in sm_config: # check if VDI is SXM created vdi
+        if 'base_mirror' in sm_config:  # check if VDI is SXM created vdi
             # ######### SXM VDIs
             if dmmode == 'None':
                 if sxm_vdi_type == 'mirror':
@@ -235,7 +235,7 @@ class RBDDMPVDI(CVDI):
             cloneVDI.snapshot_of = vdi_ref
 
         retval_clone = RBDDMPVDI.create(cloneVDI, sr_uuid, clone_uuid, cloneVDI.size)
-        #retval_clone = cloneVDI.create(sr_uuid, clone_uuid, self.rbd_info[1]['size'])
+        # retval_clone = cloneVDI.create(sr_uuid, clone_uuid, self.rbd_info[1]['size'])
         clone_ref = self.session.xenapi.VDI.get_by_uuid(clone_uuid)
 
         if not is_a_snapshot:
@@ -251,8 +251,8 @@ class RBDDMPVDI(CVDI):
             baseVDI.sm_config = dict()
             baseVDI.read_only = True
 
-            retval_base = RBDDMPVDI.create(baseVDI,sr_uuid, base_uuid, baseVDI.size)
-            #retval_base = baseVDI.create(sr_uuid, base_uuid, self.rbd_info[1]['size'])
+            retval_base = RBDDMPVDI.create(baseVDI, sr_uuid, base_uuid, baseVDI.size)
+            # retval_base = baseVDI.create(sr_uuid, base_uuid, self.rbd_info[1]['size'])
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         else:
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
@@ -346,7 +346,7 @@ class RBDDMPVDI(CVDI):
                     raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
 
         self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
-        RBDDMPVDI.update(BaseVDI, sr_uuid, base_uuid) # TODO: Check if xapi invoke update after set_* op, if it's true then this line can be removed
+        RBDDMPVDI.update(BaseVDI, sr_uuid, base_uuid)  # TODO: Check if xapi invoke update after set_* op, if it's true then this line can be removed
 
         util.SMlog("Compose done")
 
@@ -395,6 +395,7 @@ class RBDDMPSR_GC(CSR_GC):
         util.SMlog("rbdsr_dmp.RBDDMPSR_GC.vdi uuid = %s" % uuid)
 
         return RBDDMPVDI_GC(self, sr, uuid, raw)
+
 
 class RBDDMPVDI_GC(CSR_GC):
 

@@ -82,13 +82,13 @@ class RBDVHDVDI(CVDI):
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
 
         i = 0
-        vhd_chain=[]
-        #vhd_chain.append(vdi_uuid)
-        #i+=1
+        vhd_chain = []
+        # vhd_chain.append(vdi_uuid)
+        # i+=1
         parent_sm_config = sm_config
         while 'vhd-parent' in parent_sm_config:
             parent_uuid = parent_sm_config['vhd-parent']
-            i+=1
+            i += 1
             vhd_chain.append(parent_uuid)
             parent_ref = self.session.xenapi.VDI.get_by_uuid(parent_uuid)
             parent_sm_config = self.session.xenapi.VDI.get_sm_config(parent_ref)
@@ -96,7 +96,7 @@ class RBDVHDVDI(CVDI):
 
         try:
             for uuid_to_map in reversed(vhd_chain):
-                self._map_rbd(uuid_to_map, rbd_size , host_uuid, read_only, dmmode, devlinks, norefcount)
+                self._map_rbd(uuid_to_map, rbd_size, host_uuid, read_only, dmmode, devlinks, norefcount)
                 i -= 1
         except:
             for k in range(i, i_max):
@@ -116,7 +116,7 @@ class RBDVHDVDI(CVDI):
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
 
-        #self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
+        # self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
 
         parent_sm_config = sm_config
         while 'vhd-parent' in parent_sm_config:
@@ -250,7 +250,7 @@ class RBDVHDVDI(CVDI):
             baseVDI.utilisation = self.size
             baseVDI.sm_config = dict()
 
-            retval_base = RBDVHDVDI.create(baseVDI,sr_uuid, base_uuid, baseVDI.size)
+            retval_base = RBDVHDVDI.create(baseVDI, sr_uuid, base_uuid, baseVDI.size)
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
         else:
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
@@ -382,7 +382,7 @@ class RBDVHDVDI(CVDI):
             retval = super(RBDVHDVDI, self).resize(sr_uuid, vdi_uuid, rbdSizeNew)
 
         if not online:
-            #self._map_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
+            # self._map_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
             self.attach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
         else:
             if local_host_uuid not in vdi_hostRefs:
@@ -396,7 +396,7 @@ class RBDVHDVDI(CVDI):
                 raise util.SMException("failed to refresh VDI %s" % vdi_uuid)
 
         if not online:
-            #self._unmap_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
+            # self._unmap_rbd(vdi_uuid, rbdSizeNew, norefcount=True)
             self.detach(sr_uuid, vdi_uuid, host_uuid=local_host_uuid)
         else:
             if local_host_uuid not in vdi_hostRefs:
@@ -456,7 +456,7 @@ class RBDVHDVDI(CVDI):
         vhdutil.setParent(mirror_path, base_path, False)
         vhdutil.setHidden(base_path)
         self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
-        RBDVHDVDI.update(BaseVDI, sr_uuid, base_uuid) # TODO: Check if xapi invoke update after set_* op, if it's true then we can remove this line
+        RBDVHDVDI.update(BaseVDI, sr_uuid, base_uuid)  # TODO: Check if xapi invoke update after set_* op, if it's true then we can remove this line
 
         if 'vhd-parent' in mirror_sm_config:
             self.session.xenapi.VDI.remove_from_sm_config(mirror_vdi_ref, 'vhd-parent')
@@ -501,6 +501,7 @@ class RBDVHDSR_GC(CSR_GC):
 
         return RBDVHDVDI_GC(self, sr, uuid, raw)
 
+
 class RBDVHDVDI_GC(CVDI_GC):
 
     def __init__(self, sr, uuid, raw):
@@ -526,13 +527,13 @@ class RBDVHDVDI_GC(CVDI_GC):
         sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
 
         i = 0
-        vhd_chain=[]
-        #vhd_chain.append(vdi_uuid)
-        #i+=1
+        vhd_chain = []
+        # vhd_chain.append(vdi_uuid)
+        # i+=1
         parent_sm_config = sm_config
         while 'vhd-parent' in parent_sm_config:
             parent_uuid = parent_sm_config['vhd-parent']
-            i+=1
+            i += 1
             vhd_chain.append(parent_uuid)
             parent_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(parent_uuid)
             parent_sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(parent_ref)
@@ -541,7 +542,7 @@ class RBDVHDVDI_GC(CVDI_GC):
         try:
             for uuid_to_map in reversed(vhd_chain):
                 if read_only is not None:
-                    self._map_rbd(uuid_to_map, rbd_size , host_uuid, read_only, dmmode, devlinks, norefcount)
+                    self._map_rbd(uuid_to_map, rbd_size, host_uuid, read_only, dmmode, devlinks, norefcount)
                 else:
                     if i > 1:
                         self._map_rbd(uuid_to_map, rbd_size, host_uuid, read_only, dmmode, devlinks, norefcount)
@@ -566,7 +567,7 @@ class RBDVHDVDI_GC(CVDI_GC):
         vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
 
-        #self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
+        # self._unmap_rbd(vdi_uuid, size, host_uuid, read_only, dmmode)
 
         parent_sm_config = sm_config
         while 'vhd-parent' in parent_sm_config:
@@ -575,7 +576,6 @@ class RBDVHDVDI_GC(CVDI_GC):
             parent_sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(parent_ref)
 
             self._unmap_rbd(parent_uuid, rbd_size, host_uuid, devlinks, norefcount)
-
 
     def _activate(self, host_uuid=None, dmmode='None'):
         """

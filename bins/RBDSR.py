@@ -42,11 +42,11 @@ DRIVER_INFO = {
     'required_api_version': '1.0',
     'capabilities': CAPABILITIES,
     'configuration': CONFIGURATION
-    }
+}
 
 OPS_EXCLUSIVE = ['sr_create', 'sr_delete', 'sr_attach', 'sr_detach', 'sr_scan',
-        'sr_update', 'vdi_create', 'vdi_delete', 'vdi_resize', 'vdi_snapshot',
-        'vdi_clone']
+                 'sr_update', 'vdi_create', 'vdi_delete', 'vdi_resize', 'vdi_snapshot',
+                 'vdi_clone']
 
 TYPE = 'rbd'
 
@@ -60,6 +60,7 @@ VDI_TYPES = ['vhd', 'aio']
 
 DRIVER_TYPES = ['vhd', 'dmp', 'rbd']
 DRIVER_TYPE_DEFAULT = 'vhd'
+
 
 class RBDSR(object):
     """Ceph Block Devices storage repository"""
@@ -92,8 +93,6 @@ class RBDSR(object):
         """
         util.SMlog("RBDSR.RBDSR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
 
-        super(RBDSR, self).__init__(srcmd, sr_uuid)
-
         if 'driver-type' in srcmd.dconf:
             self.DRIVER_TYPE = srcmd.dconf.get('driver-type')
         else:
@@ -108,19 +107,21 @@ class RBDSR(object):
         if 'vdi-update-existing' in srcmd.dconf:
             self.VDI_UPDATE_EXISTING = srcmd.dconf['vdi-update-existing']
 
+        if 'snapshot-pool' in srcmd.dconf:
+            self.CEPH_SNAPSHOT_POOL = srcmd.dconf['snapshot-pool']
+
         self.provision = PROVISIONING_DEFAULT
         self.mode = MODE_DEFAULT
+        self.ops_exclusive = OPS_EXCLUSIVE
 
         util.SMlog("RBDSR.RBDSR.__init__: Using cephx id %s" % self.CEPH_USER)
+        super(RBDSR, self).__init__(srcmd, sr_uuid)
 
     def load(self, sr_uuid):
         """
         :param sr_uuid:
         """
         util.SMlog("RBDSR.RBDSR.load: sr_uuid= %s" % sr_uuid)
-
-        self.ops_exclusive = OPS_EXCLUSIVE
-        self.mode = MODE_DEFAULT
 
         super(RBDSR, self).load(sr_uuid)
 
@@ -135,6 +136,7 @@ class RBDSR(object):
             return True
         else:
             return False
+
     handles = staticmethod(handles)
 
     def content_type(self, sr_uuid):
@@ -157,6 +159,7 @@ class RBDSR(object):
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDVDI(self, vdi_uuid)
         return self.vdis[vdi_uuid]
+
 
 class RBDVDI(object):
 
@@ -213,8 +216,6 @@ class RBDSR_GC(object):
         """
         util.SMlog("RBDSR.RBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
 
-        super(RBDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
-
         host_ref = util.get_localhost_uuid(self.xapi.session)
 
         _PBD = xapi.session.xenapi.PBD
@@ -236,6 +237,9 @@ class RBDSR_GC(object):
         if 'cephx-id' in self.sm_config:
             self.CEPH_USER = "client.%s" % self.sm_config['cephx-id']
 
+        util.SMlog("RBDSR.RBDSR_GC.__init__: Using cephx id %s" % self.CEPH_USER)
+        super(RBDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
+
     def vdi(self, sr, uuid, raw):
         """
         :param sr:
@@ -246,6 +250,7 @@ class RBDSR_GC(object):
         util.SMlog("RBDSR.RBDSR_GC.vdi uuid = %s" % uuid)
 
         return RBDVDI_GC(sr, uuid, raw)
+
 
 class RBDVDI_GC(object):
 

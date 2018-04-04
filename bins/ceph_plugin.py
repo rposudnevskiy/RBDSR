@@ -18,6 +18,7 @@
 import os
 import sys
 import XenAPIPlugin
+
 sys.path.append("/opt/xensource/sm/")
 import util
 import os.path
@@ -44,7 +45,7 @@ def _map(session, arg_dict):
     sharable = arg_dict['sharable']
     size = arg_dict['size']
     dmmode = arg_dict['dmmode']
-    _dmbasedev_name =''
+    _dmbasedev_name = ''
 
     if '_dmbasedev_name' in arg_dict:
         _dmbasedev_name = arg_dict['_dmbasedev_name']
@@ -64,13 +65,13 @@ def _map(session, arg_dict):
         if sharable == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
         else:
-            cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+            cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
 
         util.pread2(['ln', '-f', dev, _dev_name])
@@ -90,20 +91,20 @@ def _map(session, arg_dict):
         _dmzerodev_name = "%s%s" % (_dmdev_name, '-zero')
         util.pread2(['dmsetup', 'create', _dmzero_name, '--table', "0 %s zero" % str(int(size) / 512)])
         util.pread2(['dmsetup', 'create', _dm_name, '--table', "0 %s snapshot %s %s P 1" % (str(int(size) / 512),
-                                                                                        _dmzerodev_name, _dev_name)])
+                                                                                            _dmzerodev_name, _dev_name)])
         util.pread2(['ln', '-sf', _dmdev_name, dev_name])
     elif dmmode == 'base':
         _dmbase_name = "%s%s" % (_dm_name, '-base')
         _dmbasedev_name = "%s%s" % (_dmdev_name, '-base')
         util.pread2(['dmsetup', 'create', _dmbase_name, '--table', "0 %s snapshot-origin %s" % (str(int(size) / 512),
-                                                                                            _dev_name)])
+                                                                                                _dev_name)])
         util.pread2(['ln', '-sf', _dmbasedev_name, dev_name])
     elif dmmode == 'cow':
-        #util.pread2(['dmsetup', 'suspend', _dmbase_name])
+        # util.pread2(['dmsetup', 'suspend', _dmbase_name])
         util.pread2(['dmsetup', 'create', _dm_name, '--table', "0 %s snapshot %s %s P 1" % (str(int(size) / 512),
                                                                                             _dmbasedev_name,
                                                                                             _dev_name)])
-        #util.pread2(['dmsetup', 'resume', _dmbase_name])
+        # util.pread2(['dmsetup', 'resume', _dmbase_name])
         util.pread2(['ln', '-sf', _dmdev_name, dev_name])
     elif dmmode == 'cow2base':
         util.pread2(['dmsetup', 'create', _dm_name, '--table', "0 %s snapshot %s %s P 1" % (str(int(size) / 512),
@@ -112,7 +113,7 @@ def _map(session, arg_dict):
         _dmbase_name = "%s%s" % (_dm_name, '-base')
         _dmbasedev_name = "%s%s" % (_dmdev_name, '-base')
         util.pread2(['dmsetup', 'create', _dmbase_name, '--table', "0 %s snapshot-origin %s" % (str(int(size) / 512),
-                                                                                                 _dmdev_name)])
+                                                                                                _dmdev_name)])
         util.pread2(['ln', '-sf', _dmbasedev_name, dev_name])
     else:
         util.pread2(['ln', '-sf', _dev_name, dev_name])
@@ -128,32 +129,32 @@ def _unmap(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     dmmode = arg_dict['dmmode']
 
-    dev = util.pread2(["realpath", _dev_name]).rstrip('\n')
+    dev = util.pread2(['realpath', _dev_name]).rstrip('\n')
 
-    util.pread2(["unlink", dev_name])
-    if dmmode == "linear":
-        util.pread2(["dmsetup", "remove", _dm_name])
-    elif dmmode == "mirror":
+    util.pread2(['unlink', dev_name])
+    if dmmode == 'linear':
+        util.pread2(['dmsetup', 'remove', _dm_name])
+    elif dmmode == 'mirror':
         _dmzero_name = "%s%s" % (_dm_name, "-zero")
-        util.pread2(["dmsetup", "remove", _dm_name])
-        util.pread2(["dmsetup", "remove", _dmzero_name])
-    elif dmmode == "base":
+        util.pread2(['dmsetup', 'remove', _dm_name])
+        util.pread2(['dmsetup', 'remove', _dmzero_name])
+    elif dmmode == 'base':
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        util.pread2(["dmsetup", "remove", _dmbase_name])
-    elif dmmode == "cow":
-        util.pread2(["dmsetup", "remove", _dm_name])
-    elif dmmode == "cow2base":
+        util.pread2(['dmsetup', 'remove', _dmbase_name])
+    elif dmmode == 'cow':
+        util.pread2(['dmsetup', 'remove', _dm_name])
+    elif dmmode == 'cow2base':
         _dmbase_name = "%s%s" % (_dm_name, '-base')
-        util.pread2(["dmsetup", "remove", _dmbase_name])
-        util.pread2(["dmsetup", "remove", _dm_name])
+        util.pread2(['dmsetup', 'remove', _dmbase_name])
+        util.pread2(['dmsetup', 'remove', _dm_name])
 
-    if mode == "kernel":
-        util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])
-    elif mode == "fuse":
+    if mode == 'kernel':
+        util.pread2(['rbd', 'unmap', dev, '--name', CEPH_USER])
+    elif mode == 'fuse':
         pass
-    elif mode == "nbd":
-        util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
-        util.pread2(["unlink", _dev_name])
+    elif mode == 'nbd':
+        util.pread2(['rbd-nbd', 'unmap', dev, '--name', CEPH_USER])
+        util.pread2(['unlink', _dev_name])
 
     return "unmapped"
 
@@ -182,21 +183,21 @@ def __map(session, arg_dict):
         if sharable == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
-                             "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                       "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
-                             '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
-                             '--name', CEPH_USER]
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                       '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
+                       '--name', CEPH_USER]
         else:
-            cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
-                         "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
+            cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                   "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
 
         if cmd is not None:
             if arg_dict['read_only'] == 'True':
                 cmd.append('--read-only')
 
-            #util.pread2(cmd).rstrip('\n')
+            # util.pread2(cmd).rstrip('\n')
             util.pread2(cmd)
 
     if dmmode != 'None':
@@ -212,17 +213,17 @@ def __unmap(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     dmmode = arg_dict['dmmode']
 
-    dev = util.pread2(["realpath", _dev_name]).rstrip('\n')
+    dev = util.pread2(['realpath', _dev_name]).rstrip('\n')
 
-    if dmmode != "None":
-        util.pread2(["dmsetup", "suspend", _dm_name])
+    if dmmode != 'None':
+        util.pread2(['dmsetup', 'suspend', _dm_name])
 
-    if mode == "kernel":
-        util.pread2(["rbd", "unmap", dev, "--name", CEPH_USER])
-    elif mode == "fuse":
+    if mode == 'kernel':
+        util.pread2(['rbd', 'unmap', dev, '--name', CEPH_USER])
+    elif mode == 'fuse':
         pass
-    elif mode == "nbd":
-        util.pread2(["rbd", "nbd", "unmap", dev, "--name", CEPH_USER])
+    elif mode == 'nbd':
+        util.pread2(['rbd-nbd', 'unmap', dev, '--name', CEPH_USER])
 
     return "unmapped"
 
