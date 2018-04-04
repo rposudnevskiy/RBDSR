@@ -65,13 +65,13 @@ def _map(session, arg_dict):
         if sharable == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
         else:
-            cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+            cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
 
         util.pread2(['ln', '-f', dev, _dev_name])
@@ -183,14 +183,14 @@ def __map(session, arg_dict):
         if sharable == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
                        '--name', CEPH_USER]
         else:
-            cmd = ['rbd', 'nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+            cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
 
         if cmd is not None:
