@@ -137,16 +137,20 @@ class CSR(SR.SR):
         :param host_uuid:
         :return:
         """
+        util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                   % (sr_uuid, vdi_uuid, host_uuid))
 
         self.lock.acquire()
+        local_host_uuid = inventory.get_localhost_uuid()
 
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
+
         try:
             vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
             vdi_sm_config = self.session.xenapi.SR.get_sm_config(vdi_ref)
         except Exception:
-            host_uuid = inventory.get_localhost_uuid()
+            vdi_sm_config = {}
 
         if "dev_instances" not in sr_sm_config:
             sr_dev_instances = {"hosts": {}}
@@ -175,11 +179,18 @@ class CSR(SR.SR):
 
         ##
         def __allocate__():
-
-            util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+            util.SMlog("rbdsr_common._allocate_dev_instance.__allocate__: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
                        % (sr_uuid, vdi_uuid, host_uuid))
 
             dev_instance = self._get_dev_instance(sr_uuid, vdi_uuid, host_uuid)
+
+            if host_uuid not in sr_dev_instances["hosts"]:
+                sr_dev_instances["hosts"][host_uuid] = [None] * NBDS_MAX
+                sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME, 1]
+                sr_dev_instances["hosts"][host_uuid][1] = "reserved"
+                sr_dev_instances["hosts"][host_uuid][2] = "reserved"
+                util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s was not in sr_dev_instances['hosts']... added"
+                           % (sr_uuid, vdi_uuid, host_uuid))
 
             if dev_instance is None:
                 for i in range(NBDS_MAX):
@@ -187,7 +198,7 @@ class CSR(SR.SR):
                         dev_instance = i
                         break
 
-            if dev_instance == -1:
+            if dev_instance in [None, -1]:
                 raise xs_errors.XenError('VDIUnavailable', opterr='Could not allocate dev instance for sr %s vdi %s on \
                                          host %s' % (sr_uuid, vdi_uuid, host_uuid))
 
@@ -226,13 +237,15 @@ class CSR(SR.SR):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common._get_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+        util.SMlog("rbdsr_common._get_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
                    % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
 
         dev_instance = None
+
+        util.SMlog("rbdsr_common._get_dev_instance sr_sm_config: %s" % sr_sm_config)
 
         if "dev_instances" in sr_sm_config:
             sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
@@ -1968,6 +1981,13 @@ class CSR_GC(cleanup.SR):
                        % (sr_uuid, vdi_uuid, host_uuid))
 
             dev_instance = self._get_dev_instance(sr_uuid, vdi_uuid, host_uuid)
+            if host_uuid not in sr_dev_instances["hosts"]:
+                sr_dev_instances["hosts"][host_uuid] = [None] * NBDS_MAX
+                sr_dev_instances["hosts"][host_uuid][0] = [MDVOLUME_NAME, 1]
+                sr_dev_instances["hosts"][host_uuid][1] = "reserved"
+                sr_dev_instances["hosts"][host_uuid][2] = "reserved"
+                util.SMlog("rbdsr_common._allocate_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s was not in sr_dev_instances['hosts']... added"
+                           % (sr_uuid, vdi_uuid, host_uuid))
 
             if dev_instance is None:
                 for i in range(NBDS_MAX):
