@@ -141,8 +141,6 @@ class CSR(SR.SR):
                    % (sr_uuid, vdi_uuid, host_uuid))
 
         self.lock.acquire()
-        local_host_uuid = inventory.get_localhost_uuid()
-
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
 
