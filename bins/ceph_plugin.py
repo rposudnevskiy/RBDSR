@@ -17,6 +17,8 @@
 
 import os
 import sys
+import re
+import sys
 import XenAPIPlugin
 
 sys.path.append("/opt/xensource/sm/")
@@ -61,7 +63,17 @@ def _map(session, arg_dict):
     elif mode == 'fuse':
         cmd = None
     elif mode == 'nbd':
-        dev = "%s%s" % ('/dev/nbd', arg_dict['dev'])
+        use_dev = int(arg_dict['dev'])
+        m = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
+        if m:
+            m = sorted([int(x) for x in m])
+            if int(arg_dict['dev']) in m:
+                use_dev = int(sorted(m).pop()) + 1
+                if use_dev > NBDS_MAX:
+                    util.SMlog('NBD_MAX level reached')
+                    return False
+
+        dev = "%s%s" % ('/dev/nbd', use_dev)
         if sharable == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
             if arg_dict['userbdmeta'] == 'True':
@@ -179,7 +191,17 @@ def __map(session, arg_dict):
     elif mode == 'fuse':
         cmd = None
     elif mode == 'nbd':
-        dev = "%s%s" % ('/dev/nbd', arg_dict['dev'])
+        use_dev = int(arg_dict['dev'])
+        m = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
+        if m:
+            m = sorted([int(x) for x in m])
+            if int(arg_dict['dev']) in m:
+                use_dev = int(sorted(m).pop()) + 1
+                if use_dev > NBDS_MAX:
+                    util.SMlog('NBD_MAX level reached')
+                    return False
+
+        dev = "%s%s" % ('/dev/nbd', use_dev)
         if sharable == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
             if arg_dict['userbdmeta'] == 'True':
