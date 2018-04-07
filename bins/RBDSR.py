@@ -107,6 +107,9 @@ class RBDSR(object):
         if 'vdi-update-existing' in srcmd.dconf:
             self.VDI_UPDATE_EXISTING = srcmd.dconf['vdi-update-existing']
 
+        if 'disable-caching' in srcmd.dconf:
+            self.disable_caching = srcmd.dconf['disable-caching']
+
         if 'snapshot-pool' in srcmd.dconf:
             self.CEPH_SNAPSHOT_POOL = srcmd.dconf['snapshot-pool']
 
@@ -233,6 +236,9 @@ class RBDSR_GC(object):
 
         if 'use-rbd-meta' in self.sm_config:
             self.USE_RBD_META = self.sm_config['use-rbd-meta']
+
+        if 'disable-caching' in self.sm_config:
+            self.disable_caching = self.sm_config['disable-caching']
 
         if 'cephx-id' in self.sm_config:
             self.CEPH_USER = "client.%s" % self.sm_config['cephx-id']

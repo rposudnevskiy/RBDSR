@@ -16,7 +16,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 import os
-import sys
 import re
 import sys
 import XenAPIPlugin
@@ -24,6 +23,7 @@ import XenAPIPlugin
 sys.path.append("/opt/xensource/sm/")
 import util
 import os.path
+from rbdsr_lock import file_lock
 
 
 def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
@@ -35,7 +35,9 @@ def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
             os.system("cat /etc/ceph/ceph.conf >> /etc/ceph/ceph.conf.nocaching")
 
 
+@file_lock()
 def _map(session, arg_dict):
+    """ called with devlinks """
     mode = arg_dict['mode']
     dev_name = arg_dict['dev_name']
     _dev_name = arg_dict['_dev_name']
@@ -45,6 +47,7 @@ def _map(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
     sharable = arg_dict['sharable']
+    disable_caching = arg_dict['disable_caching']
     size = arg_dict['size']
     dmmode = arg_dict['dmmode']
     _dmbasedev_name = ''
@@ -56,26 +59,27 @@ def _map(session, arg_dict):
         _vdi_name = arg_dict['_snap_name']
     else:
         _vdi_name = arg_dict['_vdi_name']
-    vdi_name = arg_dict['vdi_name']
 
+    cmd = None
     if mode == 'kernel':
         cmd = ['rbd', 'map', _vdi_name, '--pool', CEPH_POOL_NAME, '--name', CEPH_USER]
-    elif mode == 'fuse':
-        cmd = None
     elif mode == 'nbd':
         use_dev = int(arg_dict['dev'])
-        m = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
-        if m:
-            m = sorted([int(x) for x in m])
-            if int(arg_dict['dev']) in m:
-                use_dev = int(sorted(m).pop()) + 1
-                if use_dev > NBDS_MAX:
+        nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
+        if nbd_devices_used:
+            nbd_devices_used = sorted([int(x) for x in nbd_devices_used])
+            if use_dev in nbd_devices_used:
+                free_devices = [x for x in range(3, int(NBDS_MAX) + 1) if x not in nbd_devices_used]
+                if free_devices:
+                    use_dev = free_devices[0]
+                else:
                     util.SMlog('NBD_MAX level reached')
                     return False
-
         dev = "%s%s" % ('/dev/nbd', use_dev)
-        if sharable == 'True':
+        if sharable == 'True' or disable_caching == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
+
+        if sharable == 'True':
             if arg_dict['userbdmeta'] == 'True':
                 cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
@@ -83,8 +87,11 @@ def _map(session, arg_dict):
                 cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
         else:
-            cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
-                   "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
+            cmd = ['rbd-nbd', 'map',
+                   '--name', CEPH_USER,
+                   '--device', dev,
+                   '--nbds_max', NBDS_MAX,
+                   "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
 
         util.pread2(['ln', '-f', dev, _dev_name])
 
@@ -171,6 +178,7 @@ def _unmap(session, arg_dict):
     return "unmapped"
 
 
+@file_lock()
 def __map(session, arg_dict):
     mode = arg_dict['mode']
     _dm_name = arg_dict['_dm_name']
@@ -178,6 +186,7 @@ def __map(session, arg_dict):
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
     sharable = arg_dict['sharable']
+    disable_caching = arg_dict['disable_caching']
     dmmode = arg_dict['dmmode']
     _vdi_name = arg_dict['_vdi_name']
 
@@ -186,24 +195,27 @@ def __map(session, arg_dict):
     else:
         read_only = ''
 
+    cmd = None
     if mode == 'kernel':
         cmd = ['rbd', 'map', _vdi_name, '--pool', CEPH_POOL_NAME, '--name', CEPH_USER]
-    elif mode == 'fuse':
-        cmd = None
     elif mode == 'nbd':
         use_dev = int(arg_dict['dev'])
-        m = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
-        if m:
-            m = sorted([int(x) for x in m])
-            if int(arg_dict['dev']) in m:
-                use_dev = int(sorted(m).pop()) + 1
-                if use_dev > NBDS_MAX:
+        nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
+        if nbd_devices_used:
+            nbd_devices_used = sorted([int(x) for x in nbd_devices_used])
+            if use_dev in nbd_devices_used:
+                free_devices = [x for x in range(3, int(NBDS_MAX) + 1) if x not in nbd_devices_used]
+                if free_devices:
+                    use_dev = free_devices[0]
+                else:
                     util.SMlog('NBD_MAX level reached')
                     return False
 
         dev = "%s%s" % ('/dev/nbd', use_dev)
-        if sharable == 'True':
+        if sharable == 'True' or disable_caching == 'True':
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
+
+        if sharable == 'True':
             if arg_dict['userbdmeta'] == 'True':
                 cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
@@ -212,15 +224,18 @@ def __map(session, arg_dict):
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
                        '--name', CEPH_USER]
         else:
-            cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
-                   "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
+            cmd = ['rbd-nbd', 'map',
+                   '--name', CEPH_USER,
+                   '--device', dev,
+                   '--nbds_max', NBDS_MAX,
+                   "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
 
-        if cmd is not None:
-            if arg_dict['read_only'] == 'True':
-                cmd.append('--read-only')
+    if cmd is not None:
+        if arg_dict['read_only'] == 'True':
+            cmd.append('--read-only')
 
-            # util.pread2(cmd).rstrip('\n')
-            util.pread2(cmd)
+        # util.pread2(cmd).rstrip('\n')
+        util.pread2(cmd)
 
     if dmmode != 'None':
         util.pread2(['dmsetup', 'resume', _dm_name])
