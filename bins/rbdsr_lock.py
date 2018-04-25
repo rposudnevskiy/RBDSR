@@ -16,15 +16,93 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 """Serialization for concurrent operations using rbd locking mechanism"""
-
+import os
 import util
 import json
 import time
 from rbdsr_common import RBDPOOL_PREFIX, CEPH_USER_DEFAULT
+from fcntl import LOCK_EX, LOCK_NB, flock
+from time import sleep
 
 VERBOSE = True
 SRLOCK_IMAGE = '__srlock__'
+NBD_LOCK_FILE = '/tmp/nbd_lock'
 TIMEOUT = 1
+MODE_BLOCK = 'b'
+MODE_NO_BLOCK = 'n'
+MODE_RETRY = 'r'
+
+
+class UnableToLock(Exception):
+    pass
+
+
+class InvalidMode(Exception):
+    pass
+
+
+def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEOUT):
+    """
+    :param lock_file: full path to file that will be used as lock.
+    :type lock_file: string
+    :param mode: MODE_BLOCK, MODE_NO_BLOCK, MODE_RETRY)
+    :type mode: string.
+    :param retries: retry x times
+    :type retries: int
+    :param timeout: wait between retry
+    :type timeout: int
+    """
+
+    def decorator(target):
+        def wrapper(*args, **kwargs):
+            util.SMlog('rbdsr_lock.file_lock: trying to aquire')
+            try:
+                if not (os.path.exists(lock_file) and os.path.isfile(lock_file)):
+                    open(lock_file, 'a').close()
+            except IOError as e:
+                util.SMlog('rbdsr_lock.file_lock: Unable to create lock file: %s' % str(e))
+                return
+
+            operation = LOCK_EX
+            if mode in [MODE_NO_BLOCK, MODE_RETRY]:
+                operation = LOCK_EX | LOCK_NB
+
+            f = open(lock_file, 'a')
+            if mode in [MODE_BLOCK, MODE_NO_BLOCK]:
+                try:
+                    flock(f, operation)
+                except IOError as e:
+                    util.SMlog('rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e))
+                    return
+
+            elif mode == MODE_RETRY:
+                for i in range(0, retries + 1):
+                    try:
+                        flock(f, operation)
+                        break
+                    except IOError as e:
+                        if i == retries:
+                            util.SMlog('rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e))
+                            return
+                        sleep(timeout)
+
+            else:
+                raise InvalidMode('rbdsr_lock.file_loc: %s is not a valid mode.')
+
+            # Execute the target
+            try:
+                util.SMlog('rbdsr_lock.file_lock: lock aquired, run target')
+                result = target(*args, **kwargs)
+            except Exception as e:
+                # Release the lock by closing the file
+                f.close()
+                raise e
+
+            f.close()
+            util.SMlog('rbdsr_lock.file_lock: released lock')
+            return result
+        return wrapper
+    return decorator
 
 
 class Lock(object):
