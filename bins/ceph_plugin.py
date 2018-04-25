@@ -73,10 +73,11 @@ def _map(session, arg_dict):
                 if free_devices:
                     use_dev = free_devices[0]
                 else:
-                    util.SMlog('NBD_MAX level reached')
+                    util.SMlog('_map: NBD_MAX level reached')
                     return False
         dev = "%s%s" % ('/dev/nbd', use_dev)
         if sharable == 'True' or disable_caching == 'True':
+            util.SMlog('_map: disabling rbd cache for %s' % _vdi_name)
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
 
         if sharable == 'True':
@@ -208,11 +209,12 @@ def __map(session, arg_dict):
                 if free_devices:
                     use_dev = free_devices[0]
                 else:
-                    util.SMlog('NBD_MAX level reached')
+                    util.SMlog('__map: NBD_MAX level reached')
                     return False
 
         dev = "%s%s" % ('/dev/nbd', use_dev)
         if sharable == 'True' or disable_caching == 'True':
+            util.SMlog('_map: disabling rbd cache for %s' % _vdi_name)
             _disable_rbd_caching(arg_dict['userbdmeta'], CEPH_POOL_NAME, _vdi_name)
 
         if sharable == 'True':
