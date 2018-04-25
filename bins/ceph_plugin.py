@@ -35,6 +35,20 @@ def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
             os.system("cat /etc/ceph/ceph.conf >> /etc/ceph/ceph.conf.nocaching")
 
 
+def _find_nbd_devices_used(use_dev, NBDS_MAX):
+    nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
+    if nbd_devices_used:
+        nbd_devices_used = sorted([int(x) for x in nbd_devices_used])
+        if use_dev in nbd_devices_used:
+            free_devices = [x for x in range(3, int(NBDS_MAX) + 1) if x not in nbd_devices_used]
+            if free_devices:
+                return free_devices[0]
+            else:
+                util.SMlog('_map: NBD_MAX level reached')
+                return False
+    return use_dev
+
+
 @file_lock()
 def _map(session, arg_dict):
     """ called with devlinks """
@@ -64,17 +78,12 @@ def _map(session, arg_dict):
     if mode == 'kernel':
         cmd = ['rbd', 'map', _vdi_name, '--pool', CEPH_POOL_NAME, '--name', CEPH_USER]
     elif mode == 'nbd':
-        use_dev = int(arg_dict['dev'])
-        nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
-        if nbd_devices_used:
-            nbd_devices_used = sorted([int(x) for x in nbd_devices_used])
-            if use_dev in nbd_devices_used:
-                free_devices = [x for x in range(3, int(NBDS_MAX) + 1) if x not in nbd_devices_used]
-                if free_devices:
-                    use_dev = free_devices[0]
-                else:
-                    util.SMlog('_map: NBD_MAX level reached')
-                    return False
+        use_dev = _find_nbd_devices_used(int(arg_dict['dev']), NBDS_MAX)
+        if not use_dev:
+            util.SMlog('_map: Could not allocate nbd device for "%s": use_dev: %s'
+                       % (arg_dict['dev'], use_dev))
+            return False
+
         dev = "%s%s" % ('/dev/nbd', use_dev)
         if sharable == 'True' or disable_caching == 'True':
             util.SMlog('_map: disabling rbd cache for %s' % _vdi_name)
@@ -200,17 +209,11 @@ def __map(session, arg_dict):
     if mode == 'kernel':
         cmd = ['rbd', 'map', _vdi_name, '--pool', CEPH_POOL_NAME, '--name', CEPH_USER]
     elif mode == 'nbd':
-        use_dev = int(arg_dict['dev'])
-        nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
-        if nbd_devices_used:
-            nbd_devices_used = sorted([int(x) for x in nbd_devices_used])
-            if use_dev in nbd_devices_used:
-                free_devices = [x for x in range(3, int(NBDS_MAX) + 1) if x not in nbd_devices_used]
-                if free_devices:
-                    use_dev = free_devices[0]
-                else:
-                    util.SMlog('__map: NBD_MAX level reached')
-                    return False
+        use_dev = _find_nbd_devices_used(int(arg_dict['dev']), NBDS_MAX)
+        if not use_dev:
+            util.SMlog('_map: Could not allocate nbd device for "%s": use_dev: %s'
+                       % (arg_dict['dev'], use_dev))
+            return False
 
         dev = "%s%s" % ('/dev/nbd', use_dev)
         if sharable == 'True' or disable_caching == 'True':
