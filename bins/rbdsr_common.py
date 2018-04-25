@@ -458,6 +458,14 @@ class CSR(SR.SR):
 
         return decoded
 
+    def _get_rbd_info(self, pool_name, image):
+        util.SMlog("rbdsr_common.CSR._get_rbd_info: pool=%s, vdi_uuid=%s" % (pool_name, image))
+        cmd = ["rbd", "info", image, "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
+        cmdout = util.pread2(cmd)
+        decoded = json.loads(cmdout)
+
+        return decoded
+
     def _check_and_load_nbd(self):
         """
         :return:
@@ -1149,22 +1157,35 @@ class CVDI(VDI.VDI):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common.CVDI._get_rbd_info: vdi_uuid = %s" % vdi_uuid)
-
-        rbds_list = self.sr._get_rbds_list("%s%s" % (self.sr.RBDPOOL_PREFIX, self.sr.uuid))
-
+        sr_name = "%s%s" % (self.sr.RBDPOOL_PREFIX, self.sr.uuid)
+        util.SMlog("rbdsr_common.CVDI._get_rbd_info: sr=%s, vdi_uuid=%s" % (sr_name, vdi_uuid))
         retval = None
 
-        for rbd_info in rbds_list:
-            if "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid) == rbd_info['image']:
-                # vdi is and rbd image
+        USE_RBD_INFO = True
+
+        if USE_RBD_INFO:
+            image = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
+            try:
+                rbd_info = self.sr._get_rbd_info(sr_name, image)
+            except Exception as e:
+                util.SMlog('rbdsr_common._get_rbd_info: fetching info failed for image %s: %s'
+                           % (image, str(e)))
+            else:
                 retval = ('image', rbd_info)
-                break
-            elif 'snapshot' in rbd_info:
-                if "%s%s" % (self.sr.SNAPSHOT_PREFIX, vdi_uuid) == rbd_info['snapshot']:
-                    # vdi is and rbd snapshot
-                    retval = ('snapshot', rbd_info)
+        else:
+            # TODO remove this inefficient code
+            rbds_list = self.sr._get_rbds_list(sr_name)
+
+            for rbd_info in rbds_list:
+                if "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid) == rbd_info['image']:
+                    # vdi is a rbd image
+                    retval = ('image', rbd_info)
                     break
+                elif 'snapshot' in rbd_info:
+                    if "%s%s" % (self.sr.SNAPSHOT_PREFIX, vdi_uuid) == rbd_info['snapshot']:
+                        # vdi is a rbd snapshot
+                        retval = ('snapshot', rbd_info)
+                        break
 
         if retval is None:
             util.SMlog("rbdsr_common.CVDI.get_rbd_info: vdi_uuid = %s: NOT FOUND in SR uuid=%s"
@@ -1932,6 +1953,14 @@ class CSR_GC(cleanup.SR):
         """
         util.SMlog("rbdsr_common.CSR._get_rbds_list: pool=%s" % pool_name)
         cmd = ["rbd", "ls", "-l", "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
+        cmdout = util.pread2(cmd)
+        decoded = json.loads(cmdout)
+
+        return decoded
+
+    def _get_rbd_info(self, pool_name, image):
+        util.SMlog("rbdsr_common.CSR._get_rbd_info: pool=%s, vdi_uuid=%s" % (pool_name, image))
+        cmd = ["rbd", "info", image, "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
         cmdout = util.pread2(cmd)
         decoded = json.loads(cmdout)
 
