@@ -46,7 +46,7 @@ RBD_PREFIX = "/dev/rbd"
 NBD_PREFIX = "/dev/nbd"
 DM_PREFIX = "/dev/mapper"
 
-NBDS_MAX = 64
+NBDS_MAX = 256
 BLOCK_SIZE = 21  # 2097152 bytes
 OBJECT_SIZE_B = 2097152
 
