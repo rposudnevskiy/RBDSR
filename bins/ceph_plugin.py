@@ -80,7 +80,7 @@ def _map(session, arg_dict):
     elif mode == 'nbd':
         use_dev = _find_nbd_devices_used(int(arg_dict['dev']), NBDS_MAX)
         if not use_dev:
-            util.SMlog('_map: Could not allocate nbd device for "%s": use_dev: %s'
+            util.SMlog('_map: ERROR Could not allocate nbd device for "%s": use_dev: %s'
                        % (arg_dict['dev'], use_dev))
             return False
 
@@ -211,7 +211,7 @@ def __map(session, arg_dict):
     elif mode == 'nbd':
         use_dev = _find_nbd_devices_used(int(arg_dict['dev']), NBDS_MAX)
         if not use_dev:
-            util.SMlog('_map: Could not allocate nbd device for "%s": use_dev: %s'
+            util.SMlog('_map: ERROR Could not allocate nbd device for "%s": use_dev: %s'
                        % (arg_dict['dev'], use_dev))
             return False
 

@@ -60,8 +60,9 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEO
                 if not (os.path.exists(lock_file) and os.path.isfile(lock_file)):
                     open(lock_file, 'a').close()
             except IOError as e:
-                util.SMlog('rbdsr_lock.file_lock: Unable to create lock file: %s' % str(e))
-                return
+                msg = 'rbdsr_lock.file_lock: Unable to create lock file: %s' % str(e)
+                util.SMlog(msg)
+                raise UnableToLock(msg)
 
             operation = LOCK_EX
             if mode in [MODE_NO_BLOCK, MODE_RETRY]:
@@ -72,8 +73,9 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEO
                 try:
                     flock(f, operation)
                 except IOError as e:
-                    util.SMlog('rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e))
-                    return
+                    msg = 'rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e)
+                    util.SMlog(msg)
+                    raise UnableToLock(msg)
 
             elif mode == MODE_RETRY:
                 for i in range(0, retries + 1):
@@ -82,8 +84,9 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEO
                         break
                     except IOError as e:
                         if i == retries:
-                            util.SMlog('rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e))
-                            return
+                            msg = 'rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e)
+                            util.SMlog(msg)
+                            raise UnableToLock(msg)
                         sleep(timeout)
 
             else:
@@ -101,7 +104,9 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEO
             f.close()
             util.SMlog('rbdsr_lock.file_lock: released lock')
             return result
+
         return wrapper
+
     return decorator
 
 

@@ -258,6 +258,8 @@ class CSR(SR.SR):
                             dev_instance = i
                             break
 
+        util.SMlog("rbdsr_common._get_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s return dev_instance %s"
+                   % (sr_uuid, vdi_uuid, host_uuid, dev_instance))
         return dev_instance
 
     def _get_instance_ref_count(self, sr_uuid, vdi_uuid, host_uuid):
@@ -284,13 +286,16 @@ class CSR(SR.SR):
                             ref_count = sr_dev_instances["hosts"][host_uuid][i][1]
                             break
 
+        util.SMlog("rbdsr_common._get_dev_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s return ref_count %s"
+                   % (sr_uuid, vdi_uuid, host_uuid, ref_count))
         return ref_count
 
-    def _free_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None):
+    def _free_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None, force_reset_ref=None):
         """
         :param sr_uuid:
         :param vdi_uuid:
         :param host_uuid:
+        :param force_reset_ref:
         :return:
         """
         util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
@@ -310,7 +315,7 @@ class CSR(SR.SR):
                 for i in range(NBDS_MAX):
                     if sr_dev_instances["hosts"][host_uuid][i] is not None:
                         if sr_dev_instances["hosts"][host_uuid][i][0] == vdi_uuid:
-                            if sr_dev_instances["hosts"][host_uuid][i][1] == 1:
+                            if sr_dev_instances["hosts"][host_uuid][i][1] == 1 or force_reset_ref:
                                 sr_dev_instances["hosts"][host_uuid][i] = None
                                 ref_count = 0
                             else:
@@ -453,6 +458,14 @@ class CSR(SR.SR):
         """
         util.SMlog("rbdsr_common.SR._get_rbds_list: pool=%s" % pool_name)
         cmd = ["rbd", "ls", "-l", "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
+        cmdout = util.pread2(cmd)
+        decoded = json.loads(cmdout)
+
+        return decoded
+
+    def _get_rbd_info(self, pool_name, image):
+        util.SMlog("rbdsr_common.CSR._get_rbd_info: pool=%s, vdi_uuid=%s" % (pool_name, image))
+        cmd = ["rbd", "info", image, "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
         cmdout = util.pread2(cmd)
         decoded = json.loads(cmdout)
 
@@ -913,14 +926,28 @@ class CVDI(VDI.VDI):
                 args['_dmbasedev_name'] = "%s%s" % (self.sr.DM_ROOT, "%s%s-base" % (self.sr.VDI_PREFIX, sm_config[key]))
 
         def __call_plugin__():
+            util.SMlog('rbdsr_common.CVDI._map_rbd.__call_plugin__: devlinks %s, dev_name %s, args %s'
+                       % (devlinks, dev_name, args))
+
             if not norefcount:
                 self.sr._allocate_dev_instance(self.sr.uuid, vdi_uuid, host_uuid)
 
-            if self.sr._get_instance_ref_count(self.sr.uuid, vdi_uuid, host_uuid) == 1 or norefcount:
+            ref_count = self.sr._get_instance_ref_count(self.sr.uuid, vdi_uuid, host_uuid)
+            if ref_count > 1:
+                if not os.path.isfile(dev_name):
+                    util.SMlog("rbdsr_common.CVDI._map_rbd.__call_plugin__: reference found but no file association of %s"
+                               "... resetting ref_count" % dev_name)
+                    self.sr._free_dev_instance(self.sr.uuid, vdi_uuid, host_uuid, force_reset_ref=True)
+                    self.sr._allocate_dev_instance(self.sr.uuid, vdi_uuid, host_uuid)
+                    ref_count = self.sr._get_instance_ref_count(self.sr.uuid, vdi_uuid, host_uuid)
+
+            if ref_count == 1 or norefcount:
                 try:
                     if devlinks:
+                        util.SMlog('rbdsr_common.CVDI._map_rbd.__call_plugin__: call plugin map with devlinks')
                         self._call_plugin('map', args, 'ceph_plugin', host_uuid)
                     else:
+                        util.SMlog('rbdsr_common.CVDI._map_rbd.__call_plugin__: call plugin _map without devlinks')
                         self._call_plugin('_map', args, 'ceph_plugin', host_uuid)
 
                     if 'attached' not in sm_config and self.exist:
@@ -931,6 +958,9 @@ class CVDI(VDI.VDI):
                         self.sr._free_dev_instance(self.sr.uuid, vdi_uuid, host_uuid)
                     raise xs_errors.XenError('VDIUnavailable', opterr='Failed to map RBD sr_uuid=%s, vdi_uuid=%s, \
                                               host_uuid=%s (%s)' % (self.sr.uuid, vdi_uuid, host_uuid, str(e)))
+
+                else:
+                    util.SMlog('rbdsr_common.CVDI._map_rbd.__call_plugin__: completed')
 
         if host_uuid is None:
             if filter(lambda x: x.startswith('host_'), sm_config.keys()):
@@ -948,6 +978,8 @@ class CVDI(VDI.VDI):
             if 'dmmode' in sm_config:
                 self.session.xenapi.VDI.remove_from_sm_config(vdi_ref, 'dmmode')
             self.session.xenapi.VDI.add_to_sm_config(vdi_ref, 'dmmode', dmmode)
+
+        util.SMlog('rbdsr_common.CVDI._map_rbd: completed')
 
     def _unmap_rbd(self, vdi_uuid, size, host_uuid=None, devlinks=True, norefcount=False):
 
@@ -1149,22 +1181,34 @@ class CVDI(VDI.VDI):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common.CVDI._get_rbd_info: vdi_uuid = %s" % vdi_uuid)
-
-        rbds_list = self.sr._get_rbds_list("%s%s" % (self.sr.RBDPOOL_PREFIX, self.sr.uuid))
-
+        sr_name = "%s%s" % (self.sr.RBDPOOL_PREFIX, self.sr.uuid)
+        util.SMlog("rbdsr_common.CVDI._get_rbd_info: sr=%s, vdi_uuid=%s" % (sr_name, vdi_uuid))
         retval = None
 
-        for rbd_info in rbds_list:
-            if "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid) == rbd_info['image']:
-                # vdi is and rbd image
+        USE_RBD_INFO = True
+
+        if USE_RBD_INFO:
+            image = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
+            try:
+                rbd_info = self.sr._get_rbd_info(sr_name, image)
+            except Exception as e:
+                util.SMlog('rbdsr_common._get_rbd_info: fetching info failed for image %s' % image)
+            else:
                 retval = ('image', rbd_info)
-                break
-            elif 'snapshot' in rbd_info:
-                if "%s%s" % (self.sr.SNAPSHOT_PREFIX, vdi_uuid) == rbd_info['snapshot']:
-                    # vdi is and rbd snapshot
-                    retval = ('snapshot', rbd_info)
+        else:
+            # TODO remove this inefficient code
+            rbds_list = self.sr._get_rbds_list(sr_name)
+
+            for rbd_info in rbds_list:
+                if "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid) == rbd_info['image']:
+                    # vdi is a rbd image
+                    retval = ('image', rbd_info)
                     break
+                elif 'snapshot' in rbd_info:
+                    if "%s%s" % (self.sr.SNAPSHOT_PREFIX, vdi_uuid) == rbd_info['snapshot']:
+                        # vdi is a rbd snapshot
+                        retval = ('snapshot', rbd_info)
+                        break
 
         if retval is None:
             util.SMlog("rbdsr_common.CVDI.get_rbd_info: vdi_uuid = %s: NOT FOUND in SR uuid=%s"
@@ -1937,6 +1981,14 @@ class CSR_GC(cleanup.SR):
 
         return decoded
 
+    def _get_rbd_info(self, pool_name, image):
+        util.SMlog("rbdsr_common.CSR._get_rbd_info: pool=%s, vdi_uuid=%s" % (pool_name, image))
+        cmd = ["rbd", "info", image, "--format", "json", "--pool", pool_name, "--name", self.CEPH_USER]
+        cmdout = util.pread2(cmd)
+        decoded = json.loads(cmdout)
+
+        return decoded
+
     def _if_rbd_exist(self, rbd_name):
         """
         :param vdi_name:
@@ -2070,7 +2122,7 @@ class CSR_GC(cleanup.SR):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+        util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
                    % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)
@@ -2087,13 +2139,16 @@ class CSR_GC(cleanup.SR):
                             ref_count = sr_dev_instances["hosts"][host_uuid][i][1]
                             break
 
+        util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s return ref_count %s"
+                   % (sr_uuid, vdi_uuid, host_uuid, ref_count))
         return ref_count
 
-    def _free_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None):
+    def _free_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None, force_reset_ref=None):
         """
         :param sr_uuid:
         :param vdi_uuid:
         :param host_uuid:
+        :param force_reset_ref:
         :return:
         """
         util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
@@ -2111,7 +2166,7 @@ class CSR_GC(cleanup.SR):
                 for i in range(NBDS_MAX):
                     if sr_dev_instances["hosts"][host_uuid][i] is not None:
                         if sr_dev_instances["hosts"][host_uuid][i][0] == vdi_uuid:
-                            if sr_dev_instances["hosts"][host_uuid][i][1] == 1:
+                            if sr_dev_instances["hosts"][host_uuid][i][1] == 1 or force_reset_ref:
                                 sr_dev_instances["hosts"][host_uuid][i] = None
                                 ref_count = 0
                             else:
