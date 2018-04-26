@@ -106,6 +106,9 @@ def _map(session, arg_dict):
         util.pread2(['ln', '-f', dev, _dev_name])
 
     if cmd is not None:
+        # add timeout
+        cmd = ['timeout', '60'] + cmd
+
         if arg_dict['read_only'] == 'True':
             cmd.append('--read-only')
 
@@ -236,6 +239,9 @@ def __map(session, arg_dict):
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
 
     if cmd is not None:
+        # add timeout
+        cmd = ['timeout', '60'] + cmd
+
         if arg_dict['read_only'] == 'True':
             cmd.append('--read-only')
 

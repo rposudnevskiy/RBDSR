@@ -307,7 +307,10 @@ class CSR(SR.SR):
         sr_sm_config = self.session.xenapi.SR.get_sm_config(sr_ref)
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         vdi_sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
-        sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        if 'dev_instances' in sr_sm_config:
+            sr_dev_instances = json.loads(sr_sm_config["dev_instances"])
+        else:
+            sr_dev_instances = dict()
 
         ##
         def __free__():
