@@ -1192,7 +1192,8 @@ class CVDI(VDI.VDI):
             try:
                 rbd_info = self.sr._get_rbd_info(sr_name, image)
             except Exception as e:
-                util.SMlog('rbdsr_common._get_rbd_info: fetching info failed for image %s' % image)
+                util.SMlog('rbdsr_common._get_rbd_info: fetching info failed for image %s: %s'
+                           % (image, str(e)))
             else:
                 retval = ('image', rbd_info)
         else:
