@@ -25,6 +25,8 @@ import util
 import os.path
 from rbdsr_lock import file_lock
 
+DEBUG_LEVEL = '1'
+
 
 def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
     if userbdmeta == 'True':
@@ -91,14 +93,15 @@ def _map(session, arg_dict):
 
         if sharable == 'True':
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
         else:
             cmd = ['rbd-nbd', 'map',
                    '--name', CEPH_USER,
+                   '--debug_ms', DEBUG_LEVEL,
                    '--device', dev,
                    '--nbds_max', NBDS_MAX,
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
@@ -185,7 +188,7 @@ def _unmap(session, arg_dict):
     elif mode == 'fuse':
         pass
     elif mode == 'nbd':
-        util.pread2(['rbd-nbd', 'unmap', dev, '--name', CEPH_USER])
+        util.pread2(['rbd-nbd', 'unmap', dev, '--debug_ms', DEBUG_LEVEL, '--name', CEPH_USER])
         util.pread2(['unlink', _dev_name])
 
     return "unmapped"
@@ -225,14 +228,15 @@ def __map(session, arg_dict):
 
         if sharable == 'True':
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd-nbd', 'map', '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL,'--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
                        '--name', CEPH_USER]
         else:
             cmd = ['rbd-nbd', 'map',
+                   '--debug_ms', DEBUG_LEVEL,
                    '--name', CEPH_USER,
                    '--device', dev,
                    '--nbds_max', NBDS_MAX,
