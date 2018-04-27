@@ -18,6 +18,7 @@
 import os
 import re
 import sys
+import time
 import XenAPIPlugin
 
 sys.path.append("/opt/xensource/sm/")
@@ -49,6 +50,20 @@ def _find_nbd_devices_used(use_dev, NBDS_MAX):
                 util.SMlog('_map: NBD_MAX level reached')
                 return False
     return use_dev
+
+
+def nbd_map(cmd, dev):
+    cmd.append('-d')
+    cmd = ['sh', '-c', ' '.join(cmd) + ' > /dev/null 2>&1 &']
+    util.pread2(cmd)
+
+    for i in range(1, 10):
+        time.sleep(1)
+        stdout = util.pread2(['blockdev', '--getsize64', dev])
+        if stdout != '0':
+            return True
+        util.SMlog('nbd_map device %s not ready yet after %s seconds' % (dev, i))
+    return False
 
 
 @file_lock()
@@ -109,14 +124,13 @@ def _map(session, arg_dict):
         util.pread2(['ln', '-f', dev, _dev_name])
 
     if cmd is not None:
-        # add timeout
-        cmd = ['timeout', '60'] + cmd
-
         if arg_dict['read_only'] == 'True':
             cmd.append('--read-only')
 
-        # util.pread2(cmd).rstrip('\n')
-        util.pread2(cmd)
+        if mode != 'nbd':
+            util.pread2(cmd)
+        else:
+            nbd_map(cmd, dev)
 
     if dmmode == 'linear':
         util.pread2(['dmsetup', 'create', _dm_name, '--table', "0 %s linear %s 0" % (str(int(size) / 512), _dev_name)])
@@ -231,7 +245,7 @@ def __map(session, arg_dict):
                 cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL,'--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
                        '--name', CEPH_USER]
         else:
@@ -243,14 +257,13 @@ def __map(session, arg_dict):
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
 
     if cmd is not None:
-        # add timeout
-        cmd = ['timeout', '60'] + cmd
-
         if arg_dict['read_only'] == 'True':
             cmd.append('--read-only')
 
-        # util.pread2(cmd).rstrip('\n')
-        util.pread2(cmd)
+        if mode != 'nbd':
+            util.pread2(cmd)
+        else:
+            nbd_map(cmd, dev)
 
     if dmmode != 'None':
         util.pread2(['dmsetup', 'resume', _dm_name])

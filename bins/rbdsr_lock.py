@@ -27,7 +27,7 @@ from time import sleep
 VERBOSE = True
 SRLOCK_IMAGE = '__srlock__'
 NBD_LOCK_FILE = '/tmp/nbd_lock'
-TIMEOUT = 1
+SLEEP_TIME = 1
 MODE_BLOCK = 'b'
 MODE_NO_BLOCK = 'n'
 MODE_RETRY = 'r'
@@ -41,7 +41,7 @@ class InvalidMode(Exception):
     pass
 
 
-def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEOUT):
+def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=60, sleep_time=SLEEP_TIME):
     """
     :param lock_file: full path to file that will be used as lock.
     :type lock_file: string
@@ -49,8 +49,8 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEO
     :type mode: string.
     :param retries: retry x times
     :type retries: int
-    :param timeout: wait between retry
-    :type timeout: int
+    :param sleep_time: wait between retry
+    :type sleep_time: int
     """
 
     def decorator(target):
@@ -87,7 +87,7 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=5, timeout=TIMEO
                             msg = 'rbdsr_lock.file_lock: Unable to get exclusive lock: %s' % str(e)
                             util.SMlog(msg)
                             raise UnableToLock(msg)
-                        sleep(timeout)
+                        sleep(sleep_time)
 
             else:
                 raise InvalidMode('rbdsr_lock.file_loc: %s is not a valid mode.')
@@ -232,7 +232,7 @@ class Lock(object):
         util.SMlog("rbdsr_lock.Lock._lock")
 
         while not self._trylock():
-            time.sleep(TIMEOUT)
+            time.sleep(SLEEP_TIME)
 
 
 if __debug__:
@@ -251,7 +251,7 @@ if __debug__:
 
         # Should not be yet held.
         t1 = datetime.now()
-        assert lock.held() == False
+        assert lock.held() is False
         t2 = datetime.now()
         delta = t2 - t1
         print("'held' takes %s seconds" % delta.total_seconds())
