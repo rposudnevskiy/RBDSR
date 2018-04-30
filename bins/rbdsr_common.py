@@ -269,7 +269,7 @@ class CSR(SR.SR):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+        util.SMlog("rbdsr_common._get_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
                    % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.session.xenapi.SR.get_by_uuid(sr_uuid)
@@ -286,8 +286,8 @@ class CSR(SR.SR):
                             ref_count = sr_dev_instances["hosts"][host_uuid][i][1]
                             break
 
-        util.SMlog("rbdsr_common._get_dev_instance_ref_count: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s return ref_count %s"
-                   % (sr_uuid, vdi_uuid, host_uuid, ref_count))
+        util.SMlog('rbdsr_common._get_instance_ref_count: return ref count "%s" for sr_uuid=%s, vdi_uuid=%s, host_uuid=%s'
+                   % (ref_count, sr_uuid, vdi_uuid, host_uuid))
         return ref_count
 
     def _free_dev_instance(self, sr_uuid, vdi_uuid, host_uuid=None, force_reset_ref=None):
@@ -344,7 +344,7 @@ class CSR(SR.SR):
             self.session.xenapi.SR.remove_from_sm_config(sr_ref, "dev_instances")
             self.session.xenapi.SR.add_to_sm_config(sr_ref, "dev_instances", json.dumps(sr_dev_instances))
 
-            self.lock.release()
+        self.lock.release()
 
     def _get_path(self, vdi_name):
         """
@@ -1002,8 +1002,8 @@ class CVDI(VDI.VDI):
         else:
             dmmode = 'None'
 
-        util.SMlog("rbdsr_common.CVDI._unmap_rbd: vdi_uuid = %s, size = %s, host_uuid = %s, dmmode = %s, \
-                      devlinks = %s, norefcount = %s" % (vdi_uuid, size, host_uuid, dmmode, devlinks,
+        util.SMlog("rbdsr_common.CVDI._unmap_rbd: vdi_uuid = %s, size = %s, host_uuid = %s, dmmode = %s, "
+                   "devlinks = %s, norefcount = %s" % (vdi_uuid, size, host_uuid, dmmode, devlinks,
                                                          norefcount))
 
         _vdi_name = "%s%s" % (self.sr.VDI_PREFIX, vdi_uuid)
@@ -2155,7 +2155,7 @@ class CSR_GC(cleanup.SR):
         :param force_reset_ref:
         :return:
         """
-        util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid = %s"
+        util.SMlog("rbdsr_common._free_dev_instance: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
                    % (sr_uuid, vdi_uuid, host_uuid))
 
         sr_ref = self.xapi.session.xenapi.SR.get_by_uuid(sr_uuid)

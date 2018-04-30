@@ -55,7 +55,7 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=60, sleep_time=S
 
     def decorator(target):
         def wrapper(*args, **kwargs):
-            util.SMlog('rbdsr_lock.file_lock: trying to aquire')
+            util.SMlog('rbdsr_lock.file_lock: trying to aquire file_lock')
             try:
                 if not (os.path.exists(lock_file) and os.path.isfile(lock_file)):
                     open(lock_file, 'a').close()
@@ -102,7 +102,7 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=60, sleep_time=S
                 raise e
 
             f.close()
-            util.SMlog('rbdsr_lock.file_lock: released lock')
+            util.SMlog('rbdsr_lock.file_lock: released file_lock')
             return result
 
         return wrapper
@@ -114,7 +114,7 @@ class Lock(object):
     """rdb-based locks on a rbd image."""
 
     def __init__(self, sr_uuid, cephx_id="client.%s" % CEPH_USER_DEFAULT):
-        util.SMlog("rbdsr_lock.Lock.__int__: sr_uuid = %s, cephx_id = %s" % (sr_uuid, cephx_id))
+        util.SMlog("rbdsr_lock.Lock.__int__: sr_uuid=%s, cephx_id=%s" % (sr_uuid, cephx_id))
 
         self.sr_uuid = sr_uuid
         self._pool = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
@@ -126,11 +126,11 @@ class Lock(object):
                          self._cephx_id])
 
     def _if_rbd_exist(self, rbd_name):
+        """ Check if lock file exists
+        :param rbd_name:
+        :return: bool
         """
-        :param vdi_name:
-        :return:
-        """
-        util.SMlog("rbdsr_lock.Lock._if_vdi_exist: rbd_name=%s" % rbd_name)
+        util.SMlog("rbdsr_lock.Lock._if_rbd_exist: rbd_name=%s" % rbd_name)
 
         try:
             util.pread2(["rbd", "info", rbd_name, "--pool", self._pool, "--format", "json", "--name",
@@ -140,16 +140,24 @@ class Lock(object):
             return False
 
     def _get_srlocker(self):
-        util.SMlog("rbdsr_lock.Lock._get_srlocker")
+        """" get lock info """
+        if VERBOSE:
+            util.SMlog("rbdsr_lock.Lock._get_srlocker")
+
         locks = json.loads(util.pread2(["rbd", "--format", "json", "--name", self._cephx_id, "--pool", self._pool,
                                         "lock", "list", self._srlock_image]))
+        if VERBOSE:
+            util.SMlog("rbdsr_lock.Lock._get_srlocker returned: %s" % locks)
+
         try:
             return locks['__locked__']['locker']
         except KeyError:
+            if VERBOSE:
+                util.SMlog("rbdsr_lock.Lock._get_srlocker: _get_srlocker got no lock!")
             return None
 
     def cleanup(self):
-        """Release a previously acquired lock."""
+        """ Release a previously acquired lock."""
         util.SMlog("rbdsr_lock.Lock.cleanup")
 
         _locker = self._get_srlocker()
@@ -165,7 +173,7 @@ class Lock(object):
             return False
 
     def acquire(self):
-        """Blocking lock aquisition, with warnings."""
+        """ Blocking lock aquisition, with warnings."""
         util.SMlog("rbdsr_lock.Lock.acquire")
         if not self._trylock():
             _locker = self._get_srlocker()
@@ -176,28 +184,33 @@ class Lock(object):
             util.SMlog("rbdsr_lock: acquired '%s'" % _locker)
 
     def acquireNoblock(self):
-        """Acquire lock if possible, or return false if lock already held"""
+        """ Acquire lock if possible, or return false if lock already held"""
         util.SMlog("rbdsr_lock.Lock.acquireNoblock")
 
         ret = self._trylock()
         exists = self.held()
 
         if VERBOSE:
-            util.SMlog("rbdsr_lock: tried lock, acquired: %s (exists: %s)" % \
+            util.SMlog("rbdsr_lock: tried lock, acquired: %s (exists: %s)" %
                        (ret, exists))
         return ret
 
     def held(self):
-        """True if @self acquired the lock, False otherwise."""
-        util.SMlog("rbdsr_lock.Lock.held`")
+        """ True if anyone, also @self acquired the lock, False otherwise."""
+        if VERBOSE:
+            util.SMlog("rbdsr_lock.Lock.held")
 
         if self._get_srlocker() is not None:
+            if VERBOSE:
+                util.SMlog('rbdsr_lock.Lock.held: Lock held by other')
             return True
         else:
+            if VERBOSE:
+                util.SMlog('rbdsr_lock.Lock.held: Lock not held')
             return False
 
     def release(self):
-        """Release a previously acquired lock."""
+        """ Release a previously acquired lock."""
         util.SMlog("rbdsr_lock.Lock.release")
 
         _locker = self._get_srlocker()
@@ -216,17 +229,19 @@ class Lock(object):
         util.SMlog("rbdsr_lock.Lock._trylock")
         if VERBOSE:
             util.SMlog("rbdsr_lock: Trying to lock '%s'" % self._srlock_image)
-        if not self.held():
+
+        if self.held():
+            return False
+        else:
             try:
                 util.pread2(["rbd", "--name", self._cephx_id, "--pool", self._pool,
                              "lock", "add", self._srlock_image, '__locked__'])
                 if VERBOSE:
-                    util.SMlog("rbdsr_lock: acquired")
+                    util.SMlog("rbdsr_lock: acquired: sr=%s, lockfile %s, cephx_id %s"
+                               % (self._pool, self._srlock_image, self._cephx_id))
                 return True
             except Exception:
                 return False
-        else:
-            return False
 
     def _lock(self):
         util.SMlog("rbdsr_lock.Lock._lock")
