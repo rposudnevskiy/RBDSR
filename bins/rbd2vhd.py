@@ -662,31 +662,31 @@ def rbd2nbd(rbd, uri, progress, mrout):
 
     (sock, encoding) = nbd_open_channel(uri)
     if (encoding != 'nbd'):
-        ERROR("NBD: Unsupported encoding `%s`" % encoding)
+        ERROR("rbd2vhd: NBD: Unsupported encoding `%s`" % encoding)
         nbd_close_channel(sock, 0)
         sys.exit(5)
     else:
         INFO("NBD: Encoding: `%s`" % encoding)
 
     def nbd_receive_reply(sock):
-        INFO("NBD: Replies reciver thread has been started")
-        DEBUG("NBD: len(request_handles)=%d, finished=%s" % (len(request_handles), finished))
+        INFO("rbd2vhd: NBD: Replies reciver thread has been started")
+        DEBUG("rbd2vhd: NBD: len(request_handles)=%d, finished=%s" % (len(request_handles), finished))
         while (len(request_handles) > 0 or (finished == False & len(request_handles) == 0)):
             while True:
                 ready = select.select([sock], [], [])
                 if ready[0]:
-                    DEBUG("NBD: Socket ready for reading")
+                    DEBUG("rbd2vhd: NBD: Socket ready for reading")
                     break
                 else:
-                    DEBUG("NBD: Socket isn't ready for reading")
+                    DEBUG("rbd2vhd: NBD: Socket isn't ready for reading")
             reply = unpack(NBD_REPLY_HEADER_FORMAT, sock.recv(NBD_REPLY_HEADER_SIZE))
             if reply[_nbd_reply_magic_] != NBD_REPLY_MAGIC:
-                ERROR("NBD: Bad magic in received reply")
-            INFO("NBD: Recived reply for handle %d" % reply[_nbd_reply_handle_])
+                ERROR("rbd2vhd: NBD: Bad magic in received reply")
+            INFO("rbd2vhd: NBD: Recived reply for handle %d" % reply[_nbd_reply_handle_])
             # request_handles_lock.acquire()
             request_handles.pop(reply[_nbd_reply_handle_])
             # request_handles_lock.release()
-        INFO("NBD: Replies reciver thread has been finished")
+        INFO("rbd2vhd: NBD: Replies reciver thread has been finished")
 
     rbd_header = RBDDIFF_FH.read(len(RBD_HEADER))
 
@@ -698,22 +698,22 @@ def rbd2nbd(rbd, uri, progress, mrout):
 
     (nbd_size, nbd_trans_flags) = nbd_negotiate(sock)
 
-    DEBUG("NBD: Prepare replies reciver thread")
+    DEBUG("rbd2vhd: NBD: Prepare replies reciver thread")
     t = threading.Thread(target=nbd_receive_reply, args=(sock,))
     t.start()
 
-    DEBUG("RBD: Start RBD diff reading")
+    DEBUG("rbd2vhd: RBD: Start RBD diff reading")
 
     while True:
         record_tag = RBDDIFF_FH.read(RBD_DIFF_META_RECORD_TAG_SIZE)
         # record_tag = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_RECORD_TAG), record)
         if not record_tag:
-            INFO("RBD: Unexpected EOF")
+            INFO("rbd2vhd: RBD: Unexpected EOF")
             break
         else:
-            INFO("RBD: Record TAG = \'%c\'" % record_tag)
+            INFO("rbd2vhd: RBD: Record TAG = \'%c\'" % record_tag)
             if record_tag == "e":
-                INFO("RBD: Got EOF record TAG")
+                INFO("rbd2vhd: RBD: Got EOF record TAG")
                 break
             if record_tag == "f":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SNAP_SIZE)
@@ -722,7 +722,7 @@ def rbd2nbd(rbd, uri, progress, mrout):
                 from_snap_name = unpack("%s%ds" % (RBD_DIFF_META_ENDIAN_PREFIX, snap_name_length), record)[0]
                 regex = re.compile(SNAPSHOT_PREFIX)
                 from_snap_name = regex.sub('', from_snap_name)
-                INFO("RBD: From snap = %s" % from_snap_name)
+                INFO("rbd2vhd: RBD: From snap = %s" % from_snap_name)
             elif record_tag == "t":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SNAP_SIZE)
                 snap_name_length = int(unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_SNAP), record)[0])
@@ -730,17 +730,17 @@ def rbd2nbd(rbd, uri, progress, mrout):
                 to_snap_name = unpack("%s%ds" % (RBD_DIFF_META_ENDIAN_PREFIX, snap_name_length), record)[0]
                 regex = re.compile(SNAPSHOT_PREFIX)
                 to_snap_name = regex.sub('', to_snap_name)
-                INFO("RBD: To snap = %s" % to_snap_name)
+                INFO("rbd2vhd: RBD: To snap = %s" % to_snap_name)
             elif record_tag == "s":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SIZE_SIZE)
                 image_size = int(unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_SIZE), record)[0])
-                INFO("RBD: Image size = %d" % image_size)
+                INFO("rbd2vhd: RBD: Image size = %d" % image_size)
             elif record_tag == "w":
                 record = RBDDIFF_FH.read(RBD_DIFF_DATA_SIZE)
                 _record_ = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_DATA), record)
                 offset = _record_[0]
                 length = _record_[1]
-                INFO("RBD: Data offset = 0x%08x and length = %d" % (offset, length))
+                INFO("rbd2vhd: RBD: Data offset = 0x%08x and length = %d" % (offset, length))
                 if rbd_meta_read_finished == 0:
                     rbd_meta_read_finished = 1
             elif record_tag == "z":
@@ -748,11 +748,11 @@ def rbd2nbd(rbd, uri, progress, mrout):
                 _record_ = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_DATA), record)
                 offset = _record_[0]
                 length = _record_[1]
-                INFO("RBD: Zero data offset = 0x%08x and length = %d" % (offset, length))
+                INFO("rbd2vhd: RBD: Zero data offset = 0x%08x and length = %d" % (offset, length))
                 if rbd_meta_read_finished == 0:
                     rbd_meta_read_finished = 1
             else:
-                ERROR("RBD: Error while reading rbd_diff file")
+                ERROR("rbd2vhd: RBD: Error while reading rbd_diff file")
                 nbd_close_channel(sock, 0)
                 sys.exit(2)
 
@@ -825,12 +825,12 @@ def rbd2raw(rbd, raw, progress, mrout):
         record_tag = RBDDIFF_FH.read(RBD_DIFF_META_RECORD_TAG_SIZE)
         # record_tag = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_RECORD_TAG), record)
         if not record_tag:
-            INFO("RBD: Unexpected EOF")
+            INFO("rbd2vhd_raw: RBD: Unexpected EOF")
             break
         else:
-            INFO("RBD: Record TAG = \'%c\'" % record_tag)
+            INFO("rbd2vhd_raw: RBD: Record TAG = \'%c\'" % record_tag)
             if record_tag == "e":
-                INFO("RBD: Got EOF record TAG")
+                INFO("rbd2vhd_raw: RBD: Got EOF record TAG")
                 break
             if record_tag == "f":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SNAP_SIZE)
@@ -839,7 +839,7 @@ def rbd2raw(rbd, raw, progress, mrout):
                 from_snap_name = unpack("%s%ds" % (RBD_DIFF_META_ENDIAN_PREFIX, snap_name_length), record)[0]
                 regex = re.compile(SNAPSHOT_PREFIX)
                 from_snap_name = regex.sub('', from_snap_name)
-                INFO("RBD: From snap = %s" % from_snap_name)
+                INFO("rbd2vhd_raw: RBD: From snap = %s" % from_snap_name)
             elif record_tag == "t":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SNAP_SIZE)
                 snap_name_length = int(unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_SNAP), record)[0])
@@ -847,17 +847,17 @@ def rbd2raw(rbd, raw, progress, mrout):
                 to_snap_name = unpack("%s%ds" % (RBD_DIFF_META_ENDIAN_PREFIX, snap_name_length), record)[0]
                 regex = re.compile(SNAPSHOT_PREFIX)
                 to_snap_name = regex.sub('', to_snap_name)
-                INFO("RBD: To snap = %s" % to_snap_name)
+                INFO("rbd2vhd_raw: RBD: To snap = %s" % to_snap_name)
             elif record_tag == "s":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SIZE_SIZE)
                 image_size = int(unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_SIZE), record)[0])
-                INFO("RBD: Image size = %d" % image_size)
+                INFO("rbd2vhd_raw: BD: Image size = %d" % image_size)
             elif record_tag == "w":
                 record = RBDDIFF_FH.read(RBD_DIFF_DATA_SIZE)
                 _record_ = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_DATA), record)
                 offset = _record_[0]
                 length = _record_[1]
-                INFO("RBD: Data offset = 0x%08x and length = %d" % (offset, length))
+                INFO("rbd2vhd_raw: RBD: Data offset = 0x%08x and length = %d" % (offset, length))
                 if rbd_meta_read_finished == 0:
                     rbd_meta_read_finished = 1
             elif record_tag == "z":
@@ -865,11 +865,11 @@ def rbd2raw(rbd, raw, progress, mrout):
                 _record_ = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_DATA), record)
                 offset = _record_[0]
                 length = _record_[1]
-                INFO("RBD: Zero data offset = 0x%08x and length = %d" % (offset, length))
+                INFO("rbd2vhd_raw: RBD: Zero data offset = 0x%08x and length = %d" % (offset, length))
                 if rbd_meta_read_finished == 0:
                     rbd_meta_read_finished = 1
             else:
-                ERROR("RBD: Error while reading rbd_diff file")
+                ERROR("rbd2vhd_raw: RBD: Error while reading rbd_diff file")
                 sys.exit(2)
 
             if (rbd_meta_read_finished == 1):
@@ -937,10 +937,10 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
         record_tag = RBDDIFF_FH.read(RBD_DIFF_META_RECORD_TAG_SIZE)
         # record_tag = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_RECORD_TAG), record)
         if not record_tag:
-            INFO("RBD: Unexpected EOF")
+            INFO("rbd2vhd: RBD: Unexpected EOF")
             break
         else:
-            INFO("RBD: Record TAG = \'%c\'" % record_tag)
+            INFO("rbd2vhd: RBD: Record TAG = \'%c\'" % record_tag)
             if record_tag == "e":
                 INFO("RBD: Got EOF record TAG")
                 rbd_eof = True
@@ -953,7 +953,7 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
                 from_snap_name = unpack("%s%ds" % (RBD_DIFF_META_ENDIAN_PREFIX, snap_name_length), record)[0]
                 regex = re.compile(SNAPSHOT_PREFIX)
                 from_snap_name = regex.sub('', from_snap_name)
-                INFO("RBD: From snap = %s" % from_snap_name)
+                INFO("rbd2vhd: RBD: From snap = %s" % from_snap_name)
             elif record_tag == "t":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SNAP_SIZE)
                 snap_name_length = int(unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_SNAP), record)[0])
@@ -961,17 +961,17 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
                 to_snap_name = unpack("%s%ds" % (RBD_DIFF_META_ENDIAN_PREFIX, snap_name_length), record)[0]
                 regex = re.compile(SNAPSHOT_PREFIX)
                 to_snap_name = regex.sub('', to_snap_name)
-                INFO("RBD: To snap = %s" % to_snap_name)
+                INFO("rbd2vhd: RBD: To snap = %s" % to_snap_name)
             elif record_tag == "s":
                 record = RBDDIFF_FH.read(RBD_DIFF_META_SIZE_SIZE)
                 image_size = int(unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_META_SIZE), record)[0])
-                INFO("RBD: Image size = %d" % image_size)
+                INFO("rbd2vhd: RBD: Image size = %d" % image_size)
             elif record_tag == "w":
                 record = RBDDIFF_FH.read(RBD_DIFF_DATA_SIZE)
                 _record_ = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_DATA), record)
                 offset = _record_[0]
                 length = _record_[1]
-                INFO("RBD: Data offset = 0x%08x and length = %d" % (offset, length))
+                INFO("rbd2vhd: RBD: Data offset = 0x%08x and length = %d" % (offset, length))
                 if rbd_meta_read_finished == 0:
                     rbd_meta_read_finished = 1
                 rbd_data_exists = True
@@ -980,17 +980,17 @@ def rbd2vhd(rbd, vhd, rbd_image_uuid, progress, mrout):
                 _record_ = unpack("%s%s" % (RBD_DIFF_META_ENDIAN_PREFIX, RBD_DIFF_DATA), record)
                 offset = _record_[0]
                 length = _record_[1]
-                INFO("RBD: Zero data offset = 0x%08x and length = %d" % (offset, length))
+                INFO("rbd2vhd: RBD: Zero data offset = 0x%08x and length = %d" % (offset, length))
                 if rbd_meta_read_finished == 0:
                     rbd_meta_read_finished = 1
                 rbd_data_exists = True
             elif (rbd_eof == False):
-                ERROR("RBD: Error while reading rbd_diff file")
+                ERROR("rbd2vhd: RBD: Error while reading rbd_diff file")
                 sys.exit(2)
 
             if (rbd_meta_read_finished == 1) & (vhd_headers_written == 0):
                 if rbd_image_uuid == '':
-                    ERROR("RBD: RBD image UUID is not specified")
+                    ERROR("rbd2vhd: RBD: RBD image UUID is not specified")
                     sys.exit(1)
                 if from_snap_name:
                     parent_uuid = uuid.UUID(from_snap_name)

@@ -1321,6 +1321,7 @@ class CVDI(VDI.VDI):
         else:
             # Delete metadata for VDI
             pass
+        util.SMlog("rbdsr_common.CVDI.delete: finished")
 
     def create(self, sr_uuid, vdi_uuid, size):
         """
@@ -1389,12 +1390,14 @@ class CVDI(VDI.VDI):
 
         if self.sr.USE_RBD_META:
             if not RBDMetadataHandler(self.sr, vdi_uuid).updateMetadata(vdi_info):
+                util.SMlog('rbdsr_common.CVDI.create_rbd: Failed to updateMetadata on vdi: %s' % vdi_uuid)
                 raise xs_errors.XenError('VDICreate', opterr='Failed to set Metadata on vdi: %s' % vdi_uuid)
         else:
             # TODO: Implement handler for MGT image if we dont use RBD metadata
             # MetadataHandler(self.sr.mdpath).addVdi(vdi_info)
             pass
 
+        util.SMlog('rbdsr_common.CVDI.create: finished')
         return self.get_params()
 
     def update(self, sr_uuid, vdi_uuid):
@@ -1460,6 +1463,7 @@ class CVDI(VDI.VDI):
 
             if self.sr.USE_RBD_META:
                 if not RBDMetadataHandler(self.sr, vdi_uuid).updateMetadata(vdi_info):
+                    util.SMlog('rbdsr_common.CVDI.update_rbd: Failed to updateMetadata on vdi: %s' % vdi_uuid)
                     raise xs_errors.XenError('VDIInUse', opterr='Failed to set Metadata on vdi: %s' % vdi_uuid)
             else:
                 # TODO: Implement handler for MGT image if we dont use RBD metadata
@@ -1482,6 +1486,8 @@ class CVDI(VDI.VDI):
         else:
             raise xs_errors.XenError('VDIUnavailable',
                                      opterr='Could not find image %s in pool %s' % (vdi_uuid, self.sr.uuid))
+
+        util.SMlog('rbdsr_common.CVDI.update: finished')
 
     def introduce(self, sr_uuid=None, vdi_uuid=None):
         """
@@ -1590,6 +1596,8 @@ class CVDI(VDI.VDI):
 
             return self.get_params()
         else:
+            util.SMlog("rbdsr_common.CVDI.introduce: ERROR: VDIUnavailable, Could not find image %s in sr %s"
+                       % (vdi_uuid, sr_uuid))
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                               (vdi_uuid, sr_uuid))
 
@@ -1628,7 +1636,8 @@ class CVDI(VDI.VDI):
                            % (sr_uuid, vdi_uuid, dmmode, host_uuid))
             return super(CVDI, self).attach(sr_uuid, vdi_uuid)
         else:
-            util.SMlog("rbdsr_common.CVDI.attach: ERROR: VDIUnavailable, Could not find image %s in pool %s" % (vdi_uuid, sr_uuid))
+            util.SMlog("rbdsr_common.CVDI.attach: ERROR: VDIUnavailable, Could not find image %s in sr %s"
+                       % (vdi_uuid, sr_uuid))
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                               (vdi_uuid, sr_uuid))
 
@@ -2792,7 +2801,7 @@ class RBDMetadataHandler:
         :param vdi_info:
         :return: Boolean
         """
-        util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: vdi_info = %s" % vdi_info)
+        util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: vdi_info=%s" % vdi_info)
 
         for tag, value in vdi_info.iteritems():
             if value != '':
@@ -2809,6 +2818,7 @@ class RBDMetadataHandler:
                 except Exception as e:
                     # util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: Exception: rbd image-meta remove failed: (%s)" % str(e))
                     continue
+        util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: finished for vdi_info=%s" % vdi_info)
         return True
 
     def retrieveMetadata(self):

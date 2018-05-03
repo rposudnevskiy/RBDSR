@@ -522,7 +522,7 @@ class VDI(object):
                        "VMs using this tapdisk have lost access " \
                        "to the corresponding disk(s)" % self.uuid
             xapi.message.create(msg_name, "4", "SR", self.sr.uuid, msg_body)
-        except Exception, e:
+        except Exception as e:
             util.SMlog("failed to generate message: %s" % e)
 
     def unpause(self):
@@ -540,7 +540,7 @@ class VDI(object):
                                                self.sr.uuid, self.uuid):
                     self._report_tapdisk_unpause_error()
                     raise util.SMException("Failed to refresh %s" % self)
-            except XenAPI.Failure, e:
+            except XenAPI.Failure as e:
                 if util.isInvalidVDI(e) and ignoreNonexistent:
                     Util.log("VDI %s not found, ignoring" % self)
                     return
@@ -779,14 +779,14 @@ class VDI(object):
     def _doCoalesceVHD(vdi):
         try:
             vhdutil.coalesce(vdi.path)
-        except util.CommandException, ce:
+        except util.CommandException as ce:
             # We use try/except for the following piece of code because it runs
             # in a separate process context and errors will not be caught and
             # reported by anyone.
             try:
                 # Report coalesce errors back to user via XC
                 VDI._reportCoalesceError(vdi, ce)
-            except Exception, e:
+            except Exception as e:
                 util.SMlog('failed to create XenCenter message: %s' % e)
             raise ce
         except:
@@ -811,7 +811,7 @@ class VDI(object):
                 util.SMlog('Coalesce failed on %s, attempting repair on ' \
                            'parent %s' % (self.uuid, parent))
                 vhdutil.repair(parent)
-            except Exception, e:
+            except Exception as e:
                 util.SMlog('(error ignored) Failed to repair parent %s ' \
                            'after failed coalesce on %s, err: %s' %
                            (parent, self.path, e))
@@ -968,10 +968,10 @@ class FileVDI(VDI):
 
     def extractUuid(path):
         path = os.path.basename(path.strip())
-        if not (path.endswith(vhdutil.FILE_EXTN_VHD) or \
+        if not (path.endswith(vhdutil.FILE_EXTN_VHD) or
                 path.endswith(vhdutil.FILE_EXTN_RAW)):
             return None
-        uuid = path.replace(vhdutil.FILE_EXTN_VHD, "").replace( \
+        uuid = path.replace(vhdutil.FILE_EXTN_VHD, "").replace(
             vhdutil.FILE_EXTN_RAW, "")
         # TODO: validate UUID format
         return uuid
@@ -1383,7 +1383,7 @@ class SR(object):
         elif type == SR.TYPE_RBD:
             from RBDSR import RBDSR_GC, RBDVDI_GC
             return RBDSR_GC(uuid, xapi, createLock, force)
-        raise util.SMException("SR type %s not recognized" % type)
+        raise util.SMException("cleanup: SR type %s not recognized" % type)
 
     getInstance = staticmethod(getInstance)
 
@@ -1401,20 +1401,20 @@ class SR(object):
         if createLock:
             self._srLock = lock.Lock(vhdutil.LOCK_TYPE_SR, self.uuid)
         else:
-            Util.log("Requested no SR locking")
+            Util.log("cleanup: Requested no SR locking")
         self.name = unicode(self.xapi.srRecord["name_label"]).encode("utf-8", "replace")
         self._failedCoalesceTargets = []
 
         if not self.xapi.isPluggedHere():
             if force:
-                Util.log("SR %s not attached on this host, ignoring" % uuid)
+                Util.log("cleanup: SR %s not attached on this host, ignoring" % uuid)
             else:
-                raise util.SMException("SR %s not attached on this host" % uuid)
+                raise util.SMException("cleanup: SR %s not attached on this host" % uuid)
 
         if force:
-            Util.log("Not checking if we are Master (SR %s)" % uuid)
+            Util.log("cleanup: Not checking if we are Master (SR %s)" % uuid)
         elif not self.xapi.isMaster():
-            raise util.SMException("This host is NOT master, will not run")
+            raise util.SMException("cleanup: This host is NOT master, will not run")
 
     def gcEnabled(self, refresh=True):
         if refresh:
@@ -1460,7 +1460,7 @@ class SR(object):
 
         srSwitch = self.xapi.srRecord["other_config"].get(VDI.DB_COALESCE)
         if srSwitch == "false":
-            Util.log("Coalesce disabled for this SR")
+            Util.log("cleanup: Coalesce disabled for this SR")
             return candidates
 
         # finish any VDI for which a relink journal entry exists first
@@ -1473,7 +1473,7 @@ class SR(object):
         for vdi in self.vdis.values():
             if vdi.isCoalesceable() and vdi not in self._failedCoalesceTargets:
                 candidates.append(vdi)
-                Util.log("%s is coalescable" % vdi.uuid)
+                Util.log("cleanup: %s is coalescable" % vdi.uuid)
 
         # pick one in the tallest tree
         treeHeight = dict()
@@ -1491,10 +1491,10 @@ class SR(object):
             for c in treeHeight[h]:
                 spaceNeeded = c._calcExtraSpaceForCoalescing()
                 if spaceNeeded <= freeSpace:
-                    Util.log("Coalesce candidate: %s (tree height %d)" % (c, h))
+                    Util.log("cleanup: Coalesce candidate: %s (tree height %d)" % (c, h))
                     return c
                 else:
-                    Util.log("No space to coalesce %s (free space: %d)" % \
+                    Util.log("cleanup: No space to coalesce %s (free space: %d)" % \
                              (c, freeSpace))
         return None
 
@@ -1503,11 +1503,11 @@ class SR(object):
         candidates = []
         srSwitch = self.xapi.srRecord["other_config"].get(VDI.DB_COALESCE)
         if srSwitch == "false":
-            Util.log("Coalesce disabled for this SR")
+            Util.log("cleanup: Coalesce disabled for this SR")
             return candidates
         srSwitch = self.xapi.srRecord["other_config"].get(VDI.DB_LEAFCLSC)
         if srSwitch == VDI.LEAFCLSC_DISABLED:
-            Util.log("Leaf-coalesce disabled for this SR")
+            Util.log("cleanup: Leaf-coalesce disabled for this SR")
             return candidates
 
         for vdi in self.vdis.values():
@@ -1516,10 +1516,10 @@ class SR(object):
             if vdi in self._failedCoalesceTargets:
                 continue
             if vdi.getConfig(vdi.DB_ONBOOT) == vdi.ONBOOT_RESET:
-                Util.log("Skipping reset-on-boot %s" % vdi)
+                Util.log("cleanup: Skipping reset-on-boot %s" % vdi)
                 continue
             if vdi.getConfig(vdi.DB_LEAFCLSC) == vdi.LEAFCLSC_DISABLED:
-                Util.log("Leaf-coalesce disabled for %s" % vdi)
+                Util.log("cleanup: Leaf-coalesce disabled for %s" % vdi)
                 continue
             if not (AUTO_ONLINE_LEAF_COALESCE_ENABLED or
                     vdi.getConfig(vdi.DB_LEAFCLSC) == vdi.LEAFCLSC_FORCE):
@@ -1537,10 +1537,10 @@ class SR(object):
                 if candidate.canLiveCoalesce():
                     spaceNeeded = spaceNeededLive
             if spaceNeeded <= freeSpace:
-                Util.log("Leaf-coalesce candidate: %s" % candidate)
+                Util.log("cleanup: Leaf-coalesce candidate: %s" % candidate)
                 return candidate
             else:
-                Util.log("No space to leaf-coalesce %s (free space: %d)" % \
+                Util.log("cleanup: No space to leaf-coalesce %s (free space: %d)" % \
                          (candidate, freeSpace))
                 if spaceNeededLive <= freeSpace:
                     Util.log("...but enough space if skip snap-coalesce")
@@ -1557,14 +1557,14 @@ class SR(object):
 
         try:
             self._coalesce(vdi)
-        except util.SMException, e:
+        except util.SMException as e:
             if isinstance(e, AbortException):
                 self.cleanup()
                 raise
             else:
                 self._failedCoalesceTargets.append(vdi)
                 Util.logException("coalesce")
-                Util.log("Coalesce failed, skipping")
+                Util.log("cleanup: Coalesce failed, skipping")
         self.cleanup()
 
     def coalesceLeaf(self, vdi, dryRun):
@@ -1582,19 +1582,19 @@ class SR(object):
                 vdi = self.getVDI(uuid)
                 if vdi:
                     vdi.delConfig(vdi.DB_LEAFCLSC)
-        except (util.SMException, XenAPI.Failure), e:
+        except (util.SMException, XenAPI.Failure) as e:
             if isinstance(e, AbortException):
                 self.cleanup()
                 raise
             else:
                 self._failedCoalesceTargets.append(vdi)
                 Util.logException("leaf-coalesce")
-                Util.log("Leaf-coalesce failed, skipping")
+                Util.log("cleanup: Leaf-coalesce failed, skipping")
         self.cleanup()
 
     def garbageCollect(self, dryRun=False):
         vdiList = self.findGarbage()
-        Util.log("Found %d VDIs for deletion:" % len(vdiList))
+        Util.log("cleanup: Found %d VDIs for deletion:" % len(vdiList))
         for vdi in vdiList:
             Util.log("  %s" % vdi)
         if not dryRun:
@@ -1611,7 +1611,7 @@ class SR(object):
         for vdi in vdiList:
             if IPCFlag(self.uuid).test(FLAG_TYPE_ABORT):
                 raise AbortException("Aborting due to signal")
-            Util.log("Deleting unlinked VDI %s" % vdi)
+            Util.log("cleanup: Deleting unlinked VDI %s" % vdi)
             self.deleteVDI(vdi)
 
     def deleteVDI(self, vdi):
@@ -1657,7 +1657,7 @@ class SR(object):
         return 0
 
     def cleanup(self):
-        Util.log("In cleanup")
+        Util.log("cleanup: In cleanup")
         return
 
     def __str__(self):
@@ -1727,7 +1727,7 @@ class SR(object):
                     baseUuid, clonUuid = jval.split("_")
                     if self.getVDI(baseUuid):
                         continue
-                Util.log("  Deleting stale '%s' journal entry for %s "
+                Util.log("cleanup: Deleting stale '%s' journal entry for %s "
                          "(%s)" % (t, uuid, jval))
                 if not dryRun:
                     self.journaler.remove(t, uuid)
@@ -1739,7 +1739,7 @@ class SR(object):
         if self.journaler.get(vdi.JRN_RELINK, vdi.uuid):
             # this means we had done the actual coalescing already and just
             # need to finish relinking and/or refreshing the children
-            Util.log("==> Coalesce apparently already done: skipping")
+            Util.log("cleanup: ==> Coalesce apparently already done: skipping")
         else:
             # JRN_COALESCE is used to check which VDI is being coalesced in
             # order to decide whether to abort the coalesce. We remove the
@@ -1792,21 +1792,21 @@ class SR(object):
         try:
             ret = self.xapi.singleSnapshotVDI(vdi)
             Util.log("Single-snapshot returned: %s" % ret)
-        except XenAPI.Failure, e:
+        except XenAPI.Failure as e:
             if util.isInvalidVDI(e):
-                Util.log("The VDI appears to have been concurrently deleted")
+                Util.log("cleanup: The VDI appears to have been concurrently deleted")
                 return False
             raise
         self.scanLocked()
         tempSnap = vdi.parent
         if not tempSnap.isCoalesceable():
-            Util.log("The VDI appears to have been concurrently snapshotted")
+            Util.log("cleanup: The VDI appears to have been concurrently snapshotted")
             return False
         Util.log("Coalescing parent %s" % tempSnap)
         util.fistpoint.activate("LVHDRT_coaleaf_delay_2", self.uuid)
         self._coalesce(tempSnap)
         if not vdi.isLeafCoalesceable():
-            Util.log("The VDI tree appears to have been altered since")
+            Util.log("cleanup: The VDI tree appears to have been altered since")
             return False
         return True
 
@@ -1816,10 +1816,10 @@ class SR(object):
         try:
             self.scan()
             if not self.getVDI(vdi.uuid):
-                Util.log("The VDI appears to have been deleted meanwhile")
+                Util.log("cleanup: The VDI appears to have been deleted meanwhile")
                 return False
             if not vdi.isLeafCoalesceable():
-                Util.log("The VDI is no longer leaf-coalesceable")
+                Util.log("cleanup: The VDI is no longer leaf-coalesceable")
                 return False
 
             uuid = vdi.uuid
@@ -2515,7 +2515,7 @@ def daemonize():
     pid = os.fork()
     if pid:
         os.waitpid(pid, 0)
-        Util.log("New PID [%d]" % pid)
+        Util.log("cleanup: New PID [%d]" % pid)
         return False
     os.chdir("/")
     os.setsid()
@@ -2688,9 +2688,9 @@ Debug:
     -v --vdi_uuid    VDI UUID
     """
     # -d --dry-run     don't actually perform any SR-modifying operations
-    print
-    output
-    Util.log("(Invalid usage)")
+    print(output)
+
+    Util.log("(cleanup: Invalid usage)")
     sys.exit(1)
 
 
