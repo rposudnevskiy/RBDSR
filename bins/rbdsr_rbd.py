@@ -32,7 +32,7 @@ VDI_PREFIX = 'RBD-'
 VERBOSE = False
 
 try:
-    from .local_settings import *
+    from local_settings import *
 except Exception:
     pass
 

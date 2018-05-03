@@ -63,7 +63,7 @@ import rbdsr_lock
 VERBOSE = False
 
 try:
-    from .local_settings import *
+    from local_settings import *
 except Exception:
     pass
 
