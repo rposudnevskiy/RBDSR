@@ -18,6 +18,7 @@
 from rbdsr_vhd import *
 from rbdsr_dmp import *
 from rbdsr_rbd import *
+
 import SRCommand
 import SR
 import util
@@ -61,6 +62,13 @@ VDI_TYPES = ['vhd', 'aio']
 DRIVER_TYPES = ['vhd', 'dmp', 'rbd']
 DRIVER_TYPE_DEFAULT = 'vhd'
 
+VERBOSE = False
+
+try:
+    from local_settings import *
+except Exception:
+    pass
+
 
 class RBDSR(object):
     """Ceph Block Devices storage repository"""
@@ -71,7 +79,8 @@ class RBDSR(object):
         :param kwargs:
         :return:
         """
-        util.SMlog("RBDSR.RBDSR.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
 
         srcmd = args[0]
 
@@ -91,7 +100,8 @@ class RBDSR(object):
         :param srcmd:
         :param sr_uuid:
         """
-        util.SMlog("RBDSR.RBDSR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
 
         if 'driver-type' in srcmd.dconf:
             self.DRIVER_TYPE = srcmd.dconf.get('driver-type')
@@ -120,14 +130,16 @@ class RBDSR(object):
         self.mode = MODE_DEFAULT
         self.ops_exclusive = OPS_EXCLUSIVE
 
-        util.SMlog("RBDSR.RBDSR.__init__: Using cephx id %s" % self.CEPH_USER)
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR.__init__: Using cephx id %s" % self.CEPH_USER)
         super(RBDSR, self).__init__(srcmd, sr_uuid)
 
     def load(self, sr_uuid):
         """
         :param sr_uuid:
         """
-        util.SMlog("RBDSR.RBDSR.load: sr_uuid= %s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR.load: sr_uuid= %s" % sr_uuid)
 
         super(RBDSR, self).load(sr_uuid)
 
@@ -136,7 +148,8 @@ class RBDSR(object):
         :param type:
         :return:
         """
-        util.SMlog("RBDSR.RBDSR.handles type = %s" % type)
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR.handles type = %s" % type)
 
         if type == TYPE:
             return True
@@ -186,7 +199,8 @@ class RBDSR_GC(object):
         :param kwargs:
         :return:
         """
-        util.SMlog("RBDSR.RBDSR_GC.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR_GC.__new__: args = %s, kwargs = %s" % (str(args), str(kwargs)))
 
         sr_uuid = args[0]
         xapi = args[1]
@@ -220,7 +234,8 @@ class RBDSR_GC(object):
         :param createLock:
         :param force:
         """
-        util.SMlog("RBDSR.RBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
 
         host_ref = util.get_localhost_uuid(self.xapi.session)
 
@@ -249,7 +264,9 @@ class RBDSR_GC(object):
         if 'cephx-id' in self.sm_config:
             self.CEPH_USER = "client.%s" % self.sm_config['cephx-id']
 
-        util.SMlog("RBDSR.RBDSR_GC.__init__: Using cephx id %s" % self.CEPH_USER)
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR_GC.__init__: Using cephx id %s" % self.CEPH_USER)
+
         super(RBDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
 
     def vdi(self, sr, uuid, raw):
@@ -259,7 +276,8 @@ class RBDSR_GC(object):
         :param raw:
         :return:
         """
-        util.SMlog("RBDSR.RBDSR_GC.vdi uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("RBDSR.RBDSR_GC.vdi uuid=%s" % uuid)
 
         return RBDVDI_GC(sr, uuid, raw)
 

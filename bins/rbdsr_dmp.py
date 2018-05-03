@@ -24,6 +24,13 @@ DRIVER_CLASS_PREFIX[DRIVER_TYPE] = 'RBDDMP'
 
 VDI_PREFIX = 'DMP-'
 
+VERBOSE = False
+
+try:
+    from local_settings import *
+except Exception:
+    pass
+
 
 class RBDDMPSR(CSR):
 
@@ -31,7 +38,8 @@ class RBDDMPSR(CSR):
         """
         :param sr_uuid:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPSR._load: sr_uuid=%s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPSR._load: sr_uuid=%s" % sr_uuid)
 
         self.VDI_PREFIX = VDI_PREFIX
         self.vdi_type = VDI_TYPE
@@ -44,7 +52,8 @@ class RBDDMPSR(CSR):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_dmp.SR.vdi vdi_uuid = %s" % vdi_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.SR.vdi vdi_uuid = %s" % vdi_uuid)
 
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDDMPVDI(self, vdi_uuid)
@@ -65,7 +74,8 @@ class RBDDMPVDI(CVDI):
         :param norefcount:
         :return:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPVDI._map_dmp_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI._map_dmp_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -108,7 +118,8 @@ class RBDDMPVDI(CVDI):
         :param norefcount:
         :return:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPVDI._unmap_dmp_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI._unmap_dmp_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -132,7 +143,8 @@ class RBDDMPVDI(CVDI):
         :return:
         """
         # TODO: Checked. Need to check for 'base_mirror'
-        util.SMlog("rbdsr_dmp.RBDDMPVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -172,8 +184,8 @@ class RBDDMPVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_dmp.RBDDMPVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI.detach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         super(RBDDMPVDI, self).detach(sr_uuid, vdi_uuid, host_uuid=host_uuid)
 
@@ -185,8 +197,8 @@ class RBDDMPVDI(CVDI):
         :param snap_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_dmp.RBDDMPVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
 
         return self.clone(sr_uuid, vdi_uuid, mode='snapshot')
 
@@ -196,8 +208,8 @@ class RBDDMPVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_dmp.RBDDMPVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -239,7 +251,8 @@ class RBDDMPVDI(CVDI):
         clone_ref = self.session.xenapi.VDI.get_by_uuid(clone_uuid)
 
         if not is_a_snapshot:
-            util.SMlog("rbdsr_vhd.RBDDMPVDI.clone: Pepare BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
+            if VERBOSE:
+                util.SMlog("rbdsr_vhd.RBDDMPVDI.clone: Pepare BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
             baseVDI = self.sr.vdi(base_uuid)
             baseVDI.label = "%s (base)" % label
             baseVDI.description = description
@@ -262,14 +275,20 @@ class RBDDMPVDI(CVDI):
 
         if not is_a_snapshot:
             if 'attached' in sm_config:
-                util.SMlog("rbdsr_vhd.RBDDMPVDI.clone: Unmap VDI as it's mapped: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+                if VERBOSE:
+                    util.SMlog("rbdsr_vhd.RBDDMPVDI.clone: Unmap VDI as it's mapped: sr_uuid=%s, vdi_uuid=%s"
+                               % (sr_uuid, vdi_uuid))
+
                 if 'paused' not in sm_config:
                     if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
                         raise util.SMException("failed to pause VDI %s" % vdi_uuid)
                 self._unmap_rbd(vdi_uuid, self.size, norefcount=True)
                 base_hostRefs = self._get_vdi_hostRefs(vdi_uuid)
-            util.SMlog(
-                "rbdsr_vhd.RBDDMPVDI.clone: Swap Base and VDI: sr_uuid=%s, vdi_uuid=%s, base_uuid=%s" % (sr_uuid, vdi_uuid, base_uuid))
+
+            if VERBOSE:
+                util.SMlog("rbdsr_vhd.RBDDMPVDI.clone: Swap Base and VDI: sr_uuid=%s, vdi_uuid=%s, base_uuid=%s"
+                           % (sr_uuid, vdi_uuid, base_uuid))
+
             tmp_uuid = "temporary"  # util.gen_uuid()
             self._rename_rbd(vdi_uuid, tmp_uuid)
             self._rename_rbd(base_uuid, vdi_uuid)
@@ -312,7 +331,8 @@ class RBDDMPVDI(CVDI):
         :param vdi2_uuid:
         :return:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
         # TODO: Test the method
 
         base_uuid = vdi1_uuid
@@ -348,7 +368,8 @@ class RBDDMPVDI(CVDI):
         self.sr.session.xenapi.VDI.set_managed(base_vdi_ref, False)
         RBDDMPVDI.update(BaseVDI, sr_uuid, base_uuid)  # TODO: Check if xapi invoke update after set_* op, if it's true then this line can be removed
 
-        util.SMlog("Compose done")
+        if VERBOSE:
+            util.SMlog("Compose done")
 
     def resize(self, sr_uuid, vdi_uuid, size):
         """
@@ -378,7 +399,8 @@ class RBDDMPSR_GC(CSR_GC):
         :param createLock:
         :param force:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPSR_GC.__init__: sr_uuid = %s" % sr_uuid)
 
         super(RBDDMPSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
 
@@ -392,7 +414,8 @@ class RBDDMPSR_GC(CSR_GC):
         :param raw:
         :return:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPSR_GC.vdi uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPSR_GC.vdi uuid = %s" % uuid)
 
         return RBDDMPVDI_GC(self, sr, uuid, raw)
 
@@ -405,6 +428,7 @@ class RBDDMPVDI_GC(CSR_GC):
         :param uuid:
         :param raw:
         """
-        util.SMlog("rbdsr_dmp.RBDDMPSR_GC.__init__: uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_dmp.RBDDMPSR_GC.__init__: uuid = %s" % uuid)
 
         super(RBDDMPVDI_GC, self).__init__(sr, uuid, raw)

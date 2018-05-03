@@ -27,6 +27,13 @@ DRIVER_CLASS_PREFIX[DRIVER_TYPE] = 'RBDVHD'
 
 VDI_PREFIX = 'VHD-'
 
+VERBOSE = False
+
+try:
+    from local_settings import *
+except Exception:
+    pass
+
 
 class RBDVHDSR(CSR):
 
@@ -34,7 +41,8 @@ class RBDVHDSR(CSR):
         """
         :param sr_uuid:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDSR._load: sr_uuid=%s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDSR._load: sr_uuid=%s" % sr_uuid)
 
         self.VDI_PREFIX = VDI_PREFIX
         self.vdi_type = VDI_TYPE
@@ -47,7 +55,8 @@ class RBDVHDSR(CSR):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.SR.vdi vdi_uuid = %s" % vdi_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.SR.vdi vdi_uuid = %s" % vdi_uuid)
 
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDVHDVDI(self, vdi_uuid)
@@ -61,11 +70,12 @@ class RBDVHDVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI._create_vhd_over_rbd: vdi_name = %s, size = %s, rbd_size = %s" % (vdi_uuid, size, rbd_size))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI._create_vhd_over_rbd: vdi_name = %s, size = %s, rbd_size = %s"
+                       % (vdi_uuid, size, rbd_size))
         self._map_rbd(vdi_uuid, rbd_size, norefcount=True)
         # util.pread2(["/usr/bin/vhd-util", "create", "-n", self.path, "-s", str(image_size_M), "-S", str(VHD_MSIZE_MB)])
-        ## print "---- self.path = %s, long(size) = %s, False = %s , lvhdutil.MSIZE_MB = %s" % (self.path, long(size), False, lvhdutil.MSIZE_MB)
+        # print "---- self.path = %s, long(size) = %s, False = %s , lvhdutil.MSIZE_MB = %s" % (self.path, long(size), False, lvhdutil.MSIZE_MB)
         vhdutil.create(self.path, long(size), False, lvhdutil.MSIZE_MB)
         self._unmap_rbd(vdi_uuid, rbd_size, norefcount=True)
 
@@ -76,7 +86,9 @@ class RBDVHDVDI(CVDI):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI._map_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI._map_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -111,7 +123,9 @@ class RBDVHDVDI(CVDI):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI._unmap_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI._unmap_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -133,8 +147,8 @@ class RBDVHDVDI(CVDI):
         :param size:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.create: sr_uuid = %s, vdi_uuid = %s, size = %s" % (sr_uuid, vdi_uuid, size))
-        # TODO: Checked
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.create: sr_uuid = %s, vdi_uuid = %s, size = %s" % (sr_uuid, vdi_uuid, size))
 
         size = vhdutil.validate_and_round_vhd_size(long(size))
 
@@ -159,8 +173,9 @@ class RBDVHDVDI(CVDI):
         :param host_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.attach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.attach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
         self._map_vhd_chain(sr_uuid, vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
 
@@ -172,8 +187,9 @@ class RBDVHDVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.detach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.detach: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
         super(RBDVHDVDI, self).detach(sr_uuid, vdi_uuid, host_uuid=host_uuid)
 
@@ -185,8 +201,8 @@ class RBDVHDVDI(CVDI):
         :param snap_uuid:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
 
         return self.clone(sr_uuid, vdi_uuid, mode='snapshot')
 
@@ -196,8 +212,8 @@ class RBDVHDVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Test the method
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -218,7 +234,8 @@ class RBDVHDVDI(CVDI):
             base_uuid = sm_config["vhd-parent"]
         clone_uuid = util.gen_uuid()
 
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Pepare CloneVDI: sr_uuid=%s, clone_uuid=%s" % (sr_uuid, clone_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Pepare CloneVDI: sr_uuid=%s, clone_uuid=%s" % (sr_uuid, clone_uuid))
         cloneVDI = self.sr.vdi(clone_uuid)
         cloneVDI.label = "%s (%s)" % (label, mode)
         cloneVDI.description = description
@@ -239,7 +256,8 @@ class RBDVHDVDI(CVDI):
         clone_ref = self.session.xenapi.VDI.get_by_uuid(clone_uuid)
 
         if not is_a_snapshot:
-            util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Pepare BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
+            if VERBOSE:
+                util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Pepare BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
             baseVDI = self.sr.vdi(base_uuid)
             baseVDI.label = "%s (base)" % label
             baseVDI.description = description
@@ -260,13 +278,19 @@ class RBDVHDVDI(CVDI):
 
         if not is_a_snapshot:
             if 'attached' in sm_config:
-                util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Unmap VDI as it's mapped: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+                if VERBOSE:
+                    util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Unmap VDI as it's mapped: sr_uuid=%s, vdi_uuid=%s"
+                               % (sr_uuid, vdi_uuid))
+
                 if 'paused' not in sm_config:
                     if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
                         raise util.SMException("failed to pause VDI %s" % vdi_uuid)
                 self._unmap_rbd(vdi_uuid, self.rbd_info[1]['size'], devlinks=False, norefcount=True)
-            util.SMlog(
-                "rbdsr_vhd.RBDVHDVDI.clone: Swap Base and VDI: sr_uuid=%s, vdi_uuid=%s, base_uuid=%s" % (sr_uuid, vdi_uuid, base_uuid))
+
+            if VERBOSE:
+                util.SMlog("rbdsr_vhd.RBDVHDVDI.clone: Swap Base and VDI: sr_uuid=%s, vdi_uuid=%s, base_uuid=%s"
+                           % (sr_uuid, vdi_uuid, base_uuid))
+
             tmp_uuid = "temporary"  # util.gen_uuid()
             self._rename_rbd(vdi_uuid, tmp_uuid)
             self._rename_rbd(base_uuid, vdi_uuid)
@@ -357,8 +381,8 @@ class RBDVHDVDI(CVDI):
         :param online:
         :return:
         """
-        # TODO: Checked
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.resize: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.resize: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -417,7 +441,8 @@ class RBDVHDVDI(CVDI):
         :return:
         """
         # TODO: Checked. We only support offline resize. If we try "vhd-util resize" on online image it returns ok but VHD will not be resized
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.resize_online: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.resize_online: sr_uuid=%s, vdi_uuid=%s, size=%s" % (sr_uuid, vdi_uuid, size))
 
         return self.resize(sr_uuid, vdi_uuid, size, online=True)
 
@@ -428,8 +453,8 @@ class RBDVHDVDI(CVDI):
         :param vdi2_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
-        # TODO: Test the method
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
 
         base_uuid = vdi1_uuid
         mirror_uuid = vdi2_uuid
@@ -471,7 +496,8 @@ class RBDVHDVDI(CVDI):
         if not blktap2.VDI.tap_refresh(self.session, self.sr.uuid, mirror_uuid, True):
             raise util.SMException("failed to refresh VDI %s" % mirror_uuid)
 
-        util.SMlog("Compose done")
+        if VERBOSE:
+            util.SMlog("Compose done")
 
 
 class RBDVHDSR_GC(CSR_GC):
@@ -483,7 +509,8 @@ class RBDVHDSR_GC(CSR_GC):
         :param createLock:
         :param force:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
 
         super(RBDVHDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
 
@@ -497,7 +524,8 @@ class RBDVHDSR_GC(CSR_GC):
         :param raw:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDSR_GC.vdi uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDSR_GC.vdi uuid = %s" % uuid)
 
         return RBDVHDVDI_GC(self, sr, uuid, raw)
 
@@ -510,7 +538,8 @@ class RBDVHDVDI_GC(CVDI_GC):
         :param uuid:
         :param raw:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC.__init__: uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI_GC.__init__: uuid = %s" % uuid)
 
         super(RBDVHDVDI_GC, self).__init__(sr, uuid, raw)
 
@@ -521,7 +550,9 @@ class RBDVHDVDI_GC(CVDI_GC):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._map_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._map_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
         vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -562,7 +593,9 @@ class RBDVHDVDI_GC(CVDI_GC):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._unmap_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (sr_uuid, vdi_uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._unmap_vhd_chain sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (sr_uuid, vdi_uuid, host_uuid))
 
         vdi_ref = self.sr.xapi.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.sr.xapi.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -583,7 +616,9 @@ class RBDVHDVDI_GC(CVDI_GC):
         :param dmmode:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._activate: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (self.sr.uuid, self.uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._activate: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (self.sr.uuid, self.uuid, host_uuid))
 
         self._map_vhd_chain(self.sr.uuid, self.uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
 
@@ -594,7 +629,9 @@ class RBDVHDVDI_GC(CVDI_GC):
         :param host_uuid:
         :return:
         """
-        util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._deactivate: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s" % (self.sr.uuid, self.uuid, host_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_vhd.RBDVHDVDI_GC._deactivate: sr_uuid=%s, vdi_uuid=%s, host_uuid=%s"
+                       % (self.sr.uuid, self.uuid, host_uuid))
 
         super(RBDVHDVDI_GC, self)._deactivate(host_uuid=host_uuid)
 

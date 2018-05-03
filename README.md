@@ -13,6 +13,7 @@ You can change the following device configs using `device-config` args when crea
  - `driver-type` - Driver type (optional): `vhd` (default), `dmp`, `rbd`
  - `cephx-id` - Cephx id to be used (optional): default is `admin`
  - `use-rbd-meta` - Store VDI params in rbd metadata (optional): `True` (default), `False` (Use a separate image to store VDIs metadata. It's not implemented yet)
+ - `rbd-pool-suffix` - Use a suffix to 'RBD_XenStorage' to better label the SR, default: ''
  - `vdi-update-existing` - Update params of existing VDIs on scan (optional): `True`, `False` (default)
 
 Please note that `v1.0` and `v2.0` are not compatible. At the moment there is no mean to migrate from `v1.0` to `v2.0`. Hope to implement it later.
@@ -80,3 +81,10 @@ This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD 
 		# xe pbd-plug uuid=aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
 	The SR should be connected to the XenServer hosts and be visible in XenCenter.
+
+
+## Debugging
+
+1. To verbose debug /var/log/SMlog :
+
+        echo "VERBOSE = True" > /opt/xensource/sm/local_settings.py

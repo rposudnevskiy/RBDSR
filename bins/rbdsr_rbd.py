@@ -29,6 +29,13 @@ VDI_PREFIX = 'RBD-'
 # SNAPSHOT_PREFIX = 'SNAP-'
 # SXM_PREFIX = 'SXM-'
 
+VERBOSE = False
+
+try:
+    from local_settings import *
+except Exception:
+    pass
+
 
 class RBDRBDSR(CSR):
 
@@ -36,7 +43,8 @@ class RBDRBDSR(CSR):
         """
         :param sr_uuid:
         """
-        util.SMlog("rbdsr_rbd.RBDRBDSR._load: sr_uuid=%s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDSR._load: sr_uuid=%s" % sr_uuid)
 
         self.VDI_PREFIX = VDI_PREFIX
         # self.SNAPSHOT_PREFIX = SNAPSHOT_PREFIX
@@ -50,7 +58,8 @@ class RBDRBDSR(CSR):
         :param vdi_uuid:
         :return:
         """
-        util.SMlog("rbdsr_rbd.SR.vdi vdi_uuid = %s" % vdi_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.SR.vdi vdi_uuid = %s" % vdi_uuid)
 
         if vdi_uuid not in self.vdis:
             self.vdis[vdi_uuid] = RBDRBDVDI(self, vdi_uuid)
@@ -67,8 +76,8 @@ class RBDRBDVDI(CVDI):
         :param dmmode:
         :return:
         """
-        # TODO: Test the method
-        util.SMlog("rbdsr_rbd.RBDRBDVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDVDI.attach: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -103,8 +112,8 @@ class RBDRBDVDI(CVDI):
         :param snap_uuid:
         :return:
         """
-        # TODO: Test the method
-        util.SMlog("rbdsr_rbd.RBDRBDVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDVDI.snapshot: sr_uuid=%s, snap_uuid=%s" % (sr_uuid, vdi_uuid))
 
         return self.clone(sr_uuid, vdi_uuid, mode='snapshot')
 
@@ -114,8 +123,8 @@ class RBDRBDVDI(CVDI):
         :param vdi_uuid:
         :return:
         """
-        # TODO: Test the method
-        util.SMlog("rbdsr_rbd.RBDRBDVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDVDI.clone: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
 
         vdi_ref = self.session.xenapi.VDI.get_by_uuid(vdi_uuid)
         sm_config = self.session.xenapi.VDI.get_sm_config(vdi_ref)
@@ -142,7 +151,8 @@ class RBDRBDVDI(CVDI):
             base_uuid = sm_config["rbd-parent"]
         clone_uuid = util.gen_uuid()
 
-        util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Prepare CloneVDI: sr_uuid=%s, clone_uuid=%s" % (sr_uuid, clone_uuid))
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Prepare CloneVDI: sr_uuid=%s, clone_uuid=%s" % (sr_uuid, clone_uuid))
         cloneVDI = self.sr.vdi(clone_uuid)
         cloneVDI.label = "%s (%s)" % (label, mode)
         cloneVDI.description = description
@@ -164,7 +174,8 @@ class RBDRBDVDI(CVDI):
         cloneVDI.ref = cloneVDI._db_introduce()
 
         if not is_a_snapshot and not is_a_base:
-            util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Prepare BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
+            if VERBOSE:
+                util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Prepare BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
             baseVDI = self.sr.vdi(base_uuid)
             baseVDI.label = "%s (base)" % label
             baseVDI.description = description
@@ -178,7 +189,8 @@ class RBDRBDVDI(CVDI):
 
             baseVDI.ref = baseVDI._db_introduce()
         else:
-            util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Use existing BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
+            if VERBOSE:
+                util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Use existing BaseVDI: sr_uuid=%s, base_uuid=%s" % (sr_uuid, base_uuid))
             base_ref = self.session.xenapi.VDI.get_by_uuid(base_uuid)
             baseVDI = self.sr.vdi(base_uuid)
             baseVDI.path = self.sr._get_path(base_uuid)
@@ -186,14 +198,16 @@ class RBDRBDVDI(CVDI):
 
         if not is_a_snapshot and not is_a_base:
             if 'attached' in sm_config:
-                util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Unmap VDI as it's mapped: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
+                if VERBOSE:
+                    util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Unmap VDI as it's mapped: sr_uuid=%s, vdi_uuid=%s" % (sr_uuid, vdi_uuid))
                 if 'paused' not in sm_config:
                     if not blktap2.VDI.tap_pause(self.session, self.sr.uuid, vdi_uuid):
                         raise util.SMException("failed to pause VDI %s" % vdi_uuid)
                 self._unmap_rbd(vdi_uuid, self.size, norefcount=True)
-            util.SMlog(
-                "rbdsr_rbd.RBDDMPVDI.clone: Transform VDI to BASE and clone it to VDI: sr_uuid=%s, vdi_uuid=%s, \
-                base_uuid=%s" % (sr_uuid, vdi_uuid, base_uuid))
+
+            if VERBOSE:
+                util.SMlog("rbdsr_rbd.RBDDMPVDI.clone: Transform VDI to BASE and clone it to VDI: sr_uuid=%s, vdi_uuid=%s, "
+                           "base_uuid=%s" % (sr_uuid, vdi_uuid, base_uuid))
 
             self._rename_rbd(vdi_uuid, base_uuid)
             base_name = "%s%s@BASE" % (self.sr.VDI_PREFIX, base_uuid)
@@ -251,8 +265,8 @@ class RBDRBDVDI(CVDI):
         :param vdi2_uuid:
         :return:
         """
-        util.SMlog("rbdsr_rbd.RBDRBDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
-        # TODO: Test the method
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDVDI.compose: sr_uuid=%s, vdi1_uuid=%s, vdi2_uuid=%s" % (sr_uuid, vdi1_uuid, vdi2_uuid))
 
         base_uuid = vdi1_uuid
         mirror_uuid = vdi2_uuid
@@ -315,7 +329,8 @@ class RBDRBDVDI(CVDI):
                 if not blktap2.VDI.tap_unpause(self.session, self.sr.uuid, mirror_uuid, None):
                     raise util.SMException("failed to unpause VDI %s" % mirror_sm_config)
 
-        util.SMlog("Compose done")
+        if VERBOSE:
+            util.SMlog("Compose done")
 
 
 class RBDRBDSR_GC(CSR_GC):
@@ -327,7 +342,8 @@ class RBDRBDSR_GC(CSR_GC):
         :param createLock:
         :param force:
         """
-        util.SMlog("rbdsr_rbd.RBDRBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDSR_GC.__init__: sr_uuid = %s" % sr_uuid)
 
         super(RBDRBDSR_GC, self).__init__(sr_uuid, xapi, createLock, force)
 
@@ -341,7 +357,8 @@ class RBDRBDSR_GC(CSR_GC):
         :param raw:
         :return:
         """
-        util.SMlog("rbdsr_rbd.RBDRBDSR_GC.vdi uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDSR_GC.vdi uuid = %s" % uuid)
 
         return RBDRBDVDI_GC(self, sr, uuid, raw)
 
@@ -354,6 +371,7 @@ class RBDRBDVDI_GC(CVDI_GC):
         :param uuid:
         :param raw:
         """
-        util.SMlog("rbdsr_rbd.RBDRBDVDI_GC.__init__: uuid = %s" % uuid)
+        if VERBOSE:
+            util.SMlog("rbdsr_rbd.RBDRBDVDI_GC.__init__: uuid = %s" % uuid)
 
         super(RBDRBDVDI_GC, self).__init__(sr, uuid, raw)

@@ -176,7 +176,7 @@ class Util:
                     resultFlag.set("success")
                 else:
                     resultFlag.set("failure")
-            except Exception, e:
+            except Exception as e:
                 resultFlag.set("failure")
                 Util.log("Child process failed with : (%s)" % e)
             os._exit(0)
@@ -2824,23 +2824,18 @@ def debug(sr_uuid, cmd, vdi_uuid):
     Util.log("Debug command: %s" % cmd)
     sr = SR.getInstance(sr_uuid, None)
     if not isinstance(sr, LVHDSR):
-        print
-        "Error: not an LVHD SR"
+        print("Error: not an LVHD SR")
         return
     sr.scanLocked()
     vdi = sr.getVDI(vdi_uuid)
     if not vdi:
-        print
-        "Error: VDI %s not found"
+        print("Error: VDI %s not found")
         return
-    print
-    "Running %s on SR %s" % (cmd, sr)
-    print
-    "VDI before: %s" % vdi
+    print("Running %s on SR %s" % (cmd, sr))
+    print("VDI before: %s" % vdi)
     if cmd == "activate":
         vdi._activate()
-        print
-        "VDI file: %s" % vdi.path
+        print("VDI file: %s" % vdi.path)
     if cmd == "deactivate":
         ns = lvhdutil.NS_PREFIX_LVM + sr.uuid
         sr.lvmCache.deactivate(ns, vdi.uuid, vdi.fileName, False)
@@ -2851,8 +2846,7 @@ def debug(sr_uuid, cmd, vdi_uuid):
         vdi.deflate()
         sr.cleanup()
     sr.scanLocked()
-    print
-    "VDI after:  %s" % vdi
+    print("VDI after:  %s" % vdi)
 
 
 ##############################################################################
@@ -2911,8 +2905,7 @@ def main():
         usage()
 
     if action != "query" and action != "debug":
-        print
-        "All output goes to log"
+        print("All output goes to log")
 
     if action == "gc":
         gc(None, uuid, background, dryRun)
@@ -2923,15 +2916,12 @@ def main():
     elif action == "abort":
         abort(uuid)
     elif action == "query":
-        print
-        "Currently running: %s" % get_state(uuid)
+        print("Currently running: %s" % get_state(uuid))
     elif action == "disable":
-        print
-        "Disabling GC/coalesce for %s" % uuid
+        print("Disabling GC/coalesce for %s" % uuid)
         _abort(uuid)
         raw_input("Press enter to re-enable...")
-        print
-        "GC/coalesce re-enabled"
+        print("GC/coalesce re-enabled")
         lockRunning.release()
     elif action == "debug":
         debug(uuid, debug_cmd, vdi_uuid)
