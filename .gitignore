@@ -52,3 +52,6 @@ Temporary Items
 /.idea
 /*.komodoproject
 /.komodotools
+
+# vim
+*.swp
