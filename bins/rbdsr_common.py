@@ -72,6 +72,12 @@ class CSR(SR.SR):
 
         if not hasattr(self, 'RBDPOOL_PREFIX'):
             self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
+
+        if hasattr(self, 'rbd_pool_suffix'):
+            if not self.rbd_pool_suffix.endswith('-'):
+                self.rbd_pool_suffix += '-'
+            self.RBDPOOL_PREFIX += self.rbd_pool_suffix
+
         if not hasattr(self, 'VDI_PREFIX'):
             self.VDI_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
         if not hasattr(self, 'SNAPSHOT_PREFIX'):
