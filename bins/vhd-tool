@@ -18,10 +18,11 @@
 ARGC=$#  # Number of args, not counting $0
 i=1  # Used as argument index
 cmd=${!i}
+echo "vhd-tool call:">> /var/log/SMlog
+echo "$0 $@" >> /var/log/SMlog
+
 while [ $i -le $ARGC ];
 do
-    echo "vhd-tool call:">> /var/log/SMlog
-    echo "${!i} $((i+1))">> /var/log/SMlog
     case ${!i} in
         --source-protocol)
                         i=$((i+1))
