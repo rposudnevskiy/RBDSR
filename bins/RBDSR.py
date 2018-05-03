@@ -110,6 +110,9 @@ class RBDSR(object):
         if 'disable-caching' in srcmd.dconf:
             self.disable_caching = srcmd.dconf['disable-caching']
 
+        if 'rbd-pool-suffix' in srcmd.dconf:
+            self.rbd_pool_suffix = srcmd.dconf['rbd-pool-suffix']
+
         if 'snapshot-pool' in srcmd.dconf:
             self.CEPH_SNAPSHOT_POOL = srcmd.dconf['snapshot-pool']
 
@@ -239,6 +242,9 @@ class RBDSR_GC(object):
 
         if 'disable-caching' in self.sm_config:
             self.disable_caching = self.sm_config['disable-caching']
+
+        if 'rbd-pool-suffix' in self.sm_config:
+            self.rbd_pool_suffix = self.sm_config['rbd-pool-suffix']
 
         if 'cephx-id' in self.sm_config:
             self.CEPH_USER = "client.%s" % self.sm_config['cephx-id']
