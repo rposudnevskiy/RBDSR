@@ -15,11 +15,26 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
+SMLOG="/var/log/SMlog"
+
+function exec_cmd(){
+   local CMD="$1"
+   echo "vhd-tool[$$] $CMD" >> ${SMLOG}
+   ( eval "$CMD " ) 2>&1 | sed "~s,^,vhd-tool[$$]," >> ${SMLOG}
+   local RET="$?"
+   if [ "$RET" != "0" ];then
+      echo "vhd-tool[$$]: execution failed (returncode $RET)" >> ${SMLOG}
+      #return $RET
+      exit $RET
+   fi
+   return 0
+}
+
+echo "vhd-tool[$$] call: $0 $@">> ${SMLOG}
+
 ARGC=$#  # Number of args, not counting $0
 i=1  # Used as argument index
 cmd=${!i}
-echo "vhd-tool call:">> /var/log/SMlog
-echo "$0 $@" >> /var/log/SMlog
 
 while [ $i -le $ARGC ];
 do
@@ -118,59 +133,65 @@ do
     i=$((i+1))
 done
 #rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
-aiorbdsrs=`xe pbd-list device-config='image-type: aio' | grep sr-uuid | awk '{print $4} END {if (!NR) print "~~~"}'`
+aiorbdsrs="`xe pbd-list device-config='image-type: aio' | grep sr-uuid | awk '{print $4} END {if (!NR) print "~~~"}'`"
 case "$cmd" in
     stream)
         case "$src" in
             *$aiorbdsrs*)
+                echo "vhd-tool[$$] src $src is in >>>$aiorbdsrs<<< ">> ${SMLOG}
                 if [ -n "$src" ] && [ "$srcproto"="none" ] && [ "$srcfmt"="hybrid" ] && [ -n "$dstfd" ]; then
-                    #echo "`echo $src | awk -F: '{print $1}'`" > /tmp/vhd-tool.log
-                    src_sr_uuid=`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`
-                    src_vdi_uuid=`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`
-                    #echo $src_sr_uuid >> /tmp/vhd-tool.log
-                    #echo $src_vdi_uuid >> /tmp/vhd-tool.log
-                    source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "SNAP-$src_vdi_uuid\$"`
-                    if [ -z $source ]; then
-                        source=`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "VHD-$src_vdi_uuid\$"`
+                    echo "vhd-tool[$$] srcfmt=hyprid, srcproto=none, src=$src, dstfmt=$dstfmt" >>${SMLOG}
+                    src_sr_uuid="`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`"
+                    src_vdi_uuid="`echo $src | awk -F: '{print $1}' | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`"
+                    source="`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "SNAP-$src_vdi_uuid\$"`"
+                    if [ -z "$source" ]; then
+                        source="`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "VHD-$src_vdi_uuid\$"`"
                     fi
-                    #echo $base >> /tmp/vhd-tool.log
-                    base_sr_uuid=`echo $base | sed 's/\/run\/sr-mount\///g' | awk -F/ '{print $1}'`
-                    base_vdi_uuid=`echo $base | sed 's/\/run\/sr-mount\///g' | awk -F/ '{print $2}'`
-                    xe_pid=`pidof xe`
-                    #echo "$xe_pid" >> /tmp/vhd-tool.log
-                    #echo "$dstfd" >> /tmp/vhd-tool.log
+                    base_sr_uuid="`echo $base | sed 's/\/run\/sr-mount\///g' | awk -F/ '{print $1}'`"
+                    base_vdi_uuid="`echo $base | sed 's/\/run\/sr-mount\///g' | awk -F/ '{print $2}'`"
+
+                    # This seems to be a bit risky
+                    xe_pid="`pidof xe`"
+                    
+                    # debug
+                    ps faxwww|grep -C 10 $xe_pid >${SMLOG} 2>&1
+
+                    if [ -z "$xe_pid" ];then
+                      echo "ERROR: no xe_pid" >> ${SMLOG}
+                      exit 1
+                    fi
+                    
                     dst_file_name=`readlink /proc/$xe_pid/fd/$dstfd`
-                    #ls -la /proc/$xe_pid/fd/ >> /tmp/vhd-tool.log
                     if [ "$dstfmt" = "vhd" ]; then
                         if [ -z "$base_vdi_uuid" ]; then
-                            #echo "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
-                            rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                            exec_cmd "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid"
                         else
                             from_snap="SNAP-$base_vdi_uuid"
-                            #echo "rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
-                            rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                            exec_cmd "rbd export-diff --from-snap $from_snap RBD_XenStorage-$src_sr_uuid/$source - | rbd2vhd $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid"
                         fi
                     elif [ "$dstfmt" = "raw" ]; then
                         if [ -z "$base_vdi_uuid" ]; then
-                            #echo "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2vhd -m -p --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null" >> /tmp/vhd-tool.log
-                            rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | rbd2raw $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid 2>/dev/null
+                            exec_cmd "rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - | rbd2raw $machine $progress --vhd $dst_file_name --rbd - --uuid $src_vdi_uuid"
                         else
                             echo "[ERROR]: Relative diff export is not supported with raw format"
                             exit 1
                         fi
                     fi
                 else
+                    echo "vhd-tool[$$] : /bin/vhd-tool-orig \"$@\"" >> ${SMLOG}
                     IFS=""
                     /bin/vhd-tool-orig "$@"
                 fi
                 ;;
             *)
+                echo "vhd-tool[$$] : /bin/vhd-tool-orig \"$@\"" >> ${SMLOG}
                 IFS=""
                 /bin/vhd-tool-orig "$@"
                 ;;
         esac
         ;;
     *)
+        echo "vhd-tool[$$] : /bin/vhd-tool-orig \"$@\"" >> ${SMLOG}
         IFS=""
         /bin/vhd-tool-orig "$@"
         ;;
