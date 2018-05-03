@@ -15,7 +15,6 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-echo $# >> /var/log/SMlog
 ARGC=$#  # Number of args, not counting $0
 i=1  # Used as argument index
 cmd=${!i}

@@ -1972,11 +1972,16 @@ class CSR_GC(cleanup.SR):
         self.ref = self.xapi.session.xenapi.SR.get_by_uuid(self.uuid)
         self.sm_config = self.xapi.session.xenapi.SR.get_sm_config(self.ref)
         self.SR_ROOT = "%s/%s" % (SR_PREFIX, sr_uuid)
-        self.CEPH_POOL_NAME = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+        self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
+        if hasattr(self, 'rbd_pool_suffix'):
+            if not self.rbd_pool_suffix.endswith('-'):
+                self.rbd_pool_suffix += '-'
+            self.RBDPOOL_PREFIX += self.rbd_pool_suffix
+
+        self.CEPH_POOL_NAME = "%s%s" % (self.RBDPOOL_PREFIX, sr_uuid)
         self.CEPH_USER = "client.%s" % CEPH_USER_DEFAULT
         self.VDI_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
         self.SNAPSHOT_PREFIX = '#$%'  # Must be defined in certain vdi type implementation
-        self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
         # self.mdpath = self._get_path(MDVOLUME_NAME)
         self.USE_RBD_META = USE_RBD_META_DEFAULT
 
