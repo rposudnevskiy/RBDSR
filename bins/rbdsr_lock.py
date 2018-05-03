@@ -111,13 +111,13 @@ def file_lock(lock_file=NBD_LOCK_FILE, mode=MODE_RETRY, retries=60, sleep_time=S
 
 
 class Lock(object):
-    """rdb-based locks on a rbd image."""
+    """ rdb-based locks on a rbd image with 'rbd lock add' """
 
-    def __init__(self, sr_uuid, cephx_id="client.%s" % CEPH_USER_DEFAULT):
+    def __init__(self, sr_uuid, cephx_id="client.%s" % CEPH_USER_DEFAULT, pool_prefix=RBDPOOL_PREFIX):
         util.SMlog("rbdsr_lock.Lock.__int__: sr_uuid=%s, cephx_id=%s" % (sr_uuid, cephx_id))
 
         self.sr_uuid = sr_uuid
-        self._pool = "%s%s" % (RBDPOOL_PREFIX, sr_uuid)
+        self._pool = "%s%s" % (pool_prefix, sr_uuid)
         self._cephx_id = cephx_id
         self._srlock_image = SRLOCK_IMAGE
 

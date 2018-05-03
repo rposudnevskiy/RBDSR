@@ -541,7 +541,7 @@ class CSR(SR.SR):
 
         util.SMlog("CSR.SR.scan: sr_uuid=%s update_existing=%s" % (sr_uuid, update_existing))
 
-        rbds_list = self._get_rbds_list("%s%s" % (RBDPOOL_PREFIX, sr_uuid))
+        rbds_list = self._get_rbds_list("%s%s" % (self.RBDPOOL_PREFIX, sr_uuid))
         meta_sources = {}
         snaps_of = {}
         vdi_info = {':uuid': ''}
@@ -666,7 +666,7 @@ class CSR(SR.SR):
 
         self.mdpath = self._get_path(MDVOLUME_NAME)
 
-        self.lock = rbdsr_lock.Lock(sr_uuid, cephx_id=self.CEPH_USER)
+        self.lock = rbdsr_lock.Lock(sr_uuid, cephx_id=self.CEPH_USER, pool_prefix=self.RBDPOOL_PREFIX)
 
         super(CSR, self).load(sr_uuid)
 
