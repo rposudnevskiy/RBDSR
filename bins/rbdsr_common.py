@@ -68,7 +68,7 @@ class CSR(SR.SR):
         :param srcmd:
         :param sr_uuid:
         """
-        util.SMlog("rbdsr_common.SR.__init__: srcmd = %s, sr_uuid= %s" % (srcmd, sr_uuid))
+        util.SMlog("rbdsr_common.SR.__init__: srcmd=%s, sr_uuid=%s" % (srcmd, sr_uuid))
 
         if not hasattr(self, 'RBDPOOL_PREFIX'):
             self.RBDPOOL_PREFIX = RBDPOOL_PREFIX
@@ -110,7 +110,8 @@ class CSR(SR.SR):
         :param vdi_name:
         :return:
         """
-        util.SMlog("rbdsr_common.SR._get_vdi_uuid: vdi_name = %s" % vdi_name)
+        util.SMlog("rbdsr_common.SR._get_vdi_uuid: vdi_name=%s, vdi_prefix=%s"
+                   % (vdi_name, self.VDI_PREFIX))
         regex = re.compile(self.VDI_PREFIX)
         return regex.sub('', vdi_name)
 
@@ -119,7 +120,8 @@ class CSR(SR.SR):
         :param rbd_pool_name:
         :return: sr_uuid:
         """
-        util.SMlog("rbdsr_common.SR._get_sr_uuid_by_name: rbd_pool_name = %s" % rbd_pool_name)
+        util.SMlog("rbdsr_common.SR._get_sr_uuid_by_name: rbd_pool_name=%s, rbd_pool_prefix=%s"
+                   % (rbd_pool_name, self.RBDPOOL_PREFIX))
 
         regex = re.compile(self.RBDPOOL_PREFIX)
         return regex.sub('', rbd_pool_name)
@@ -128,7 +130,7 @@ class CSR(SR.SR):
         """
         :return: RBDPOOLs: Dictionary with Storage Repositories found in Ceph cluster
         """
-        util.SMlog("rbdsr_common.SR._get_srsdict")
+        util.SMlog("rbdsr_common.SR._get_srsdict: rbdpool_prefix=%s" % self.RBDPOOL_PREFIX)
         rbdpools = {}
 
         cmdout = util.pread2(["ceph", "df", "--format", "json", "--name", self.CEPH_USER])
@@ -545,7 +547,8 @@ class CSR(SR.SR):
             else:
                 update_existing = False
 
-        util.SMlog("CSR.SR.scan: sr_uuid=%s update_existing=%s" % (sr_uuid, update_existing))
+        util.SMlog("CSR.SR.scan: sr_uuid=%s, update_existing=%s, rbdpool_prefix=%s"
+                   % (sr_uuid, update_existing, self.RBDPOOL_PREFIX))
 
         rbds_list = self._get_rbds_list("%s%s" % (self.RBDPOOL_PREFIX, sr_uuid))
         meta_sources = {}
