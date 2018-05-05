@@ -52,11 +52,16 @@ def _find_nbd_devices_used(use_dev, NBDS_MAX):
     return use_dev
 
 
+# We introduced this method to map a device because of a bug in the logging ringbuffer of rbd-nbd
+# https://tracker.ceph.com/issues/23891
+# https://tracker.ceph.com/issues/23143
+
 def nbd_map(cmd, dev):
     cmd.append('-d')
     cmd = ['sh', '-c', ' '.join(cmd) + ' > /dev/null 2>&1 &']
     util.pread2(cmd)
 
+    # checking for a size > 0 seems to be a good test for the settlement of the rbd device
     for i in range(1, 10):
         time.sleep(1)
         stdout = util.pread2(['blockdev', '--getsize64', dev])
