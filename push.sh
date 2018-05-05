@@ -4,8 +4,12 @@ if [ -z "$@" ];then
     echo "$0 <server> ... <server>"
     exit 1
 fi
+
+HOSTS="$(echo $@|tr ',' ' ')"
+
+
 D="$(dirname $( readlink -f $0 ))"
-for server in $@;
+for server in $HOSTS;
 do
    echo "** $server"
    (
