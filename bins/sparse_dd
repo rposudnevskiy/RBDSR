@@ -60,7 +60,12 @@ do
     esac
     i=$((i+1))
 done
+
+# Q: Why is this commented out?
 #rbdsrs=`xe sr-list type=rbd | grep uuid | awk '{print $5}'`
+
+# Q: In which cases do i get a non empty string here? What is "image-type: aio"?
+
 aiorbdsrs="`xe pbd-list device-config='image-type: aio' | grep sr-uuid | awk '{print $4} END {if (!NR) print "~~~"}'`"
 case "$src|$dst" in
     *$aiorbdsrs*)
@@ -69,26 +74,28 @@ case "$src|$dst" in
             src_sr_uuid="`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $1}'`"
             src_vdi_uuid="`echo $src | sed 's/\/dev\/sm\/backend\///g' | awk -F/ '{print $2}'`"
             source="`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "SNAP-$src_vdi_uuid\$"`"
-            if [ -z $source ]; then
+            if [ -z "$source" ]; then
                 source="`rbd ls -l --pool RBD_XenStorage-$src_sr_uuid | awk '{print \$1}' | grep $src_vdi_uuid | egrep "VHD-$src_vdi_uuid\$"`"
             fi
             if ( echo "$dst"| grep -q "http" ); then
                 if [ -z "$base" ]; then
+                    # TODO: This will fail for a defined rbd-pool-suffix, this need needs to be implemented
                     exec_cmd "/usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2nbd -m -p --nbd $dst --rbd -"
                     exit $?
                 else
                     # Not implemented
-                    echo "sparse_dd[$$] not implemented export-diff-fromsnap dst/$dst" >> ${SMLOG}
+                    echo "ERROR: sparse_dd[$$] not implemented export-diff-fromsnap dst/$dst" >> ${SMLOG}
                     #/usr/bin/rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2nbd -m -p --raw $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
                     exit 1
                 fi
             else
                 if [ -z "$base" ]; then
+                    # TODO: This will fail for a defined rbd-pool-suffix, this need needs to be implemented
                     exec_cmd "/usr/bin/rbd export-diff RBD_XenStorage-$src_sr_uuid/$source - 2>/dev/null | /usr/bin/rbd2raw -m -p --raw $dst --rbd - --uuid $src_vdi_uuid"
                     exit $?
                 else
                     # Not implemented
-                    echo "sparse_dd[$$] not implemented export-diff-fromsnap dst/$dst" >> ${SMLOG}
+                    echo "ERROR: sparse_dd[$$] not implemented export-diff-fromsnap dst/$dst" >> ${SMLOG}
                     #/usr/bin/rbd export-diff --from-snap $from_snap $to_export - 2>/dev/null | rbd2raw -m -p --raw $dst_file_name --rbd - --uuid to_export_vdi_uid 2>/dev/null
                     exit 1
                 fi
@@ -109,6 +116,7 @@ case "$src|$dst" in
         fi
         ;;
     *)
+        # Q: It seems that we always enter this code path in our setup. Is that correct?
         echo "sparse_dd[$$] src >>>$src<<< or dst >>>$dst<<< is not(!) in >>>$aiorbdsrs<<< ">> ${SMLOG}
         echo "sparse_dd[$$] : /usr/libexec/xapi/sparse_dd-orig \"$@\"" >> ${SMLOG}
         IFS=""
