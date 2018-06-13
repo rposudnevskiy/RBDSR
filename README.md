@@ -26,7 +26,7 @@ This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD 
 
 1. Run this command at your workstation or your management host and checkout a suitable branch:
    ```bash
-   git clone https://github.com/vico-research-and-consulting/RBDSR 
+   git clone https://github.com/rposudnevskiy/RBDSR 
    git checkout master
    ```
 2. Push the installation files to your xenhosts
