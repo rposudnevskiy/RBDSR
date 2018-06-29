@@ -627,7 +627,7 @@ class CSR(SR.SR):
                         util.SMlog("CSR.SR.scan: using rbd_vdi %s" % rbd_vdi_uuid)
 
                     self.vdis[rbd_vdi_uuid] = self.vdi(rbd_vdi_uuid)
-                    if vdi_info[':uuid'] != meta_source:
+                    if ':uuid' not in vdi_info or vdi_info[':uuid'] != meta_source:
                         if self.USE_RBD_META:
                             if VERBOSE:
                                 util.SMlog('CSR.SR.scan: using other meta_source uuid=%s' % meta_source)
