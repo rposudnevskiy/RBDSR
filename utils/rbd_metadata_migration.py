@@ -40,11 +40,6 @@ for img_count, rbd in enumerate(rbds_list):
     if len(cmdout) != 0:
         vdi_info = json.loads(cmdout)
         try:
-            if NAME_LABEL_TAG in vdi_info:
-                util.pread2(["rbd", "image-meta", "remove", rbd['image'], NAME_LABEL_TAG, "--pool", POOL_NAME, "--name", CEPH_USER])
-            if NAME_DESCRIPTION_TAG in vdi_info:
-                util.pread2(["rbd", "image-meta", "remove", rbd['image'], NAME_DESCRIPTION_TAG, "--pool", POOL_NAME, "--name", CEPH_USER])
-
             tag = ":" + NAME_LABEL_TAG
             if 'VDI_LABEL' in vdi_info and tag not in vdi_info:
                 util.SMlog("rbd_meta_migration: poolname = %s, rbdimage = %s METADATA VDI_LABEL(%s) => %s" % (POOL_NAME, rbd['image'], vdi_info['VDI_LABEL'], tag ))
