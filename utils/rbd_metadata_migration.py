@@ -40,14 +40,39 @@ for img_count, rbd in enumerate(rbds_list):
     if len(cmdout) != 0:
         vdi_info = json.loads(cmdout)
         try:
-            tag = ":" + NAME_LABEL_TAG
-            if 'VDI_LABEL' in vdi_info and tag not in vdi_info:
-                util.SMlog("rbd_meta_migration: poolname = %s, rbdimage = %s METADATA VDI_LABEL(%s) => %s" % (POOL_NAME, rbd['image'], vdi_info['VDI_LABEL'], tag ))
-                util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(vdi_info['VDI_LABEL']), "--pool", POOL_NAME, "--name", CEPH_USER])
+            if 'VDI_LABEL' in vdi_info:
+                util.SMlog("rbd_meta_migration: update metadata of poolname = %s, rbdimage = %s : %s" % (POOL_NAME, rbd['image'], vdi_info))
+
+                tag = ":" + NAME_LABEL_TAG
+                if tag not in vdi_info:
+                    util.SMlog("rbd_meta_migration: poolname = %s, rbdimage = %s METADATA VDI_LABEL(%s) => %s" % (POOL_NAME, rbd['image'], vdi_info['VDI_LABEL'], tag ))
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(vdi_info['VDI_LABEL']), "--pool", POOL_NAME, "--name", CEPH_USER])
+
+                tag = ":" + NAME_DESCRIPTION_TAG
+                if 'VDI_DESCRIPTION' in vdi_info and tag not in vdi_info:
+                    util.SMlog("rbd_meta_migration: poolname = %s, rbdimage = %s METADATA VDI_DESCRIPTION(%s) => %s" % (POOL_NAME, rbd['image'], vdi_info['VDI_DESCRIPTION'], tag ))
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(vdi_info['VDI_DESCRIPTION']), "--pool", POOL_NAME, "--name", CEPH_USER])
             
-            tag = ":" + NAME_DESCRIPTION_TAG
-            if 'VDI_DESCRIPTION' in vdi_info and tag not in vdi_info:
-                util.SMlog("rbd_meta_migration: poolname = %s, rbdimage = %s METADATA VDI_DESCRIPTION(%s) => %s" % (POOL_NAME, rbd['image'], vdi_info['VDI_DESCRIPTION'], tag ))
-                util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(vdi_info['VDI_DESCRIPTION']), "--pool", POOL_NAME, "--name", CEPH_USER])
-        except Exception as e:
+                # Set mandatory new meta
+                type = "vhd" if rbd['image'].startswith("VHD-") else "rbd"
+                tag = ":" + IS_A_SNAPSHOT_TAG
+                if tag not in vdi_info:
+                    #util.pread2(["rbd", "image-meta", "set", rbd['image'], ":"+UUID_TAG, str("vhd"), "--pool", POOL_NAME, "--name", CEPH_USER])
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(0), "--pool", POOL_NAME, "--name", CEPH_USER])
+                tag = ":" + MANAGED_TAG
+                if tag not in vdi_info:
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(1), "--pool", POOL_NAME, "--name", CEPH_USER])
+                tag = ":" + READ_ONLY_TAG
+                if tag not in vdi_info:
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str(0), "--pool", POOL_NAME, "--name", CEPH_USER])
+                tag = ":" + TYPE_TAG
+                if tag not in vdi_info:
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str("user"), "--pool", POOL_NAME, "--name", CEPH_USER])
+                tag = ":" + VDI_TYPE_TAG
+                if tag not in vdi_info:
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str( type), "--pool", POOL_NAME, "--name", CEPH_USER])
+                tag = ":sm_config"
+                if tag not in vdi_info:
+                    util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str('{"vdi_type": "'+type+'"}'), "--pool", POOL_NAME, "--name", CEPH_USER])
+                    except Exception as e:
                 util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: Exception: rbd image-meta set failed: (%s)" % str(e))
