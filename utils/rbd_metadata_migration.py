@@ -74,5 +74,6 @@ for img_count, rbd in enumerate(rbds_list):
                 tag = ":sm_config"
                 if tag not in vdi_info:
                     util.pread2(["rbd", "image-meta", "set", rbd['image'], tag, str('{"vdi_type": "'+type+'"}'), "--pool", POOL_NAME, "--name", CEPH_USER])
-                    except Exception as e:
-                util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: Exception: rbd image-meta set failed: (%s)" % str(e))
+                    
+        except Exception as e:
+            util.SMlog("rbdsr_common.RBDMetadataHandler.updateMetadata: Exception: rbd image-meta set failed: (%s)" % str(e))
