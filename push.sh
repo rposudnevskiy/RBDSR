@@ -8,7 +8,8 @@ fi
 HOSTS="$(echo $@|tr ',' ' ')"
 
 
-D="$(dirname $( readlink -f $0 ))"
+#D="$(dirname $( readlink -f $0 ))"
+D="$(dirname "${BASH_SOURCE[0]}")"
 for server in $HOSTS;
 do
    echo "** $server"
