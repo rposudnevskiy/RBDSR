@@ -57,8 +57,10 @@ def _find_nbd_devices_used(use_dev, NBDS_MAX):
 # https://tracker.ceph.com/issues/23143
 
 def nbd_map(cmd, dev):
+    # workaround for buggy rbd nbd, should be fixed in later versions
     cmd.append('-d')
     cmd = ['sh', '-c', ' '.join(cmd) + ' > /dev/null 2>&1 &']
+
     util.pread2(cmd)
 
     # checking for a size > 0 seems to be a good test for the settlement of the rbd device
@@ -122,7 +124,7 @@ def _map(session, arg_dict):
             cmd = ['rbd-nbd', 'map',
                    '--name', CEPH_USER,
                    '--debug_ms', DEBUG_LEVEL,
-                   '--device', dev,
+                   '--device', _dev_name,
                    '--nbds_max', NBDS_MAX,
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
 
@@ -135,7 +137,7 @@ def _map(session, arg_dict):
         if mode != 'nbd':
             util.pread2(cmd)
         else:
-            nbd_map(cmd, dev)
+            nbd_map(cmd, _dev_name)
 
     if dmmode == 'linear':
         util.pread2(['dmsetup', 'create', _dm_name, '--table', "0 %s linear %s 0" % (str(int(size) / 512), _dev_name)])
@@ -176,6 +178,7 @@ def _map(session, arg_dict):
 
 
 def _unmap(session, arg_dict):
+    """ _dev_name: /dev/nbd/RBD_XenStorage-*, dev_name: /run/sr-mount/ """
     mode = arg_dict['mode']
     dev_name = arg_dict['dev_name']
     _dev_name = arg_dict['_dev_name']
@@ -217,6 +220,9 @@ def _unmap(session, arg_dict):
 def __map(session, arg_dict):
     mode = arg_dict['mode']
     _dm_name = arg_dict['_dm_name']
+    dev_name = arg_dict['dev_name']
+    _dev_name = arg_dict['_dev_name']
+    _dmdev_name = arg_dict['_dmdev_name']
     CEPH_POOL_NAME = arg_dict['CEPH_POOL_NAME']
     CEPH_USER = arg_dict['CEPH_USER']
     NBDS_MAX = arg_dict['NBDS_MAX']
@@ -257,9 +263,11 @@ def __map(session, arg_dict):
             cmd = ['rbd-nbd', 'map',
                    '--debug_ms', DEBUG_LEVEL,
                    '--name', CEPH_USER,
-                   '--device', dev,
+                   '--device', _dev_name,
                    '--nbds_max', NBDS_MAX,
                    "%s/%s" % (CEPH_POOL_NAME, _vdi_name)]
+
+        util.pread2(['ln', '-f', dev, _dev_name])
 
     if cmd is not None:
         if arg_dict['read_only'] == 'True':
@@ -268,7 +276,7 @@ def __map(session, arg_dict):
         if mode != 'nbd':
             util.pread2(cmd)
         else:
-            nbd_map(cmd, dev)
+            nbd_map(cmd, _dev_name)
 
     if dmmode != 'None':
         util.pread2(['dmsetup', 'resume', _dm_name])
@@ -293,7 +301,7 @@ def __unmap(session, arg_dict):
     elif mode == 'fuse':
         pass
     elif mode == 'nbd':
-        util.pread2(['rbd-nbd', 'unmap', dev, '--name', CEPH_USER])
+        util.pread2(['rbd-nbd', 'unmap', _dev_name, '--name', CEPH_USER])
 
     return "unmapped"
 
