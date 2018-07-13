@@ -1,9 +1,0 @@
----
-- hosts: xs-nodes
-  gather_facts: True
-  user: root
-  roles:
-    - preconf
-#    - { role: ceph, upgrade_kernel: true}
-    - ceph
-    - rbdsr

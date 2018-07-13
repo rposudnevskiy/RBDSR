@@ -1,5 +1,0 @@
----
-project_name: "preconf"
-
-yum_releasever: 7.2.1511
-yum_mirror_release: 7

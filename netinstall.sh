@@ -1,10 +1,9 @@
 #!/bin/bash
 REPO="https://github.com/rposudnevskiy"
 PROJECT="RBDSR"
-BRANCH="1.0"
+BRANCH="3.0"
 cd ~
 wget "$REPO/$PROJECT/archive/v$BRANCH.zip" -O ~/$PROJECT-temp.zip
 unzip ~/$PROJECT-temp.zip -d ~
-mv ~/$PROJECT-$BRANCH/ ~/$PROJECT/
-cd ~/$PROJECT/
+cd ~/$PROJECT-$BRANCH/
 sh ./install.sh install $1

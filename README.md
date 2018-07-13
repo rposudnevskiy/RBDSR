@@ -1,38 +1,37 @@
-# RBDSR - XenServer Storage Manager plugin for CEPH
-This plugin adds support of Ceph block devices into XenServer.
-It supports creation of VDI as RBD device in Ceph pool.
-It uses Ceph snapshots and clones to handle VDI snapshots. It also supports Xapi Storage Migration (XSM) and XenServer High Availability (HA).
+# RBDSR - XenServer 7.5 / XCP-ng 7.5 Storage Manager plugin for CEPH (v3.0) for SMAPIv3
+This plugin adds support for Ceph block devices into XenServer / XCP-ng.
+It supports the creation of VDI as RBD device in Ceph pool.
 
-You can change the following device configs using device-config args when creating PBDs on each hosts:
-- cephx-id: the cephx user id to be used. Default is admin for the client.admin user.
-- rbd-mode: can be kernel, fuse or nbd. Default is nbd.
+Please note that `v1.0` and `v2.0` and `v3.0` are not compatible. At the moment there is no mean to migrate between versions. Hope to implement it later.
+
+Plugin requires qemu-dp-2.10.2-1.2.0.x86_64 package installed
 
 ## Installation
 
-This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulating RBD devices, so the install script will install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer hosts.
+This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD devices, so the install script will install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer / XCP-ng hosts.
 
 1. Run this command:
 
-		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/v1.0/netinstall.sh) jewel
+		# sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/RBDSR/v3.0/netinstall.sh)
 
 2. Create ```/etc/ceph/ceph.conf``` accordingly you Ceph cluster. The easiest way is just copy it from your Ceph cluster node
 
-3. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer hosts from your Ceph cluster node.
+3. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer / XCP-ng hosts from your Ceph cluster node.
 
-4. Restart XAPI tool-stack on XenServer hosts
+4. Restart XAPI tool-stack on XenServer / XCP-ng hosts
 
 		# xe-toolstack-restart
 
 ## Removal
-		1. Remove all Ceph RBD SR out of XenServer with the appropriate commands.
+1. Remove all Ceph RBD SR out of XenServer / XCP-ng with the appropriate commands.
 
-		2. Run this command:
+2. Run this command:
 
-				# ~/RDBSR/install.sh deinstall
+		# ~/RDBSRv3.0/install.sh deinstall
 
-		3. Restart XAPI tool-stack on XenServer hosts
+3. Restart XAPI tool-stack on XenServer / XCP-ng hosts
 
-				# xe-toolstack-restart
+		# xe-toolstack-restart
 
 
 ## Usage
@@ -44,11 +43,11 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 
 		# ceph osd pool create RBD_XenStorage-4ceb0f8a-1539-40a4-bee2-450a025b04e1 128 128 replicated
 
-2. Introduce the pool created in previous step as Storage Repository on XenServer hosts:
+2. Introduce the pool created in previous step as Storage Repository on XenServer / XCP-ng hosts:
 
 		  xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
 
-3. Run the ```xe host-list``` command to find out the host UUID for Xenserer host:
+3. Run the ```xe host-list``` command to find out the host UUID for Xenserer / XCP-ng host:
 
 		# xe host-list
 		uuid ( RO) : 83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
@@ -60,13 +59,9 @@ This plugin uses **rbd**, **rbd-nbd** add **rbd-fuse** utilities for manipulatin
 		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
 		aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
-	If you would like to use a different cephx user or rbd mode, use the follwing device-config:
-
-		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5 device-config:cephx-id=xenserver device-config:rbd-mode=kernel
-
-
 5. Attach the PBD created with xe pbd-plug command:
 
 		# xe pbd-plug uuid=aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
-	The SR should be connected to the XenServer hosts and be visible in XenCenter.
+	The SR should be connected to the XenServer / XCP-ng hosts and be visible in XenCenter.
+ / XCP-ng Center
