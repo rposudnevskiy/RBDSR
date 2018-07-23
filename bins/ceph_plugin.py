@@ -115,10 +115,10 @@ def _map(session, arg_dict):
 
         if sharable == 'True':
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', _dev_name, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', _dev_name, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
         else:
             cmd = ['rbd-nbd', 'map',
@@ -253,10 +253,10 @@ def __map(session, arg_dict):
 
         if sharable == 'True':
             if arg_dict['userbdmeta'] == 'True':
-                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX,
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', _dev_name, '--nbds_max', NBDS_MAX,
                        "%s/%s" % (CEPH_POOL_NAME, _vdi_name), '--name', CEPH_USER]
             else:
-                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', dev, '--nbds_max', NBDS_MAX, '-c',
+                cmd = ['rbd-nbd', 'map', '--debug_ms', DEBUG_LEVEL, '--device', _dev_name, '--nbds_max', NBDS_MAX, '-c',
                        '/etc/ceph/ceph.conf.nocaching', "%s/%s" % (CEPH_POOL_NAME, _vdi_name),
                        '--name', CEPH_USER]
         else:
