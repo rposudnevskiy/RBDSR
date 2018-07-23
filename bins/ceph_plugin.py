@@ -210,7 +210,7 @@ def _unmap(session, arg_dict):
     elif mode == 'fuse':
         pass
     elif mode == 'nbd':
-        util.pread2(['rbd-nbd', 'unmap', dev, '--debug_ms', DEBUG_LEVEL, '--name', CEPH_USER])
+        util.pread2(['rbd-nbd', 'unmap', _dev_name, '--debug_ms', DEBUG_LEVEL, '--name', CEPH_USER])
         util.pread2(['unlink', _dev_name])
 
     return "unmapped"
