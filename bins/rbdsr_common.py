@@ -1721,18 +1721,23 @@ class CVDI(VDI.VDI):
             self.rbd_info = self._get_rbd_info(vdi_uuid)
 
         if self.rbd_info is not None:
-            if self.rbd_info[0] == 'image':
-                self._map_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
-                if VERBOSE:
-                    util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s - mapped image"
-                               % (sr_uuid, vdi_uuid, dmmode, host_uuid))
-            else:
-                self._map_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid,
-                                   dmmode=dmmode)
-                if VERBOSE:
-                    util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s - mapped snapshot"
-                               % (sr_uuid, vdi_uuid, dmmode, host_uuid))
-            return super(CVDI, self).attach(sr_uuid, vdi_uuid)
+            try:
+                if self.rbd_info[0] == 'image':
+                    self._map_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid, dmmode=dmmode)
+                    if VERBOSE:
+                        util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s - mapped image"
+                                   % (sr_uuid, vdi_uuid, dmmode, host_uuid))
+                else:
+                    self._map_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid,
+                                       dmmode=dmmode)
+                    if VERBOSE:
+                        util.SMlog("rbdsr_common.CVDI.attach: sr_uuid=%s, vdi_uuid=%s, dmmode=%s, host_uuid=%s - mapped snapshot"
+                                   % (sr_uuid, vdi_uuid, dmmode, host_uuid))
+
+                return super(CVDI, self).attach(sr_uuid, vdi_uuid)
+            except Exception as e:
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not attach image %s in pool %s: %s' %
+                                                                  (vdi_uuid, sr_uuid, str(e)))
         else:
             util.SMlog("rbdsr_common.CVDI.attach: ERROR: VDIUnavailable, Could not find image %s in sr %s"
                        % (vdi_uuid, sr_uuid))
@@ -1752,10 +1757,14 @@ class CVDI(VDI.VDI):
             self.rbd_info = self._get_rbd_info(vdi_uuid)
 
         if self.rbd_info is not None:
-            if self.rbd_info[0] == 'image':
-                self._unmap_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
-            else:
-                self._unmap_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
+            try:
+                if self.rbd_info[0] == 'image':
+                    self._unmap_rbd(vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
+                else:
+                    self._unmap_rbd_snap(self.rbd_info[1]['image'], vdi_uuid, self.rbd_info[1]['size'], host_uuid=host_uuid)
+            except Exception as e:
+                raise xs_errors.XenError('VDIUnavailable', opterr='Could not detach image %s in pool %s: %s' %
+                                                                  (vdi_uuid, sr_uuid, str(e)))
         else:
             raise xs_errors.XenError('VDIUnavailable', opterr='Could not find image %s in pool %s' %
                                                               (vdi_uuid, sr_uuid))

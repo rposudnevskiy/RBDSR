@@ -39,7 +39,7 @@ def _disable_rbd_caching(userbdmeta, CEPH_POOL_NAME, _vdi_name):
 
 
 def _find_nbd_devices_used(use_dev, NBDS_MAX):
-    nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,2})', util.pread2(['rbd', 'nbd', 'ls']))
+    nbd_devices_used = re.findall(r'/dev/nbd([0-9]{1,3})', util.pread2(['rbd', 'nbd', 'ls']))
     if nbd_devices_used:
         nbd_devices_used = sorted([int(x) for x in nbd_devices_used])
         if use_dev in nbd_devices_used:
@@ -71,6 +71,21 @@ def nbd_map(cmd, dev):
             return True
         util.SMlog('nbd_map device %s not ready yet after %s seconds' % (dev, i))
     return False
+
+
+def nbd_unmap(dev_name, vdi_uuid, ceph_user):
+    """unmap nbd devices, search for old style e.g. /dev/nbd58, unmap and unlink """
+    util.pread2(['rbd-nbd', 'unmap', dev_name, '--debug_ms', DEBUG_LEVEL, '--name', ceph_user])
+    util.pread2(['unlink', dev_name])
+    cmd = ['ps', 'auxwww']
+    out = [x for x in util.pread2(cmd).split('\n') if vdi_uuid in x]
+
+    found_nbd = re.findall(r'(/dev/nbd[0-9]{1,3})', ','.join(out))
+    if found_nbd:
+        util.SMlog('nbd_unmap found old nbd devices: %s' % found_nbd)
+        for nbd_dev in found_nbd:
+            util.pread2(['rbd-nbd', 'unmap', nbd_dev, '--debug_ms', DEBUG_LEVEL, '--name', ceph_user])
+            util.pread2(['unlink', nbd_dev])
 
 
 @file_lock()
@@ -185,6 +200,7 @@ def _unmap(session, arg_dict):
     _dm_name = arg_dict['_dm_name']
     CEPH_USER = arg_dict['CEPH_USER']
     dmmode = arg_dict['dmmode']
+    vdi_uuid = arg_dict["vdi_uuid"]
 
     dev = util.pread2(['realpath', _dev_name]).rstrip('\n')
 
@@ -210,8 +226,7 @@ def _unmap(session, arg_dict):
     elif mode == 'fuse':
         pass
     elif mode == 'nbd':
-        util.pread2(['rbd-nbd', 'unmap', _dev_name, '--debug_ms', DEBUG_LEVEL, '--name', CEPH_USER])
-        util.pread2(['unlink', _dev_name])
+        nbd_unmap(_dev_name, vdi_uuid, CEPH_USER)
 
     return "unmapped"
 
@@ -290,6 +305,7 @@ def __unmap(session, arg_dict):
     _dm_name = arg_dict['_dm_name']
     CEPH_USER = arg_dict['CEPH_USER']
     dmmode = arg_dict['dmmode']
+    vdi_uuid = arg_dict["vdi_uuid"]
 
     dev = util.pread2(['realpath', _dev_name]).rstrip('\n')
 
@@ -301,7 +317,7 @@ def __unmap(session, arg_dict):
     elif mode == 'fuse':
         pass
     elif mode == 'nbd':
-        util.pread2(['rbd-nbd', 'unmap', _dev_name, '--name', CEPH_USER])
+        nbd_unmap(_dev_name, vdi_uuid, CEPH_USER)
 
     return "unmapped"
 
