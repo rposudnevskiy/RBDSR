@@ -85,7 +85,6 @@ def nbd_unmap(dev_name, vdi_uuid, ceph_user):
         util.SMlog('nbd_unmap found old nbd devices: %s' % found_nbd)
         for nbd_dev in found_nbd:
             util.pread2(['rbd-nbd', 'unmap', nbd_dev, '--debug_ms', DEBUG_LEVEL, '--name', ceph_user])
-            util.pread2(['unlink', nbd_dev])
 
 
 @file_lock()
