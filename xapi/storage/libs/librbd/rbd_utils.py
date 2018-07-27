@@ -8,40 +8,6 @@ import utils
 
 from xapi.storage import log
 
-# define tags for metadata
-UUID_TAG = 'uuid'
-KEY_TAG = 'key'
-NAME_TAG = 'name'
-DESCRIPTION_TAG = 'description'
-READ_WRITE_TAG = 'read_write'
-VIRTUAL_SIZE_TAG = 'virtual_size'
-PHYSICAL_UTILISATION_TAG = 'physical_utilisation'
-URI_TAG = 'uri'
-CUSTOM_KEYS_TAG = 'keys'
-SHARABLE_TAG = 'sharable'
-NON_PERSISTENT_TAG = 'nonpersistent'
-QEMU_PID = 'qemu_pid'
-QEMU_QMP_SOCK = 'qemu_qmp_sock'
-QEMU_NBD_UNIX_SOCKET = 'qemu_nbd_unix_socket'
-
-# define tag types
-TAG_TYPES = {
-    UUID_TAG: str,
-    KEY_TAG: str,
-    NAME_TAG: str,
-    DESCRIPTION_TAG: str,
-    READ_WRITE_TAG: eval, # boolean
-    VIRTUAL_SIZE_TAG: int,
-    PHYSICAL_UTILISATION_TAG: int,
-    URI_TAG: eval, # string list
-    CUSTOM_KEYS_TAG: eval, # dict
-    SHARABLE_TAG: eval, # boolean
-    NON_PERSISTENT_TAG: eval,
-    QEMU_PID: int,
-    QEMU_QMP_SOCK: str,
-    QEMU_NBD_UNIX_SOCKET: str
-}
-
 def _getPoolName(name):
     regex = re.compile('(.*)/(.*)')
     result = regex.match(name)
@@ -83,7 +49,7 @@ def if_image_exist(dbg, cluster, name):
     except Exception:
         return False
 
-def updatePoolMeta(dbg, cluster, _pool_, metadata):
+def updatePoolMetadata(dbg, cluster, _pool_, metadata):
     log.debug("%s: rbd_utils.updatePoolMeta: Cluster ID: %s Name: %s Metadata: %s "
               % (dbg, cluster.get_fsid(), _pool_, metadata))
     _image_ = utils.SR_METADATA_IMAGE_NAME
@@ -98,7 +64,7 @@ def updatePoolMeta(dbg, cluster, _pool_, metadata):
         for tag, value in metadata.iteritems():
             if value is None:
                 log.debug("%s: rbd_utils.updatePoolMeta: tag: %s remove value" % (dbg, tag))
-                image.metadata_remove(str)
+                image.metadata_remove(str(tag))
             else:
                 log.debug("%s: rbd_utils.updatePoolMeta: tag: %s set value: %s" % (dbg, tag, value))
                 image.metadata_set(str(tag), str(value))
@@ -106,7 +72,9 @@ def updatePoolMeta(dbg, cluster, _pool_, metadata):
         image.close()
         ioctx.close()
 
-def retrievePoolMeta(dbg, cluster, _pool_):
+def retrievePoolMetadata(dbg, cluster, _pool_):
+    log.debug("%s: rbd_utils.retrievePoolMeta: Cluster ID: %s Pool: %s"
+              % (dbg, cluster.get_fsid(), _pool_))
     metadata = {}
 
     _image_ = utils.SR_METADATA_IMAGE_NAME
@@ -117,18 +85,12 @@ def retrievePoolMeta(dbg, cluster, _pool_):
         return metadata
 
     try:
-        for tag, value in image.metadata_list():
-            log.debug("%s: rbd_utils.retrievePoolMeta: tag: %s value: %s" % (dbg, tag, value))
-            metadata[tag]=TAG_TYPES[tag](value)
-
-        log.debug("%s: rbd_utils.retrievePoolMeta: Cluster ID: %s Name: %s Metadata: %s "
-                  % (dbg, cluster.get_fsid(), _pool_, metadata))
-        return metadata
+        return image.metadata_list()
     finally:
         image.close()
         ioctx.close()
 
-def updateMetadata(dbg, cluster, name, metadata):
+def updateImageMetadata(dbg, cluster, name, metadata):
     log.debug("%s: rbd_utils.updateMetadata: Cluster ID: %s Name: %s Metadata: %s "
               % (dbg, cluster.get_fsid(), name, metadata))
 
@@ -141,7 +103,7 @@ def updateMetadata(dbg, cluster, name, metadata):
         for tag, value in metadata.iteritems():
             if value is None:
                 log.debug("%s: rbd_utils.updateMetadata: tag: %s remove value" % (dbg, tag))
-                image.metadata_remove(str)
+                image.metadata_remove(str(tag))
             else:
                 log.debug("%s: rbd_utils.updateMetadata: tag: %s set value: %s" % (dbg, tag, value))
                 image.metadata_set(str(tag), str(value))
@@ -149,22 +111,16 @@ def updateMetadata(dbg, cluster, name, metadata):
         image.close()
         ioctx.close()
 
-def retrieveMetadata(dbg, cluster, name):
-    _pool_ = _getPoolName(name)
-    _image_ = _getImageName(name)
+def retrieveImageMetadata(dbg, cluster, image_name):
+    log.debug("%s: rbd_utils.retrieveImageMeta: Cluster ID: %s Pool: %s"
+              % (dbg, cluster.get_fsid(), image_name))
+    _pool_ = _getPoolName(image_name)
+    _image_ = _getImageName(image_name)
     ioctx = cluster.open_ioctx(_pool_)
     image = rbd.Image(ioctx, _image_)
 
-    metadata = {}
-
     try:
-        for tag, value in image.metadata_list():
-            log.debug("%s: rbd_utils.retrieveMetadata: tag: %s value: %s" % (dbg, tag, value))
-            metadata[tag]=TAG_TYPES[tag](value)
-
-        log.debug("%s: rbd_utils.retrieveMetadata: Cluster ID: %s Name: %s Metadata: %s "
-                  % (dbg, cluster.get_fsid(), name, metadata))
-        return metadata
+        return image.metadata_list()
     finally:
         image.close()
         ioctx.close()

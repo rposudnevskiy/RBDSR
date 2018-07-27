@@ -4,11 +4,9 @@ It supports the creation of VDI as RBD device in Ceph pool.
 
 Please note that `v1.0` and `v2.0` and `v3.0` are not compatible. At the moment there is no mean to migrate between versions. Hope to implement it later.
 
-Plugin requires qemu-dp-2.10.2-1.2.0.x86_64 package installed
+Plugin requires `qemu-dp.x86_64` [xcp-ng-rpms/qemu-dp](https://github.com/xcp-ng-rpms/qemu-dp) and `python-rbd.x86_64` packages installed
 
 ## Installation
-
-This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD devices, so the install script will install ceph-common, rbd-nbd and rbd-fuse packages from ceph repository on your XenServer / XCP-ng hosts.
 
 1. Run this command:
 
@@ -18,9 +16,9 @@ This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD 
 
 3. Copy ```/etc/ceph/ceph.client.admin.keyring``` to XenServer / XCP-ng hosts from your Ceph cluster node.
 
-4. Restart XAPI tool-stack on XenServer / XCP-ng hosts
+4. Restart Xapi storage script plugin server on XenServer / XCP-ng hosts
 
-		# xe-toolstack-restart
+		# systemctl restart xapi-storage-script.service
 
 ## Removal
 1. Remove all Ceph RBD SR out of XenServer / XCP-ng with the appropriate commands.
@@ -29,9 +27,9 @@ This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD 
 
 		# ~/RDBSRv3.0/install.sh deinstall
 
-3. Restart XAPI tool-stack on XenServer / XCP-ng hosts
+3. Restart Xapi storage script plugin server on XenServer / XCP-ng hosts
 
-		# xe-toolstack-restart
+		# systemctl restart xapi-storage-script.service
 
 
 ## Usage
@@ -56,7 +54,7 @@ This plugin uses `rbd`, `rbd-nbd` add `rbd-fuse` utilities for manipulating RBD 
 
 4. Create the PBD using the device SCSI ID, host UUID and SR UUID detected above:
 
-		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
+		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5 device-config:cluster=ceph device-config:image-format=raw device-config:datapath=qdisk
 		aec2c6fc-e1fb-0a27-2437-9862cffe213e
 
 5. Attach the PBD created with xe pbd-plug command:

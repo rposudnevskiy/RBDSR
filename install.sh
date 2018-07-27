@@ -68,36 +68,12 @@ function uninstallCeph {
 
 function installFiles {
   echo "Install RBDSR Files"
+  rm -rf /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr
   mkdir -p /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr
 
   copyFile "volume/org.xen.xapi.storage.rbdsr/plugin.py" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.py"
-  copyFile "volume/org.xen.xapi.storage.rbdsr/ceph_utils.py" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/ceph_utils.py"
-  copyFile "volume/org.xen.xapi.storage.rbdsr/rbd_utils.py" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/rbd_utils.py"
-  copyFile "volume/org.xen.xapi.storage.rbdsr/utils.py" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/utils.py"
   copyFile "volume/org.xen.xapi.storage.rbdsr/sr.py" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/sr.py"
   copyFile "volume/org.xen.xapi.storage.rbdsr/volume.py" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/volume.py"
-
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.diagnostics 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.Query 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.probe 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.attach 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.create 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.destroy 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.detach 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.ls 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.stat 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.set_description 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.set_name 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.clone 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.create 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.destroy 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.resize 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.set 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.set_description 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.set_name 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.snapshot 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.stat 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.unset 1>/dev/null 2>&1
 
   ln -s plugin.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.diagnostics
   ln -s plugin.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.Query
@@ -124,62 +100,71 @@ function installFiles {
   python -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.py
   python -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/sr.py
   python -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/volume.py
-  python -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/ceph_utils.py
-  python -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/rbd_utils.py
-  python -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/utils.py
   python -O -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.py
   python -O -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/sr.py
   python -O -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/volume.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/ceph_utils.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/rbd_utils.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/utils.py
 
-  copyFile "datapath/rbd/plugin.py" "/usr/libexec/xapi-storage-script/datapath/rbd/plugin.py"
-  copyFile "datapath/rbd/datapath.py" "/usr/libexec/xapi-storage-script/datapath/rbd/datapth.py"
+  rm -rf /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk
+  mkdir -p /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk
 
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/ceph_utils.py 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/rbd_utils.py 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/utils.py 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/qmp.py 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.activate 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.attach 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.close 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.deactivate 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.detach 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.open 1>/dev/null 2>&1
-  unlink /usr/libexec/xapi-storage-script/datapath/rbd/Plugin.Query 1>/dev/null 2>&1
+  copyFile "datapath/rbd/plugin.py" "/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py"
+  copyFile "datapath/rbd/datapath.py" "/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapth.py"
 
-  ln ../../volume/org.xen.xapi.storage.rbdsr/ceph_utils.py /usr/libexec/xapi-storage-script/datapath/rbd/ceph_utils.py
-  ln ../../volume/org.xen.xapi.storage.rbdsr/rbd_utils.py /usr/libexec/xapi-storage-script/datapath/rbd/rbd_utils.py
-  ln ../../volume/org.xen.xapi.storage.rbdsr/utils.py /usr/libexec/xapi-storage-script/datapath/rbd/utils.py
-  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.activate
-  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.attach
-  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.close
-  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.deactivate
-  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.detach
-  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd/Datapath.open
-  ln -s plugin.py /usr/libexec/xapi-storage-script/datapath/rbd/Plugin.Query
-  ln -s /usr/share/qemu/qmp/qmp.py /usr/libexec/xapi-storage-script/datapath/rbd/qmp.py
+  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.activate
+  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.attach
+  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.close
+  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.deactivate
+  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.detach
+  ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.open
+  ln -s plugin.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Plugin.Query
 
-  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/plugin.py
-  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/datapath.py
-  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/ceph_utils.py
-  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/rbd_utils.py
-  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/utils.py
-  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/qmp.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/plugin.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/datapath.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/ceph_utils.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/rbd_utils.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/utils.py
-  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd/qmp.py
+  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py
+  python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
+  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py
+  python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
 
+  rm -rf /lib/python2.7/site-packages/xapi/storage/libs/librbd
+  mkdir /lib/python2.7/site-packages/xapi/storage/libs/librbd
+
+  copyFile "xapi/storage/libs/librbd/__init__.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/__init__.py"
+  copyFile "xapi/storage/libs/librbd/ceph_utils.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/ceph_utils.py"
+  copyFile "xapi/storage/libs/librbd/datapath.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/datapath.py"
+  copyFile "xapi/storage/libs/librbd/meta.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/meta.py"
+  copyFile "xapi/storage/libs/librbd/qemudisk.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/qemudisk.py"
+  copyFile "xapi/storage/libs/librbd/rbd_utils.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/rbd_utils.py"
+  # copyFile "xapi/storage/libs/librbd/tapdisk.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/tapdisk.py"
+  copyFile "xapi/storage/libs/librbd/utils.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/utils.py"
+  copyFile "xapi/storage/libs/librbd/volume.py" "/lib/python2.7/site-packages/xapi/storage/libs/librbd/volume.py"
+
+  ln -s /usr/share/qemu/qmp/qmp.py /lib/python2.7/site-packages/xapi/storage/libs/librbd/qmp.py
+
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/__init__.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/ceph_utils.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/datapath.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/meta.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/qemudisk.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/rbd_utils.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/tapdisk.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/utils.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/volume.py
+  python -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/qmp.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/__init__.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/ceph_utils.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/datapath.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/meta.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/qemudisk.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/rbd_utils.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/tapdisk.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/utils.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/volume.py
+  python -O -m compileall /lib/python2.7/site-packages/xapi/storage/libs/librbd/qmp.py
 }
 
 function removeFiles {
   echo "Removing RBDSR Files"
   rm -rf /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr
-  rm -rf /usr/libexec/xapi-storage-script/datapath/rbd
+  rm -rf /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk
+  rm -rf /lib/python2.7/site-packages/xapi/storage/libs/librbd
   }
 
 function install {
