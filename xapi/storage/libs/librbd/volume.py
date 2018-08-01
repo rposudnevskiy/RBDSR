@@ -243,8 +243,8 @@ class Volume(object):
         except Exception:
             raise Volume_does_not_exist(key)
 
-        if orig_meta[meta.SNAPSHOT_OF_TAG]:
-            base_uri = "%s/%s" % (sr, meta.SNAPSHOT_OF_TAG)
+        if meta.SNAPSHOT_OF_TAG in orig_meta:
+            base_uri = "%s/%s" % (sr, orig_meta[meta.SNAPSHOT_OF_TAG])
             try:
                 base_meta = meta.RBDMetadataHandler.load(dbg, base_uri)
             except Exception:
@@ -252,7 +252,7 @@ class Volume(object):
         else:
             base_meta = copy.deepcopy(orig_meta)
 
-        if base_meta[meta.ACTIVE_ON_TAG]:
+        if meta.ACTIVE_ON_TAG in base_meta:
             current_host = get_current_host_uuid()
             if base_meta[meta.ACTIVE_ON_TAG] != current_host:
                 log.debug("%s: librbd.Volume.clone: SR: %s Key: %s Can not snapshot on %s as VDI already active on %s"
@@ -291,7 +291,7 @@ class RAWVolume(Volume):
                                                utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, sr)],
                                                new_base_uuid)
 
-                if base_meta[meta.ACTIVE_ON_TAG]:
+                if meta.ACTIVE_ON_TAG in base_meta:
                     Datapath.suspend(dbg,base_meta[meta.URI_TAG][0], 0)
 
                 rbd_utils.rename(dbg, ceph_cluster, base_name, new_base_name)
@@ -299,7 +299,7 @@ class RAWVolume(Volume):
                 rbd_utils.clone(dbg, ceph_cluster, new_base_name, 'base', base_name)
                 rbd_utils.clone(dbg, ceph_cluster, new_base_name, 'base', clone_name)
 
-                if base_meta[meta.ACTIVE_ON_TAG]:
+                if meta.ACTIVE_ON_TAG in base_meta:
                     Datapath.resume(dbg,base_meta[meta.URI_TAG][0], 0)
 
                 new_base_meta = copy.deepcopy(base_meta)
@@ -309,8 +309,12 @@ class RAWVolume(Volume):
                 new_base_meta[meta.URI_TAG] = ["%s/%s" % (sr, new_base_uuid)]
                 new_base_meta[meta.READ_WRITE_TAG] = False
 
-                if new_base_meta[meta.ACTIVE_ON_TAG]:
+                if meta.ACTIVE_ON_TAG in new_base_meta:
                     new_base_meta[meta.ACTIVE_ON_TAG] = None
+                    new_base_meta[meta.QEMU_PID_TAG] = None
+                    new_base_meta[meta.QEMU_NBD_SOCK_TAG] = None
+                    new_base_meta[meta.QEMU_QMP_SOCK_TAG] = None
+                    new_base_meta[meta.QEMU_QMP_LOG_TAG] = None
 
                 meta.RBDMetadataHandler.update(dbg, new_base_meta[meta.URI_TAG][0], new_base_meta)
                 meta.RBDMetadataHandler.update(dbg, base_meta[meta.URI_TAG][0], base_meta)
@@ -327,17 +331,20 @@ class RAWVolume(Volume):
             clone_meta[meta.UUID_TAG] = clone_uuid
             clone_meta[meta.URI_TAG] = ["%s/%s" % (sr, clone_uuid)]
 
-            if clone_meta[meta.ACTIVE_ON_TAG]:
-                clone_meta.pop(meta.ACTIVE_ON_TAG, None)
+            if meta.ACTIVE_ON_TAG in clone_meta:
+                clone_meta[meta.ACTIVE_ON_TAG] = None
+                clone_meta[meta.QEMU_PID_TAG] = None
+                clone_meta[meta.QEMU_NBD_SOCK_TAG] = None
+                clone_meta[meta.QEMU_QMP_SOCK_TAG] = None
+                clone_meta[meta.QEMU_QMP_LOG_TAG] = None
 
             if mode is 'snapshot':
                 clone_meta[meta.READ_WRITE_TAG] = False
-                clone_meta[meta.SNAPSHOT_OF_TAG] = base_meta[meta.UUID_TAG]
+                clone_meta[meta.SNAPSHOT_OF_TAG] = new_base_meta[meta.UUID_TAG]
             elif mode is 'clone':
                 clone_meta[meta.READ_WRITE_TAG] = True
 
-            meta.RBDMetadataHandler.update(dbg, clone_meta[meta.meta.UUID_TAG], clone_meta)
-
+            meta.RBDMetadataHandler.update(dbg, clone_meta[meta.URI_TAG][0], clone_meta)
             return clone_meta
         except Exception:
             raise Volume_does_not_exist(key)

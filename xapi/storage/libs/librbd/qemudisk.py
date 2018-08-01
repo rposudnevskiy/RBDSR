@@ -12,7 +12,7 @@ from xapi.storage.libs.util import call
 QEMU_DP = "/usr/lib64/qemu-dp/bin/qemu-dp"
 NBD_CLIENT = "/usr/sbin/nbd-client"
 
-IMAGE_TYPES = ['qcow2', 'qcow2', 'vhdx', 'raw']
+IMAGE_TYPES = ['qcow2', 'qcow', 'vhdx', 'raw']
 ROOT_NODE_NAME = 'qemu_node'
 RBD_NODE_NAME = 'rbd_node'
 
@@ -143,7 +143,7 @@ class Qemudisk(object):
 
         try:
             # Suspend IO on blockdev
-            args = {"node-name": ROOT_NODE_NAME}
+            args = {"device": ROOT_NODE_NAME}
             _qmp_.command("x-blockdev-suspend", **args)
         except Exception:
             raise Volume_does_not_exist(self.vdi_uuid)
@@ -159,7 +159,7 @@ class Qemudisk(object):
 
         try:
             # Resume IO on blockdev
-            args = {"node-name": ROOT_NODE_NAME}
+            args = {"device": ROOT_NODE_NAME}
             _qmp_.command("x-blockdev-resume", **args)
         except Exception:
             raise Volume_does_not_exist(self.vdi_uuid)
