@@ -168,9 +168,9 @@ function removeFiles {
   }
 
 function install {
-  installRepo $1
   setReposEnabled "CentOS-Base.repo" "base" 1
   setReposEnabled "CentOS-Base.repo" "extras" 1
+  installRepo $1
   installCeph
   setReposEnabled "CentOS-Base.repo" "base" 0
   setReposEnabled "CentOS-Base.repo" "extras" 0
