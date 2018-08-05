@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import utils
 import subprocess
 import qmp
 import os
@@ -8,11 +7,12 @@ import os
 from xapi.storage.api.v4.volume import Volume_does_not_exist
 from xapi.storage import log
 from xapi.storage.libs.util import call
+from xapi.storage.libs.librbd import utils
 
 QEMU_DP = "/usr/lib64/qemu-dp/bin/qemu-dp"
 NBD_CLIENT = "/usr/sbin/nbd-client"
 
-IMAGE_TYPES = ['qcow2', 'qcow', 'vhdx', 'raw']
+IMAGE_TYPES = ['qcow2', 'qcow', 'vhdx', 'vpc', 'raw']
 ROOT_NODE_NAME = 'qemu_node'
 RBD_NODE_NAME = 'rbd_node'
 

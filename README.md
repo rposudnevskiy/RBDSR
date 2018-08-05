@@ -4,7 +4,7 @@ It supports the creation of VDI as RBD device in Ceph pool.
 
 Please note that `v1.0` and `v2.0` and `v3.0` are not compatible. At the moment there is no mean to migrate between versions. Hope to implement it later.
 
-Plugin requires `qemu-dp.x86_64` [xcp-ng-rpms/qemu-dp](https://github.com/xcp-ng-rpms/qemu-dp) and `python-rbd.x86_64` packages installed
+Plugin requires `qemu-dp.x86_64` ([xcp-ng-rpms/qemu-dp](https://github.com/xcp-ng-rpms/qemu-dp)), `python-rbd.x86_64` and `rbd-nbd.x86_64` packages installed
 
 ## Installation
 
@@ -43,7 +43,7 @@ Plugin requires `qemu-dp.x86_64` [xcp-ng-rpms/qemu-dp](https://github.com/xcp-ng
 
 2. Introduce the pool created in previous step as Storage Repository on XenServer / XCP-ng hosts:
 
-		  xe sr-introduce name-label="CEPH RBD Storage" type=rbd uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
+		  xe sr-introduce name-label="CEPH RBD Storage" type=rbdsr uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
 
 3. Run the ```xe host-list``` command to find out the host UUID for Xenserer / XCP-ng host:
 
