@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-import utils
-import ceph_utils
-import rbd_utils
+from xapi.storage.libs.librbd import utils, ceph_utils, rbd_utils
 
 from xapi.storage import log
 from xapi.storage.api.v4.volume import Volume_does_not_exist

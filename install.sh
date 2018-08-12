@@ -58,12 +58,12 @@ function unconfigureFirewall {
 
 function installCeph {
   echo "Install Ceph API"
-  yum install -y python-rbd
+  yum install -y python-rbd rbd-nbd
 }
 
 function uninstallCeph {
   echo "Uninstall Ceph API"
-  yum erase -y python-rbd
+  yum erase -y python-rbd rbd-nbd
 }
 
 function installFiles {
@@ -122,6 +122,8 @@ function installFiles {
   python -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
   python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py
   python -O -m compileall /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
+
+  ln -s rbd+raw+qdisk /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk
 
   rm -rf /lib/python2.7/site-packages/xapi/storage/libs/librbd
   mkdir /lib/python2.7/site-packages/xapi/storage/libs/librbd

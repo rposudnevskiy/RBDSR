@@ -2,16 +2,13 @@
 
 import uuid
 
-import utils
-import ceph_utils
-import rbd_utils
-import meta
+from xapi.storage.libs.librbd import utils, ceph_utils, rbd_utils, meta
 import copy
 
 from xapi.storage import log
 from xapi.storage.api.v4.volume import Volume_does_not_exist
 from xapi.storage.api.v4.volume import Activated_on_another_host
-from xapi.storage.libs.util import get_current_host_uuid
+from xapi.storage.libs.util import get_current_host_uuid, call
 
 # TODO: We should import correct datapath depend on image uri
 from xapi.storage.libs.librbd.datapath import QdiskDatapath as Datapath
@@ -377,5 +374,75 @@ class RAWVolume(Volume):
                 raise Volume_does_not_exist(image_meta[meta.UUID_TAG])
         finally:
             ceph_utils.disconnect(dbg, ceph_cluster)
+
+        return image_meta
+
+
+class QCOW2Volume(Volume):
+
+    @classmethod
+    def _create(cls, dbg, sr, name, description, size, sharable, image_meta):
+        log.debug("%s: librbd.QCOW2Volume.create: SR: %s Name: %s Description: %s Size: %s"
+                  % (dbg, sr, name, description, size))
+
+        image_meta[meta.TYPE_TAG] = utils.get_vdi_type_by_uri(dbg, image_meta[meta.URI_TAG][0])
+
+        ceph_cluster = ceph_utils.connect(dbg, sr)
+
+        image_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                    utils.get_sr_uuid_by_uri(dbg, sr),
+                                    utils.VDI_PREFIXES[image_meta[meta.TYPE_TAG]],
+                                    image_meta[meta.UUID_TAG])
+
+        # TODO: Implement overhead calculation for QCOW2 format
+        size = utils.validate_and_round_vhd_size(size)
+        rbd_size = utils.fullSizeVHD(size)
+
+        try:
+            rbd_utils.create(dbg, ceph_cluster, image_name, rbd_size)
+            meta.RBDMetadataHandler.update(dbg, image_meta[meta.URI_TAG][0], image_meta)
+        except Exception:
+            try:
+                rbd_utils.remove(dbg, ceph_cluster, image_name)
+            except Exception:
+                pass
+            finally:
+                raise Volume_does_not_exist(image_meta[meta.UUID_TAG])
+        finally:
+            ceph_utils.disconnect(dbg, ceph_cluster)
+
+        #Datapath.attach(dbg, image_meta[meta.URI_TAG][0], 0)
+        #Datapath.activate(dbg, image_meta[meta.URI_TAG][0], 0, 'raw')
+
+        #nbd_device=call(dbg, ["/opt/xensource/libexec/nbd_client_manager.py",
+        #                      "connect",
+        #                      "--path",
+        #                      utils.VAR_RUN_PREFIX + "/qemu-nbd.{}".format(image_meta[meta.UUID_TAG]),
+        #                      "--exportname",
+        #                      "qemu_node"])
+
+        nbd_device = call(dbg, ["/usr/bin/rbd",
+                                "nbd",
+                                "map",
+                                image_name]).rstrip('\n')
+
+        call(dbg, ["/usr/lib64/qemu-dp/bin/qemu-img",
+                   "create",
+                   "-f", image_meta[meta.TYPE_TAG],
+                   nbd_device,
+                   str(size)])
+
+        call(dbg, ["/usr/bin/rbd",
+                   "nbd",
+                   "unmap",
+                   nbd_device])
+
+        #call(dbg, ["/opt/xensource/libexec/nbd_client_manager.py",
+        #           "disconnect",
+        #               "--device",
+        #           nbd_device])
+
+        #Datapath.deactivate(dbg, image_meta[meta.URI_TAG][0], 0)
+        #Datapath.detach(dbg, image_meta[meta.URI_TAG][0], 0)
 
         return image_meta

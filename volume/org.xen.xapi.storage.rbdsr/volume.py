@@ -4,22 +4,28 @@ import os
 import sys
 import xapi.storage.api.v4.volume
 from xapi.storage import log
+from xapi.storage.libs.librbd import utils
 
-from xapi.storage.libs.librbd.volume import RAWVolume
+from xapi.storage.libs.librbd.volume import RAWVolume, QCOW2Volume
 
 class Implementation(xapi.storage.api.v4.volume.Volume_skeleton):
 
     def create(self, dbg, sr, name, description, size, sharable):
         log.debug("%s: Volume.create: SR: %s Name: %s Description: %s Size: %s"
                   % (dbg, sr, name, description, size))
-        return RAWVolume.create(dbg, sr, name, description, size, sharable)
-
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.create(dbg, sr, name, description, size, sharable)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.create(dbg, sr, name, description, size, sharable)
 
     def clone(self, dbg, sr, key, mode='clone'):
         log.debug("%s: Volume.%s: SR: %s Key: %s"
                   % (dbg, sys._getframe().f_code.co_name, sr, key))
 
-        return RAWVolume.clone(dbg, sr, key, mode)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.clone(dbg, sr, key, mode)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.clone(dbg, sr, key, mode)
 
     def snapshot(self, dbg, sr, key):
         return self.clone(dbg,sr,key, mode='snapshot')
@@ -28,43 +34,64 @@ class Implementation(xapi.storage.api.v4.volume.Volume_skeleton):
         log.debug("%s: Volume.destroy: SR: %s Key: %s"
                   % (dbg, sr, key))
 
-        return RAWVolume.destroy(dbg,sr, key)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.destroy(dbg, sr, key)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.destroy(dbg, sr, key)
 
     def set_name(self, dbg, sr, key, new_name):
         log.debug("%s: Volume.set_name: SR: %s Key: %s New_name: %s"
                   % (dbg, sr, key, new_name))
 
-        return RAWVolume.set_name(dbg, sr, key, new_name)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.set_name(dbg, sr, key, new_name)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.set_name(dbg, sr, key, new_name)
 
     def set_description(self, dbg, sr, key, new_description):
         log.debug("%s: Volume.set_description: SR: %s Key: %s New_description: %s"
                   % (dbg, sr, key, new_description))
 
-        return RAWVolume.set_description(dbg, sr, key, new_description)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.set_description(dbg, sr, key, new_description)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.set_description(dbg, sr, key, new_description)
 
     def set(self, dbg, sr, key, k, v):
         log.debug("%s: Volume.set: SR: %s Key: %s Custom_key: %s Value: %s"
                   % (dbg, sr, key, k, v))
 
-        return RAWVolume.set(dbg, sr, key, k, v)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.set(dbg, sr, key, k, v)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.set(dbg, sr, key, k, v)
 
     def unset(self, dbg, sr, key, k):
         log.debug("%s: Volume.unset: SR: %s Key: %s Custom_key: %s"
                   % (dbg, sr, key, k))
 
-        return RAWVolume.unset(dbg, sr, key, k)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.unset(dbg, sr, key, k)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.unset(dbg, sr, key, k)
 
     def resize(self, dbg, sr, key, new_size):
         log.debug("%s: Volume.resize: SR: %s Key: %s New_size: %s"
                   % (dbg, sr, key, new_size))
 
-        return RAWVolume.resize(dbg, sr, key, new_size)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.resize(dbg, sr, key, new_size)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.resize(dbg, sr, key, new_size)
 
     def stat(self, dbg, sr, key):
         log.debug("%s: Volume.stat: SR: %s Key: %s"
                   % (dbg, sr, key))
 
-        return RAWVolume.stat(dbg, sr, key)
+        if utils.get_vdi_type_by_uri(dbg, sr) == 'raw':
+            return RAWVolume.stat(dbg, sr, key)
+        elif utils.get_vdi_type_by_uri(dbg, sr) == 'qcow2':
+            return QCOW2Volume.stat(dbg, sr, key)
 
 ##   def compare(self, dbg, sr, key, key2):
 
