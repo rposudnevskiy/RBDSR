@@ -107,8 +107,8 @@ function installFiles {
   rm -rf /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk
   mkdir -p /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk
 
-  copyFile "datapath/rbd/plugin.py" "/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py"
-  copyFile "datapath/rbd/datapath.py" "/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapth.py"
+  copyFile "datapath/rbd+raw+qdisk/plugin.py" "/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py"
+  copyFile "datapath/rbd+raw+qdisk/datapath.py" "/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py"
 
   ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.activate
   ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.attach
