@@ -126,7 +126,7 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
         # Create pool metadata image if it doesn't exist
         log.debug("%s: SR.attach: name: %s/%s" % (dbg, utils.get_pool_name_by_uri(dbg, uri), utils.SR_METADATA_IMAGE_NAME))
         if not rbd_utils.if_image_exist(dbg, ceph_cluster, '%s/%s' % (utils.get_pool_name_by_uri(dbg, uri), utils.SR_METADATA_IMAGE_NAME)):
-            rbd_utils.create(dbg, ceph_cluster, '%s/%s' % (uri, utils.SR_METADATA_IMAGE_NAME), 0)
+            rbd_utils.create(dbg, ceph_cluster, '%s/%s' % (utils.get_pool_name_by_uri(dbg, uri), utils.SR_METADATA_IMAGE_NAME), 0)
 
         ceph_utils.disconnect(dbg, ceph_cluster)
 
