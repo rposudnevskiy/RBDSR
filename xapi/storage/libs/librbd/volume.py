@@ -91,28 +91,17 @@ class Volume(object):
         log.debug("%s: librbd.Volume.resize: SR: %s Key: %s New_size: %s"
                   % (dbg, sr, key, new_size))
 
-        new_vsize = new_size
-
-        ceph_cluster = ceph_utils.connect(dbg, sr)
-
-        uri = "%s/%s" % (sr, key)
-        image_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
-                                    utils.get_sr_uuid_by_uri(dbg, sr),
-                                    utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, uri)],
-                                    key)
-
         image_meta = {
-            'virtual_size': new_vsize,
+            'virtual_size': new_size,
         }
 
+        uri = "%s/%s" % (sr, key)
+
         try:
-            rbd_utils.resize(dbg, ceph_cluster, image_name, new_vsize)
-            meta.RBDMetadataHandler.update(dbg, uri, image_meta)
             cls._resize(dbg, sr, key, new_size, image_meta)
+            meta.RBDMetadataHandler.update(dbg, uri, image_meta)
         except Exception:
             raise Volume_does_not_exist(key)
-        finally:
-            ceph_utils.disconnect(dbg, ceph_cluster)
 
     @classmethod
     def _unset(cls, dbg, sr, key, k, image_meta):
@@ -377,12 +366,207 @@ class RAWVolume(Volume):
 
         return image_meta
 
+    @classmethod
+    def _resize(cls, dbg, sr, key, new_size, image_meta):
+        log.debug("%s: librbd.RAWVolume._resize: SR: %s Key: %s New_size: %s"
+                  % (dbg, sr, key, new_size))
+
+        ceph_cluster = ceph_utils.connect(dbg, sr)
+
+        uri = "%s/%s" % (sr, key)
+        image_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                    utils.get_sr_uuid_by_uri(dbg, sr),
+                                    utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, uri)],
+                                    key)
+
+        try:
+            rbd_utils.resize(dbg, ceph_cluster, image_name, new_size)
+        except Exception:
+            raise Volume_does_not_exist(key)
+        finally:
+            ceph_utils.disconnect(dbg, ceph_cluster)
+
 
 class QCOW2Volume(Volume):
 
     @classmethod
+    def _clone(cls, dbg, sr, key, mode, base_meta):
+        log.debug("%s: librbd.QCOW2Volume.clone: SR: %s Key: %s Mode: %s"
+                  % (dbg, sr, key, mode))
+
+        # TODO: Implement overhead calculation for QCOW2 format
+        size = utils.validate_and_round_vhd_size(base_meta[meta.VIRTUAL_SIZE_TAG])
+        rbd_size = utils.fullSizeVHD(size)
+
+        ceph_cluster = ceph_utils.connect(dbg, sr)
+
+        clone_uuid = str(uuid.uuid4())
+        clone_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                    utils.get_sr_uuid_by_uri(dbg, sr),
+                                    utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, sr)],
+                                    clone_uuid)
+
+        try:
+            if base_meta[meta.KEY_TAG] == key:
+                base_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                           utils.get_sr_uuid_by_uri(dbg, sr),
+                                           utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, sr)],
+                                           key)
+
+                new_base_uuid = str(uuid.uuid4())
+                new_base_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                               utils.get_sr_uuid_by_uri(dbg, sr),
+                                               utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, sr)],
+                                               new_base_uuid)
+
+                rbd_utils.rename(dbg, ceph_cluster, base_name, new_base_name)
+                rbd_utils.create(dbg, ceph_cluster, base_name, rbd_size)
+                rbd_utils.create(dbg, ceph_cluster, clone_name, rbd_size)
+
+                base_nbd_device = call(dbg, ["/usr/bin/rbd",
+                                             "nbd",
+                                             "map",
+                                             base_name]).rstrip('\n')
+
+                clone_nbd_device = call(dbg, ["/usr/bin/rbd",
+                                              "nbd",
+                                              "map",
+                                              clone_name]).rstrip('\n')
+
+                call(dbg, ["/usr/lib64/qemu-dp/bin/qemu-img",
+                           "create",
+                           "-f", base_meta[meta.TYPE_TAG],
+                           "-b", "rbd:%s" % new_base_name,
+                           base_nbd_device])
+
+                call(dbg, ["/usr/lib64/qemu-dp/bin/qemu-img",
+                           "create",
+                           "-f", base_meta[meta.TYPE_TAG],
+                           "-b", "rbd:%s" % new_base_name,
+                           clone_nbd_device])
+
+                call(dbg, ["/usr/bin/rbd",
+                           "nbd",
+                           "unmap",
+                           clone_nbd_device])
+
+                call(dbg, ["/usr/bin/rbd",
+                           "nbd",
+                           "unmap",
+                           base_nbd_device])
+
+                new_base_meta = copy.deepcopy(base_meta)
+                new_base_meta[meta.NAME_TAG] = "(base) %s" % new_base_meta[meta.NAME_TAG]
+                new_base_meta[meta.KEY_TAG] = new_base_uuid
+                new_base_meta[meta.UUID_TAG] = new_base_uuid
+                new_base_meta[meta.URI_TAG] = ["%s/%s" % (sr, new_base_uuid)]
+                new_base_meta[meta.READ_WRITE_TAG] = False
+
+                if meta.ACTIVE_ON_TAG in new_base_meta:
+                    Datapath.snapshot(dbg,new_base_meta[meta.URI_TAG][0], base_meta[meta.URI_TAG][0], 0)
+
+                if meta.ACTIVE_ON_TAG in new_base_meta:
+                    new_base_meta[meta.ACTIVE_ON_TAG] = None
+                    new_base_meta[meta.QEMU_PID_TAG] = None
+                    new_base_meta[meta.QEMU_NBD_SOCK_TAG] = None
+                    new_base_meta[meta.QEMU_QMP_SOCK_TAG] = None
+                    new_base_meta[meta.QEMU_QMP_LOG_TAG] = None
+
+                meta.RBDMetadataHandler.update(dbg, new_base_meta[meta.URI_TAG][0], new_base_meta)
+                meta.RBDMetadataHandler.update(dbg, base_meta[meta.URI_TAG][0], base_meta)
+
+            else:
+                base_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                           utils.get_sr_uuid_by_uri(dbg, sr),
+                                           utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, sr)],
+                                           base_meta[meta.UUID_TAG])
+
+                rbd_utils.create(dbg, ceph_cluster, clone_name, rbd_size)
+
+                clone_nbd_device = call(dbg, ["/usr/bin/rbd",
+                                              "nbd",
+                                              "map",
+                                              clone_name]).rstrip('\n')
+
+                call(dbg, ["/usr/lib64/qemu-dp/bin/qemu-img",
+                           "create",
+                           "-f", base_meta[meta.TYPE_TAG],
+                           "-b", "rbd:%s" % base_name,
+                           clone_nbd_device])
+
+                call(dbg, ["/usr/bin/rbd",
+                           "nbd",
+                           "unmap",
+                           clone_nbd_device])
+
+            clone_meta = copy.deepcopy(base_meta)
+            clone_meta[meta.KEY_TAG] = clone_uuid
+            clone_meta[meta.UUID_TAG] = clone_uuid
+            clone_meta[meta.URI_TAG] = ["%s/%s" % (sr, clone_uuid)]
+
+            if meta.ACTIVE_ON_TAG in clone_meta:
+                clone_meta.pop(meta.ACTIVE_ON_TAG, None)
+                clone_meta.pop(meta.QEMU_PID_TAG, None)
+                clone_meta.pop(meta.QEMU_NBD_SOCK_TAG, None)
+                clone_meta.pop(meta.QEMU_QMP_SOCK_TAG, None)
+                clone_meta.pop(meta.QEMU_QMP_LOG_TAG, None)
+
+            if mode is 'snapshot':
+                clone_meta[meta.READ_WRITE_TAG] = False
+                clone_meta[meta.SNAPSHOT_OF_TAG] = new_base_meta[meta.UUID_TAG]
+            elif mode is 'clone':
+                clone_meta[meta.READ_WRITE_TAG] = True
+
+            meta.RBDMetadataHandler.update(dbg, clone_meta[meta.URI_TAG][0], clone_meta)
+
+            return clone_meta
+        except Exception:
+            raise Volume_does_not_exist(key)
+        finally:
+            ceph_utils.disconnect(dbg, ceph_cluster)
+
+    @classmethod
+    def _resize(cls, dbg, sr, key, new_size, image_meta):
+        log.debug("%s: librbd.QCOW2Volume._resize: SR: %s Key: %s New_size: %s"
+                  % (dbg, sr, key, new_size))
+
+        # TODO: Implement overhead calculation for QCOW2 format
+        new_size = utils.validate_and_round_vhd_size(new_size)
+        new_rbd_size = utils.fullSizeVHD(new_size)
+
+        ceph_cluster = ceph_utils.connect(dbg, sr)
+
+        uri = "%s/%s" % (sr, key)
+        image_name = "%s%s/%s%s" % (utils.RBDPOOL_PREFIX,
+                                    utils.get_sr_uuid_by_uri(dbg, sr),
+                                    utils.VDI_PREFIXES[utils.get_vdi_type_by_uri(dbg, uri)],
+                                    key)
+
+        try:
+            rbd_utils.resize(dbg, ceph_cluster, image_name, new_rbd_size)
+        except Exception:
+            raise Volume_does_not_exist(key)
+        finally:
+            ceph_utils.disconnect(dbg, ceph_cluster)
+
+        #nbd_device = call(dbg, ["/usr/bin/rbd",
+        #                        "nbd",
+        #                        "map",
+        #                        image_name]).rstrip('\n')
+
+        call(dbg, ["/usr/lib64/qemu-dp/bin/qemu-img",
+                   "resize",
+                   "rbd:%s" % image_name,
+                   str(new_size)])
+
+        #call(dbg, ["/usr/bin/rbd",
+        #           "nbd",
+        #           "unmap",
+        #           nbd_device])
+
+    @classmethod
     def _create(cls, dbg, sr, name, description, size, sharable, image_meta):
-        log.debug("%s: librbd.QCOW2Volume.create: SR: %s Name: %s Description: %s Size: %s"
+        log.debug("%s: librbd.QCOW2Volume._create: SR: %s Name: %s Description: %s Size: %s"
                   % (dbg, sr, name, description, size))
 
         image_meta[meta.TYPE_TAG] = utils.get_vdi_type_by_uri(dbg, image_meta[meta.URI_TAG][0])

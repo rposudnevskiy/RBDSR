@@ -14,6 +14,7 @@ NBD_CLIENT = "/usr/sbin/nbd-client"
 
 IMAGE_TYPES = ['qcow2', 'qcow', 'vhdx', 'vpc', 'raw']
 ROOT_NODE_NAME = 'qemu_node'
+SNAP_NODE_NAME = 'snap_node'
 RBD_NODE_NAME = 'rbd_node'
 
 
@@ -133,6 +134,36 @@ class Qemudisk(object):
             raise Volume_does_not_exist(self.vdi_uuid)
         finally:
             _qmp_.close()
+
+    def snap(self, dbg, snap_uri):
+        log.debug("%s: qemudisk.Qemudisk.snap: vdi_uuid %s pid %d qmp_sock %s snap_uri %s"
+                  % (dbg, self.vdi_uuid, self.pid, self.qmp_sock, snap_uri))
+
+        if self.vdi_type != 'qcow2':
+            raise Exception('Incorrect VDI type')
+
+        _qmp_ = qmp.QEMUMonitorProtocol(self.qmp_sock)
+        _qmp_.connect()
+
+        args = {'driver': 'qcow2',
+                'cache': {'direct': True, 'no-flush': True},
+                #'discard': 'unmap',
+
+                'file': {'driver': 'rbd',
+                         'pool': utils.get_pool_name_by_uri(dbg, snap_uri),
+                         'image': utils.get_image_name_by_uri(dbg, snap_uri)},
+                         # 'node-name': RBD_NODE_NAME},
+                'node-name': SNAP_NODE_NAME,
+                'backing': ''}
+
+        _qmp_.command('blockdev-add', **args)
+
+        args = {'node': ROOT_NODE_NAME,
+                'overlay': SNAP_NODE_NAME}
+
+        _qmp_.command('blockdev-snapshot', **args)
+
+        _qmp_.close()
 
     def suspend(self, dbg):
         log.debug("%s: qemudisk.Qemudisk.suspend: vdi_uuid %s pid %d qmp_sock %s"

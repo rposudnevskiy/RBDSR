@@ -2,7 +2,7 @@
 
 import utils
 import subprocess
-from xapi.storage.libs.librbd import tapdisk, qemudisk, meta
+from xapi.storage.libs.librbd import qemudisk, meta
 from xapi.storage import log
 from xapi.storage.libs.util import get_current_host_uuid
 
@@ -157,6 +157,17 @@ class Datapath(object):
 
         cls._resume(dbg, uri, domain)
 
+    @classmethod
+    def _snapshot(cls, dbg, base_uri, snap_uri, domain):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    @classmethod
+    def snapshot(cls, dbg, base_uri, snap_uri, domain):
+        log.debug("%s: librbd.Datapath.snapshot: base_uri: %s snap_uri: %s domain: %s"
+                  % (dbg, base_uri, snap_uri, domain))
+
+        cls._snapshot(dbg, base_uri, snap_uri, domain)
+
 
 class QdiskDatapath(Datapath):
 
@@ -259,6 +270,15 @@ class QdiskDatapath(Datapath):
         qemu_dp = cls._load_qemu_dp(dbg, uri, domain)
 
         qemu_dp.resume(dbg)
+
+    @classmethod
+    def _snapshot(cls, dbg, base_uri, snap_uri, domain):
+        log.debug("%s: librbd.QdiskDatapath._snapshot: base_uri: %s snap_uri: %s domain: %s"
+                  % (dbg, base_uri, snap_uri, domain))
+
+        qemu_dp = cls._load_qemu_dp(dbg, base_uri, domain)
+
+        qemu_dp.snap(dbg, snap_uri)
 
 # class TapdiskDatapath(Datapath):
 #
