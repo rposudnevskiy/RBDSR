@@ -5,6 +5,7 @@ from __future__ import division
 import os.path
 import sys
 import copy
+import json
 import platform
 
 if platform.linux_distribution()[1] == '7.5.0':
@@ -110,8 +111,60 @@ class Implementation(SR_skeleton):
 
         return result
 
-    def create(self, dbg, sr_uuid, uri, name, description):
-        return None
+    def create(self, dbg, sr_uuid, configuration, name, description):
+        log.debug("%s: SR.create: sr_uuid %s configuration %s name %s description: %s" % (dbg, sr_uuid, configuration,
+                                                                                          name, description))
+
+        uri = "rbd+%s+%s://%s/%s" % (configuration['image-format'],
+                                     configuration['datapath'],
+                                     configuration['cluster'],
+                                     sr_uuid)
+
+        ceph_cluster = ceph_utils.connect(dbg, uri)
+
+        ceph_pool_name = utils.get_pool_name_by_uri(uri)
+
+        if ceph_cluster.pool_exists(ceph_pool_name):
+            raise Exception("Pool %s already exists" % ceph_pool_name)
+
+        try:
+            ceph_cluster.create_pool(ceph_pool_name)
+        except Exception:
+            ceph_utils.disconnect(dbg, ceph_cluster)
+            log.debug("%s: SR.create: Failed to create SR - sr_uuid: %s" % (dbg, sr_uuid))
+            raise Exception("Failed to create pool %s" % ceph_pool_name)
+
+        try:
+            rbd_utils.create(dbg, ceph_cluster,
+                             '%s/%s' % (utils.get_pool_name_by_uri(dbg, uri), utils.SR_METADATA_IMAGE_NAME), 0)
+        except:
+            try:
+                ceph_cluster.delete_pool(ceph_pool_name)
+            except Exception:
+                ceph_utils.disconnect(dbg, ceph_cluster)
+                raise Exception
+            ceph_utils.disconnect(dbg, ceph_cluster)
+            log.debug("%s: SR.create: Failed to create SR metadata image - sr_uuid: %s" % (dbg, sr_uuid))
+            raise Exception("Failed to create pool metadata image %s" % ceph_pool_name)
+
+        configuration['sr_uuid'] = sr_uuid
+
+        pool_meta = {
+            meta.SR_UUID_TAG: sr_uuid,
+            meta.NAME_TAG: name,
+            meta.DESCRIPTION_TAG: description,
+            meta.CONFIGURATION_TAG: json.dumps(configuration)
+        }
+
+        try:
+            meta.RBDMetadataHandler.update(dbg, '%s/%s' % (uri, utils.SR_METADATA_IMAGE_NAME), pool_meta, False)
+        except Exception:
+            ceph_utils.disconnect(dbg, ceph_cluster)
+            raise Exception("Failed to update pool metadata %s" % ceph_pool_name)
+
+        ceph_utils.disconnect(dbg, ceph_cluster)
+
+        return configuration
 
     def attach(self, dbg, configuration):
         log.debug("%s: SR.attach: configuration: %s" % (dbg, configuration))
@@ -154,7 +207,21 @@ class Implementation(SR_skeleton):
         ceph_utils.disconnect(dbg, ceph_cluster)
 
     def destroy(self, dbg, uri):
-        return None
+        log.debug("%s: SR.destroy: uri: %s" % (dbg, uri))
+
+        ceph_cluster = ceph_utils.connect(dbg, uri)
+
+        ceph_pool_name = utils.get_pool_name_by_uri(dbg, uri)
+
+        if not ceph_cluster.pool_exists(ceph_pool_name):
+            raise Exception("Ceph pool %s does not exist ")
+
+        try:
+            ceph_cluster.delete_pool(ceph_pool_name)
+        except Exception:
+            raise Exception("Failed to delete ceph pool %s" % ceph_pool_name)
+        finally:
+            ceph_utils.disconnect(dbg, ceph_cluster)
 
     def stat(self, dbg, uri):
         log.debug("%s: SR.stat: uri: %s" % (dbg, uri))
