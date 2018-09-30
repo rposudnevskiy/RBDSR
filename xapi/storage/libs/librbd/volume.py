@@ -429,13 +429,11 @@ class QCOW2Volume(Volume):
                 rbd_utils.create(dbg, ceph_cluster, base_name, rbd_size)
                 rbd_utils.create(dbg, ceph_cluster, clone_name, rbd_size)
 
-                base_nbd_device = call(dbg, ["/usr/bin/rbd",
-                                             "nbd",
+                base_nbd_device = call(dbg, ["/usr/bin/rbd-nbd",
                                              "map",
                                              base_name]).rstrip('\n')
 
-                clone_nbd_device = call(dbg, ["/usr/bin/rbd",
-                                              "nbd",
+                clone_nbd_device = call(dbg, ["/usr/bin/rbd-nbd",
                                               "map",
                                               clone_name]).rstrip('\n')
 
@@ -451,13 +449,11 @@ class QCOW2Volume(Volume):
                            "-b", "rbd:%s" % new_base_name,
                            clone_nbd_device])
 
-                call(dbg, ["/usr/bin/rbd",
-                           "nbd",
+                call(dbg, ["/usr/bin/rbd-nbd",
                            "unmap",
                            clone_nbd_device])
 
-                call(dbg, ["/usr/bin/rbd",
-                           "nbd",
+                call(dbg, ["/usr/bin/rbd-nbd",
                            "unmap",
                            base_nbd_device])
 
@@ -489,8 +485,7 @@ class QCOW2Volume(Volume):
 
                 rbd_utils.create(dbg, ceph_cluster, clone_name, rbd_size)
 
-                clone_nbd_device = call(dbg, ["/usr/bin/rbd",
-                                              "nbd",
+                clone_nbd_device = call(dbg, ["/usr/bin/rbd-nbd",
                                               "map",
                                               clone_name]).rstrip('\n')
 
@@ -500,8 +495,7 @@ class QCOW2Volume(Volume):
                            "-b", "rbd:%s" % base_name,
                            clone_nbd_device])
 
-                call(dbg, ["/usr/bin/rbd",
-                           "nbd",
+                call(dbg, ["/usr/bin/rbd-nbd",
                            "unmap",
                            clone_nbd_device])
 
@@ -555,8 +549,7 @@ class QCOW2Volume(Volume):
         finally:
             ceph_utils.disconnect(dbg, ceph_cluster)
 
-        #nbd_device = call(dbg, ["/usr/bin/rbd",
-        #                        "nbd",
+        #nbd_device = call(dbg, ["/usr/bin/rbd-nbd",
         #                        "map",
         #                        image_name]).rstrip('\n')
 
@@ -565,8 +558,7 @@ class QCOW2Volume(Volume):
                    "rbd:%s" % image_name,
                    str(new_size)])
 
-        #call(dbg, ["/usr/bin/rbd",
-        #           "nbd",
+        #call(dbg, ["/usr/bin/rbd-nbd",
         #           "unmap",
         #           nbd_device])
 
@@ -611,8 +603,7 @@ class QCOW2Volume(Volume):
         #                      "--exportname",
         #                      "qemu_node"])
 
-        nbd_device = call(dbg, ["/usr/bin/rbd",
-                                "nbd",
+        nbd_device = call(dbg, ["/usr/bin/rbd-nbd",
                                 "map",
                                 image_name]).rstrip('\n')
 
@@ -622,8 +613,7 @@ class QCOW2Volume(Volume):
                    nbd_device,
                    str(size)])
 
-        call(dbg, ["/usr/bin/rbd",
-                   "nbd",
+        call(dbg, ["/usr/bin/rbd-nbd",
                    "unmap",
                    nbd_device])
 
