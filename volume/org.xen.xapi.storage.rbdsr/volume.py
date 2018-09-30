@@ -2,13 +2,19 @@
 
 import os
 import sys
-import xapi.storage.api.v4.volume
+import platform
+
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.volume import Volume_skeleton, Volume_commandline, Unimplemented
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.volume import Volume_skeleton, Volume_commandline, Unimplemented
+
 from xapi.storage import log
 from xapi.storage.libs.librbd import utils
 
 from xapi.storage.libs.librbd.volume import RAWVolume, QCOW2Volume
 
-class Implementation(xapi.storage.api.v4.volume.Volume_skeleton):
+class Implementation(Volume_skeleton):
 
     def create(self, dbg, sr, name, description, size, sharable):
         log.debug("%s: Volume.create: SR: %s Name: %s Description: %s Size: %s"
@@ -108,7 +114,7 @@ class Implementation(xapi.storage.api.v4.volume.Volume_skeleton):
 if __name__ == "__main__":
     """Parse the arguments and call the required command"""
     log.log_call_argv()
-    cmd = xapi.storage.api.v4.volume.Volume_commandline(Implementation())
+    cmd = Volume_commandline(Implementation())
     base = os.path.basename(sys.argv[0])
     if base == "Volume.create":
         cmd.create()
@@ -143,4 +149,4 @@ if __name__ == "__main__":
 #    elif base == "Volume.list_changed_blocks":
 #        cmd.list_changed_blocks()
     else:
-        raise xapi.storage.api.v4.volume.Unimplemented(base)
+        raise Unimplemented(base)

@@ -5,14 +5,17 @@ Datapath for RBD using QEMU qdisk
 
 import os
 import sys
-import xapi.storage.api.v4.datapath
-import xapi.storage.api.v4.volume
+
+import platform
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.datapath import Datapath_skeleton, Datapath_commandline, Unimplemented
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.datapath import Datapath_skeleton, Datapath_commandline, Unimplemented
 
 from xapi.storage.libs.librbd.datapath import QdiskDatapath
-
 from xapi.storage import log
 
-class Implementation(xapi.storage.api.v4.datapath.Datapath_skeleton):
+class Implementation(Datapath_skeleton):
     """
     Datapath implementation
     """
@@ -43,7 +46,7 @@ class Implementation(xapi.storage.api.v4.datapath.Datapath_skeleton):
 
 if __name__ == "__main__":
     log.log_call_argv()
-    CMD = xapi.storage.api.v4.datapath.Datapath_commandline(Implementation())
+    CMD = Datapath_commandline(Implementation())
     CMD_BASE = os.path.basename(sys.argv[0])
     if CMD_BASE == "Datapath.activate":
         CMD.activate()
@@ -58,4 +61,4 @@ if __name__ == "__main__":
     elif CMD_BASE == "Datapath.open":
         CMD.open()
     else:
-        raise xapi.storage.api.v4.datapath.Unimplemented(CMD_BASE)
+        raise Unimplemented(CMD_BASE)

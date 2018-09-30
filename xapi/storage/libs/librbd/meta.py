@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 
 from xapi.storage.libs.librbd import utils, ceph_utils, rbd_utils
-
 from xapi.storage import log
-from xapi.storage.api.v4.volume import Volume_does_not_exist
+
+import platform
+
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.volume import Volume_does_not_exist
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.volume import Volume_does_not_exist
 
 # define tags for metadata
 UUID_TAG = 'uuid'

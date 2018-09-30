@@ -6,8 +6,14 @@ from xapi.storage.libs.librbd import utils, ceph_utils, rbd_utils, meta
 import copy
 
 from xapi.storage import log
-from xapi.storage.api.v4.volume import Volume_does_not_exist
-from xapi.storage.api.v4.volume import Activated_on_another_host
+
+import platform
+
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.volume import Volume_does_not_exist, Activated_on_another_host
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.volume import Volume_does_not_exist, Activated_on_another_host
+
 from xapi.storage.libs.util import get_current_host_uuid, call
 
 # TODO: We should import correct datapath depend on image uri

@@ -3,8 +3,13 @@
 import subprocess
 import qmp
 import os
+import platform
 
-from xapi.storage.api.v4.volume import Volume_does_not_exist
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.volume import Volume_does_not_exist
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.volume import Volume_does_not_exist
+
 from xapi.storage import log
 from xapi.storage.libs.util import call
 from xapi.storage.libs.librbd import utils

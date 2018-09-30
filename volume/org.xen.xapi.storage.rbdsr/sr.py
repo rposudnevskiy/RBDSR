@@ -5,14 +5,21 @@ from __future__ import division
 import os.path
 import sys
 import copy
+import platform
 
-import xapi.storage.api.v4.volume
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.volume import SR_skeleton, Sr_not_attached, Volume_does_not_exist,\
+        SR_commandline, Unimplemented
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.volume import SR_skeleton, Sr_not_attached, Volume_does_not_exist,\
+        SR_commandline, Unimplemented
+
 from xapi.storage import log
 
 from xapi.storage.libs.librbd import utils, ceph_utils, rbd_utils, meta
 
 
-class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
+class Implementation(SR_skeleton):
 
     def probe(self, dbg, configuration):
         log.debug("{}: SR.probe: configuration={}".format(dbg, configuration))
@@ -121,7 +128,7 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
         log.debug("%s: SR.attach: sr_uuid: %s uri: %s" % (dbg, configuration['sr_uuid'], uri))
 
         if not ceph_cluster.pool_exists(utils.get_pool_name_by_uri(dbg, uri)):
-            raise xapi.storage.api.v4.volume.Sr_not_attached(configuration['sr_uuid'])
+            raise Sr_not_attached(configuration['sr_uuid'])
 
         # Create pool metadata image if it doesn't exist
         log.debug("%s: SR.attach: name: %s/%s" % (dbg, utils.get_pool_name_by_uri(dbg, uri), utils.SR_METADATA_IMAGE_NAME))
@@ -142,7 +149,7 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
         log.debug("%s: SR.detach: sr_uuid: %s" % (dbg, sr_uuid))
 
         if not ceph_cluster.pool_exists(utils.get_pool_name_by_uri(dbg, uri)):
-            raise xapi.storage.api.v4.volume.Sr_not_attached(sr_uuid)
+            raise Sr_not_attached(sr_uuid)
 
         ceph_utils.disconnect(dbg, ceph_cluster)
 
@@ -195,7 +202,7 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
         try:
             meta.RBDMetadataHandler.update(dbg, '%s/%s' % (uri, utils.SR_METADATA_IMAGE_NAME),pool_meta, False)
         except Exception:
-            raise xapi.storage.api.v4.volume.Volume_does_not_exist(uri)
+            raise Volume_does_not_exist(uri)
         finally:
             ceph_utils.disconnect(dbg, ceph_cluster)
 
@@ -212,7 +219,7 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
         try:
             meta.RBDMetadataHandler.update(dbg, '%s/%s' % (uri, utils.SR_METADATA_IMAGE_NAME), pool_meta, False)
         except Exception:
-            raise xapi.storage.api.v4.volume.Volume_does_not_exist(uri)
+            raise Volume_does_not_exist(uri)
         finally:
             ceph_utils.disconnect(dbg, ceph_cluster)
 
@@ -251,14 +258,14 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
                 #log.debug("%s: SR.ls: Result: %s" % (dbg, results))
             return results
         except Exception:
-            raise xapi.storage.api.v4.volume.Volume_does_not_exist(key)
+            raise Volume_does_not_exist(key)
         finally:
             ceph_utils.disconnect(dbg, ceph_cluster)
 
 
 if __name__ == "__main__":
     log.log_call_argv()
-    cmd = xapi.storage.api.v4.volume.SR_commandline(Implementation())
+    cmd = SR_commandline(Implementation())
     base = os.path.basename(sys.argv[0])
     if base == 'SR.probe':
         cmd.probe()
@@ -279,5 +286,5 @@ if __name__ == "__main__":
     elif base == 'SR.set_description':
         cmd.set_description()
     else:
-        raise xapi.storage.api.v4.volume.Unimplemented(base)
+        raise Unimplemented(base)
 

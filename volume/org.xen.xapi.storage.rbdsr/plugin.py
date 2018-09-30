@@ -2,11 +2,17 @@
 
 import os
 import sys
-import xapi.storage.api.v4.plugin
+import platform
+
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.plugin import Plugin_skeleton, Plugin_commandline, Unimplemented
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.plugin import Plugin_skeleton, Plugin_commandline, Unimplemented
+
 from xapi.storage import log
 
 
-class Implementation(xapi.storage.api.v4.plugin.Plugin_skeleton):
+class Implementation(Plugin_skeleton):
 
     def diagnostics(self, dbg):
         return "No diagnostic data to report"
@@ -44,11 +50,11 @@ class Implementation(xapi.storage.api.v4.plugin.Plugin_skeleton):
 
 if __name__ == "__main__":
     log.log_call_argv()
-    cmd = xapi.storage.api.v4.plugin.Plugin_commandline(Implementation())
+    cmd = Plugin_commandline(Implementation())
     base = os.path.basename(sys.argv[0])
     if base == 'Plugin.diagnostics':
         cmd.diagnostics()
     elif base == 'Plugin.Query':
         cmd.query()
     else:
-        raise xapi.storage.api.v4.plugin.Unimplemented(base)
+        raise Unimplemented(base)

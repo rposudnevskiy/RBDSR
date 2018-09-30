@@ -2,11 +2,17 @@
 
 import os
 import sys
-import xapi.storage.api.v4.plugin
+import platform
+
+if platform.linux_distribution()[1] == '7.5.0':
+    from xapi.storage.api.v4.plugin import Plugin_skeleton, Plugin_commandline, Unimplemented
+elif platform.linux_distribution()[1] == '7.6.0':
+    from xapi.storage.api.v5.plugin import Plugin_skeleton, Plugin_commandline, Unimplemented
+
 from xapi.storage import log
 
 
-class Implementation(xapi.storage.api.v4.plugin.Plugin_skeleton):
+class Implementation(Plugin_skeleton):
 
     def query(self, dbg):
         return {
@@ -26,9 +32,9 @@ class Implementation(xapi.storage.api.v4.plugin.Plugin_skeleton):
 
 if __name__ == "__main__":
     log.log_call_argv()
-    CMD = xapi.storage.api.v4.plugin.Plugin_commandline(Implementation())
+    CMD = Plugin_commandline(Implementation())
     CMD_BASE = os.path.basename(sys.argv[0])
     if CMD_BASE == "Plugin.Query":
         CMD.query()
     else:
-        raise xapi.storage.api.v4.plugin.Unimplemented(CMD_BASE)
+        raise Unimplemented(CMD_BASE)
