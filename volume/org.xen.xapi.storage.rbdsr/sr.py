@@ -137,7 +137,7 @@ class Implementation(SR_skeleton):
         try:
             rbd_utils.create(dbg, ceph_cluster,
                              '%s/%s' % (utils.get_pool_name_by_uri(dbg, uri), utils.SR_METADATA_IMAGE_NAME), 0)
-        except:
+        except Exception:
             try:
                 ceph_cluster.delete_pool(ceph_pool_name)
             except Exception:

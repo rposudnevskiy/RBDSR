@@ -34,32 +34,10 @@ Plugin requires `qemu-dp.x86_64` ([xcp-ng-rpms/qemu-dp](https://github.com/xcp-n
 
 ## Usage
 
-1. Create a pool on your Ceph cluster to store VDI images (should be executed on Ceph cluster node). The naming convention RBD_XenStorage-<uuid> is important!:
+Create a pool:
 
-		# uuidgen
-		4ceb0f8a-1539-40a4-bee2-450a025b04e1
+		# xe sr-create host-uuid=fb0d42fc-0a4d-459d-8b90-6ed6610c2e4c name-label="CEPH RBD Storage" name-shared=true type=rbdsr content-type=user device-config:cluster=ceph device-config:image-format=qcow2 device-config:datapath=qdisk
 
-		# ceph osd pool create RBD_XenStorage-4ceb0f8a-1539-40a4-bee2-450a025b04e1 128 128 replicated
 
-2. Introduce the pool created in previous step as Storage Repository on XenServer / XCP-ng hosts:
-
-		  xe sr-introduce name-label="CEPH RBD Storage" type=rbdsr uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 shared=true content-type=user
-
-3. Run the ```xe host-list``` command to find out the host UUID for Xenserer / XCP-ng host:
-
-		# xe host-list
-		uuid ( RO) : 83f2c775-57fc-457b-9f98-2b9b0a7dbcb5
-		name-label ( RW): xenserver1
-		name-description ( RO): Default install of XenServer
-
-4. Create the PBD using the device SCSI ID, host UUID and SR UUID detected above:
-
-		# xe pbd-create sr-uuid=4ceb0f8a-1539-40a4-bee2-450a025b04e1 host-uuid=83f2c775-57fc-457b-9f98-2b9b0a7dbcb5 device-config:cluster=ceph device-config:image-format=raw device-config:datapath=qdisk
-		aec2c6fc-e1fb-0a27-2437-9862cffe213e
-
-5. Attach the PBD created with xe pbd-plug command:
-
-		# xe pbd-plug uuid=aec2c6fc-e1fb-0a27-2437-9862cffe213e
-
-	The SR should be connected to the XenServer / XCP-ng hosts and be visible in XenCenter.
+The SR should be connected to the XenServer / XCP-ng hosts and be visible in XenCenter.
  / XCP-ng Center
