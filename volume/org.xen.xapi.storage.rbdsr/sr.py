@@ -122,7 +122,7 @@ class Implementation(SR_skeleton):
 
         ceph_cluster = ceph_utils.connect(dbg, uri)
 
-        ceph_pool_name = utils.get_pool_name_by_uri(uri)
+        ceph_pool_name = utils.get_pool_name_by_uri(dbg, uri)
 
         if ceph_cluster.pool_exists(ceph_pool_name):
             raise Exception("Pool %s already exists" % ceph_pool_name)
@@ -148,6 +148,9 @@ class Implementation(SR_skeleton):
             raise Exception("Failed to create pool metadata image %s" % ceph_pool_name)
 
         configuration['sr_uuid'] = sr_uuid
+
+        if description == '':
+            description = ' '
 
         pool_meta = {
             meta.SR_UUID_TAG: sr_uuid,
