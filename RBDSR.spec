@@ -26,23 +26,23 @@ This package contains RBDSR - XenServer/XCP-ng Storage Manager plugin for CEPH
 rm -rf %{builddir}
 rm -rf %{buildroot}
 #---
-install -D -m 644 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/plugin.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.py
-install -D -m 644 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/sr.py
-install -D -m 644 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/volume.py
+install -D -m 755 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/plugin.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.py
+install -D -m 755 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/sr.py
+install -D -m 755 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/volume.py
 #---
-install -D -m 644 -o 0 -g 0 datapath/rbd+raw+qdisk/plugin.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py
-install -D -m 644 -o 0 -g 0 datapath/rbd+raw+qdisk/datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
+install -D -m 755 -o 0 -g 0 datapath/rbd+raw+qdisk/plugin.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py
+install -D -m 755 -o 0 -g 0 datapath/rbd+raw+qdisk/datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
 #---
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/__init__.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/__init__.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/ceph_utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/ceph_utils.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/datapath.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/datapath.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/meta.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/meta.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/qemudisk.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/qemudisk.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/rbd_utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/rbd_utils.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/utils.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/volume.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/volume.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/__init__.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/__init__.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/ceph_utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/ceph_utils.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/datapath.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/datapath.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/meta.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/meta.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/qemudisk.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/qemudisk.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/rbd_utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/rbd_utils.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/utils.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/volume.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/volume.py
 wget -O xapi/storage/libs/librbd/qmp.py https://github.com/qemu/qemu/raw/stable-2.10/scripts/qmp/qmp.py
-install -D -m 644 -o 0 -g 0 xapi/storage/libs/librbd/qmp.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/qmp.py
+install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/qmp.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/qmp.py
 #---
 ln -s plugin.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.diagnostics
 ln -s plugin.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.Query
