@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import utils
-import subprocess
+import platform
 from xapi.storage.libs.librbd import qemudisk, meta
 from xapi.storage import log
 from xapi.storage.libs.util import get_current_host_uuid
@@ -81,12 +81,17 @@ class Datapath(object):
         log.debug("%s: librbd.Datapath.attach: uri: %s domain: %s"
                   % (dbg, uri, domain))
 
-        protocol, params = cls._attach(dbg, uri, domain)
+        if platform.linux_distribution()[1] == '7.5.0':
+            protocol, params = cls._attach(dbg, uri, domain)
+            return {
+                'domain_uuid': '0',
+                'implementation': [protocol, params]
+            }
+        elif platform.linux_distribution()[1] == '7.6.0':
+            return {
+                'implementations': cls._attach(dbg, uri, domain)
+            }
 
-        return {
-            'domain_uuid': '0',
-            'implementation': [protocol, params]
-        }
 
     @classmethod
     def _detach(cls, dbg, uri, domain):
@@ -215,7 +220,27 @@ class QdiskDatapath(Datapath):
 
         meta.RBDMetadataHandler.update(dbg, uri, image_meta)
 
-        return (protocol, qemu_dp.params)
+        if platform.linux_distribution()[1] == '7.5.0':
+            return (protocol, qemu_dp.params)
+        elif platform.linux_distribution()[1] == '7.6.0':
+            implementations = [
+                [
+                    'XenDisk',
+                    {
+                        'backend_type': 'qdisk',
+                        'params': "vdi:{}".format(qemu_dp.vdi_uuid),
+                        'extra': {}
+                    }
+                ],
+                [
+                    'Nbd',
+                    {
+                        'uri': 'nbd:unix:{}:exportname={}'
+                            .format(qemu_dp.nbd_sock, qemudisk.ROOT_NODE_NAME)
+                    }
+                ]
+            ]
+            return (implementations)
 
     @classmethod
     def _detach(cls, dbg, uri, domain):
