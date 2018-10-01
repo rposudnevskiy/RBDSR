@@ -13,9 +13,11 @@ elif platform.linux_distribution()[1] == '7.6.0':
 from xapi.storage import log
 from xapi.storage.libs.util import call
 from xapi.storage.libs.librbd import utils
+from xapi.storage.libs.util import mkdir_p
 
 QEMU_DP = "/usr/lib64/qemu-dp/bin/qemu-dp"
 NBD_CLIENT = "/usr/sbin/nbd-client"
+QEMU_DP_SOCKET_DIR = utils.VAR_RUN_PREFIX + "qemu-dp"
 
 IMAGE_TYPES = ['qcow2', 'qcow', 'vhdx', 'vpc', 'raw']
 ROOT_NODE_NAME = 'qemu_node'
@@ -32,9 +34,10 @@ def create(dbg, uri):
     if vdi_type not in IMAGE_TYPES:
         raise Exception('Incorrect VDI type')
 
-    nbd_sock = utils.VAR_RUN_PREFIX + "/qemu-nbd.{}".format(vdi_uuid)
-    qmp_sock = utils.VAR_RUN_PREFIX + "/qmp_sock.{}".format(vdi_uuid)
-    qmp_log  = utils.VAR_RUN_PREFIX + "/qmp_log.{}".format(vdi_uuid)
+    mkdir_p(QEMU_DP_SOCKET_DIR, 0o0700)
+    nbd_sock = QEMU_DP_SOCKET_DIR + "/qemu-nbd.{}".format(vdi_uuid)
+    qmp_sock = QEMU_DP_SOCKET_DIR + "/qmp_sock.{}".format(vdi_uuid)
+    qmp_log  = QEMU_DP_SOCKET_DIR + "/qmp_log.{}".format(vdi_uuid)
     log.debug("%s: qemudisk.create: Spawning qemu process for VDI %s with qmp socket at %s"
               % (dbg, vdi_uuid, qmp_sock))
 
