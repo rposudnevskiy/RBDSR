@@ -17,7 +17,7 @@ from xapi.storage.libs.util import mkdir_p
 
 QEMU_DP = "/usr/lib64/qemu-dp/bin/qemu-dp"
 NBD_CLIENT = "/usr/sbin/nbd-client"
-QEMU_DP_SOCKET_DIR = utils.VAR_RUN_PREFIX + "qemu-dp"
+QEMU_DP_SOCKET_DIR = utils.VAR_RUN_PREFIX + "/qemu-dp"
 
 IMAGE_TYPES = ['qcow2', 'qcow', 'vhdx', 'vpc', 'raw']
 ROOT_NODE_NAME = 'qemu_node'
