@@ -32,6 +32,7 @@ install -D -m 755 -o 0 -g 0 volume/org.xen.xapi.storage.rbdsr/volume.py %{buildr
 #---
 install -D -m 755 -o 0 -g 0 datapath/rbd+raw+qdisk/plugin.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/plugin.py
 install -D -m 755 -o 0 -g 0 datapath/rbd+raw+qdisk/datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/datapath.py
+install -D -m 755 -o 0 -g 0 datapath/rbd+raw+qdisk/data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/data.py
 #---
 install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/__init__.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/__init__.py
 install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/ceph_utils.py %{buildroot}/lib/python2.7/site-packages/xapi/storage/libs/librbd/ceph_utils.py
@@ -46,6 +47,7 @@ install -D -m 755 -o 0 -g 0 xapi/storage/libs/librbd/qmp.py %{buildroot}/lib/pyt
 #---
 ln -s plugin.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.diagnostics
 ln -s plugin.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.Query
+#---
 ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.probe
 ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.attach
 ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.create
@@ -55,6 +57,7 @@ ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.sto
 ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.stat
 ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.set_description
 ln -s sr.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/SR.set_name
+#---
 ln -s volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.clone
 ln -s volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.create
 ln -s volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.destroy
@@ -66,13 +69,21 @@ ln -s volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi
 ln -s volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.stat
 ln -s volume.py %{buildroot}/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Volume.unset
 #---
+ln -s plugin.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Plugin.Query
+#---
 ln -s datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.activate
 ln -s datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.attach
 ln -s datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.close
 ln -s datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.deactivate
 ln -s datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.detach
 ln -s datapath.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Datapath.open
-ln -s plugin.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Plugin.Query
+#---
+ln -s data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Data.copy
+ln -s data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Data.mirror
+ln -s data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Data.stat
+ln -s data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Data.cancel
+ln -s data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Data.destory
+ln -s data.py %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+raw+qdisk/Data.ls
 #---
 ln -s rbd+raw+qdisk %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk
 
@@ -85,5 +96,8 @@ ln -s rbd+raw+qdisk %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+qc
 
 
 %changelog
+* Sun Oct 07 2018 rposudnevskiy <ramzes_r@yahoo.com> - 3.0-1
+- Added Data interface
+
 * Tue Sep 25 2018 rposudnevskiy <ramzes_r@yahoo.com> - 3.0-1
 - First packaging

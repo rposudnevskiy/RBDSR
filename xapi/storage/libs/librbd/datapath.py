@@ -6,6 +6,7 @@ from xapi.storage.libs.librbd import qemudisk, meta
 from xapi.storage import log
 from xapi.storage.libs.util import get_current_host_uuid
 
+
 class Datapath(object):
 
     @classmethod
@@ -305,8 +306,63 @@ class QdiskDatapath(Datapath):
 
         qemu_dp.snap(dbg, snap_uri)
 
-# class TapdiskDatapath(Datapath):
-#
-#     @staticmethod
-#     def attach_internal(dbg, uri, domain):
-#         protocol = 'Tapdisk3'
+
+class Data(object):
+
+    def _copy(cls, dbg, uri, domain, remote, blocklist):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    def copy(cls, dbg, uri, domain, remote, blocklist):
+        cls._copy(dbg, uri, domain, remote, blocklist)
+
+    def _mirror(cls, dbg, uri, domain, remote):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    def mirror(cls, dbg, uri, domain, remote):
+        cls._mirror(dbg, uri, domain, remote)
+
+    def _stat(cls, dbg, operation):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    def stat(cls, dbg, operation):
+        cls._stat(dbg, operation)
+
+    def _cancel(cls, dbg, operation):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    def cancel(cls, dbg, operation):
+        cls._cancel(dbg, operation)
+
+    def _destroy(cls, dbg, operation):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    def destroy(cls, dbg, operation):
+        cls._destroy(dbg, operation)
+
+    def _ls(cls, dbg):
+        raise NotImplementedError('Override in Datapath specifc class')
+
+    def ls(cls, dbg):
+        cls._ls(dbg)
+
+
+class QdiskData(Data):
+
+    def _copy(cls, dbg, uri, domain, remote, blocklist):
+        raise NotImplementedError('QdiskData._copy')
+
+    def _mirror(cls, dbg, uri, domain, remote):
+        raise NotImplementedError('QdiskData._mirror')
+
+    def _stat(cls, dbg, operation):
+        raise NotImplementedError('QdiskData._stat')
+
+    def _cancel(cls, dbg, operation):
+        raise NotImplementedError('QdiskData._cancel')
+
+    def _destroy(cls, dbg, operation):
+        raise NotImplementedError('QdiskData._destroy')
+
+    def _ls(cls, dbg):
+        raise NotImplementedError('QdiskData._ls')
+
