@@ -3,6 +3,7 @@
 import subprocess
 import qmp
 import os
+import re
 import platform
 
 if platform.linux_distribution()[1] == '7.5.0':
@@ -120,18 +121,32 @@ class Qemudisk(object):
         log.debug("%s: qemudisk.Qemudisk.close: vdi_uuid %s pid %d qmp_sock %s"
                   % (dbg, self.vdi_uuid, self.pid, self.qmp_sock))
 
-        try:
-            path = "{}/{}".format(utils.VAR_RUN_PREFIX, self.vdi_uuid)
-            with open(path, 'r') as f:
-                line = f.readline().strip()
-            call(dbg, ["/usr/bin/xenstore-write", line, "5"])
-            os.unlink(path)
-        except:
-            log.debug("%s: qemudisk.Qemudisk.close: There was no xenstore setup" % dbg)
-
         _qmp_ = qmp.QEMUMonitorProtocol(self.qmp_sock)
         _qmp_.connect()
 
+        if platform.linux_distribution()[1] == '7.5.0':
+            try:
+                path = "{}/{}".format(utils.VAR_RUN_PREFIX, self.vdi_uuid)
+                with open(path, 'r') as f:
+                    line = f.readline().strip()
+                call(dbg, ["/usr/bin/xenstore-write", line, "5"])
+                os.unlink(path)
+            except:
+                log.debug("%s: qemudisk.Qemudisk.close: There was no xenstore setup" % dbg)
+        elif platform.linux_distribution()[1] == '7.6.0':
+            path = "{}/{}".format(utils.VAR_RUN_PREFIX, self.vdi_uuid)
+            try:
+                with open(path, 'r') as f:
+                    line = f.readline().strip()
+                os.unlink(path)
+                args = {'type': 'qdisk',
+                        'domid': int(re.search('domain/(\d+)/',
+                                               line).group(1)),
+                        'devid': int(re.search('vbd/(\d+)/',
+                                               line).group(1))}
+                _qmp_.command(dbg, "xen-unwatch-device", **args)
+            except:
+                log.debug("%s: qemudisk.Qemudisk.close: There was no xenstore setup" % dbg)
         try:
             # Stop the NBD server
             _qmp_.command("nbd-server-stop")
