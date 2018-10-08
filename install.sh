@@ -5,6 +5,7 @@ DEFAULT_CEPH_VERSION="luminous"
 function installRepo {
   echo "Install new Repos"
   yum install -y centos-release-ceph-$1.noarch
+  echo "centos" > /etc/yum/vars/contentdir
 }
 
 # Usage: removeRepo <ceph-version>
