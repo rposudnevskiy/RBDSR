@@ -40,7 +40,7 @@ Plugin requires `qemu-dp.x86_64` ([xcp-ng-rpms/qemu-dp](https://github.com/xcp-n
 
 Create a pool:
 
-		# xe sr-create host-uuid=fb0d42fc-0a4d-459d-8b90-6ed6610c2e4c name-label="CEPH RBD Storage" name-shared=true type=rbdsr content-type=user device-config:cluster=ceph device-config:image-format=qcow2 device-config:datapath=qdisk
+		# xe sr-create host-uuid=fb0d42fc-0a4d-459d-8b90-6ed6610c2e4c name-label="CEPH RBD Storage" shared=true type=rbdsr content-type=user device-config:cluster=ceph device-config:image-format=qcow2 device-config:datapath=qdisk
 
 
 The SR should be connected to the XenServer / XCP-ng hosts and be visible in XenCenter.
