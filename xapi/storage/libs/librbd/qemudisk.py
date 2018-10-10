@@ -35,7 +35,11 @@ def create(dbg, uri):
     if vdi_type not in IMAGE_TYPES:
         raise Exception('Incorrect VDI type')
 
-    mkdir_p(QEMU_DP_SOCKET_DIR, 0o0700)
+    if platform.linux_distribution()[1] == '7.5.0':
+        mkdir_p(QEMU_DP_SOCKET_DIR)
+    elif platform.linux_distribution()[1] == '7.6.0':
+        mkdir_p(QEMU_DP_SOCKET_DIR, 0o0700)
+    
     nbd_sock = QEMU_DP_SOCKET_DIR + "/qemu-nbd.{}".format(vdi_uuid)
     qmp_sock = QEMU_DP_SOCKET_DIR + "/qmp_sock.{}".format(vdi_uuid)
     qmp_log  = QEMU_DP_SOCKET_DIR + "/qmp_log.{}".format(vdi_uuid)
