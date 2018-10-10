@@ -197,7 +197,7 @@ case $1 in
         if [ -z "$2" ]; then
             install "$DEFAULT_CEPH_VERSION"
         else
-           if (echo "$2"|egrep -q "^jewel$|^kraken$|^luminous$"); then
+           if (echo "$2"|egrep -q "^jewel$|^kraken$|^luminous$|^mimic$"); then
                 echo "[ERROR]: Unsupported Ceph version specified '$2'"
                 exit 1
             else
@@ -229,7 +229,7 @@ case $1 in
         fi
         ;;
     *)
-        echo "Usage: $0 install|deinstall [jewel|kraken|luminous]"
+        echo "Usage: $0 install|deinstall [jewel|kraken|luminous|mimic]"
         exit 1
         ;;
 esac
