@@ -1,16 +1,60 @@
 #!/bin/bash
 DEFAULT_CEPH_VERSION="luminous"
 
-# Usage: installRepo <ceph-version>
-function installRepo {
+# Usage: installCephRepo <ceph-version>
+function installCephRepo {
   echo "Install new Repos"
-  yum install -y centos-release-ceph-$1.noarch
+  yum install --enablerepo="extras,base" -y centos-release-ceph-$1.noarch
   echo "centos" > /etc/yum/vars/contentdir
 }
 
-# Usage: removeRepo <ceph-version>
-function removeRepo {
+# Usage: removeCephRepo <ceph-version>
+function removeCephRepo {
   yum erase -y centos-release-ceph-$1.noarch
+}
+
+# Usage: removeXCPngRepo
+function removeXCPngRepo {
+  rm -f /etc/yum.repos.d/xcp-ng.repo
+}
+
+# Usage: installXCPngRepo
+function installXCPngRepo {
+  major_version=`cat /etc/centos-release | awk '{print $3}' | awk -F. '{print $1}'`
+  major_minor_version=`cat /etc/centos-release | awk '{print $3}' | awk -F. '{print $1"."$2}'`
+  cat << EOF >/etc/yum.repos.d/xcp-ng.repo
+[xcp-ng-extras_testing]
+name=XCP-ng Extras Testing Repository
+baseurl=https://updates.xcp-ng.org/${major_version}/${major_minor_version}/extras_testing/x86_64/
+enabled=0
+gpgcheck=0
+EOF
+}
+
+# Usage: confirmInstallation
+function confirmInstallation {
+  echo "This script is going to install 'xcp-ng-extras_testing' repository"
+  echo "and upgrade 'glibc' and 'qemu-dp' packages."
+  echo "Please note that Ceph support is experimental and can lead to"
+  echo "an unstable system and data loss"
+  default='no'
+  while true; do
+    read -p "Continue? (y[es]/n[o]) [${default}]: " yesorno
+    if [ -z ${yesorno} ];then
+      yesorno=${default}
+    fi
+    case ${yesorno} in
+      yes|y)
+            ret=0
+            break
+            ;;
+       no|n)
+            ret=1
+            break
+            ;;
+    esac
+  done
+  return ${ret}
 }
 
 # Usage: setReposEnabled <repo filename> <section name> <0|1>
@@ -59,12 +103,20 @@ function unconfigureFirewall {
 
 function installCeph {
   echo "Install Ceph API"
-  yum install -y python-rbd rbd-nbd
+  yum install --enablerepo="extras,base" -y python-rbd rbd-nbd
 }
 
 function uninstallCeph {
   echo "Uninstall Ceph API"
   yum erase -y python-rbd rbd-nbd
+}
+
+function upgradeDeps {
+  yum install --enablerepo="xcp-ng-extras_testing*" -y qemu-dp
+}
+
+function downgradeDeps {
+  yum history undo -y `yum history packages-list qemu-dp | head -4 | tail -1 | awk -F\| '{gsub(/ /, "", $0); print $1}'`
 }
 
 function installFiles {
@@ -171,48 +223,50 @@ function removeFiles {
   }
 
 function install {
-  setReposEnabled "CentOS-Base.repo" "base" 1
-  setReposEnabled "CentOS-Base.repo" "extras" 1
-  installRepo $1
+  installCephRepo $1
   installCeph
-  setReposEnabled "CentOS-Base.repo" "base" 0
-  setReposEnabled "CentOS-Base.repo" "extras" 0
   installFiles
+  installXCPngRepo
+  upgradeDeps
   configureFirewall
 }
 
 function deinstall {
   unconfigureFirewall
+  downgradeDeps
+  removeXCPngRepo
   removeFiles
   uninstallCeph
-  removeRepo $1
+  removeCephRepo $1
 }
 
 case $1 in
     install)
-        if [ -z "$2" ]; then
-            install $DEFAULT_CEPH_VERSION
-        else
-            if [ -z `echo $2|egrep "^jewel$|^kraken$|^luminous$|^mimic$"` ]; then
-                echo "[ERROR]: Unsupported Ceph version specified '$2'"
-                exit 1
+        if confirmInstallation; then
+            if [ -z "$2" ]; then
+                install ${DEFAULT_CEPH_VERSION}
             else
-                install $2
+                if [ -z `echo $2|egrep "^jewel$|^kraken$|^luminous$|^mimic$"` ]; then
+                    echo "[ERROR]: Unsupported Ceph version specified '$2'"
+                    exit 1
+                else
+                    install $2
+                fi
             fi
         fi
         ;;
     deinstall)
         CEPH_INSTALLED_VERSION=`ls /etc/yum.repos.d/ | awk 'match($0, /CentOS-Ceph-(.*).repo/, a) {print a[1]}' | awk '{print tolower($0)}'`
-        if [ -z "$CEPH_INSTALLED_VERSION" ]; then
+        if [ -z "${CEPH_INSTALLED_VERSION}" ]; then
             echo "[ERROR]: Can't determine installed version of Ceph."
             echo "         RBDSR plugin is not installed or corrupted."
             exit 2
         fi
         if [ -z "$2" ]; then
-            deinstall $CEPH_INSTALLED_VERSION
+            deinstall ${CEPH_INSTALLED_VERSION}
         else
-            if [ "$2" != "$CEPH_INSTALLED_VERSION" ]; then
-                echo "[ERROR]: Installed version of Ceph is '$CEPH_INSTALLED_VERSION'"
+            if [ "$2" != "${CEPH_INSTALLED_VERSION}" ]; then
+                echo "[ERROR]: Installed version of Ceph is '${CEPH_INSTALLED_VERSION}'"
                 exit 3
             else
                 deinstall $2
