@@ -113,9 +113,11 @@ function uninstallCeph {
 
 function upgradeDeps {
   yum install --enablerepo="xcp-ng-extras_testing*" -y qemu-dp
+  yum install --enablerepo="extras,base" -y glibc-2.17-222.el7
 }
 
 function downgradeDeps {
+  yum history undo -y `yum history packages-list glibc | head -4 | tail -1 | awk -F\| '{gsub(/ /, "", $0); print $1}'`
   yum history undo -y `yum history packages-list qemu-dp | head -4 | tail -1 | awk -F\| '{gsub(/ /, "", $0); print $1}'`
 }
 

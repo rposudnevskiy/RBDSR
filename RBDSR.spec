@@ -11,6 +11,7 @@ Requires: python-rbd
 Requires: rbd-nbd
 Requires: qemu
 Requires: qemu-dp
+Requires: glibc >= 2.17-222.el7
 %undefine _disable_source_fetch
 Source0: https://github.com/rposudnevskiy/%{name}/archive/v%{version}.zip
 
@@ -96,6 +97,9 @@ ln -s rbd+raw+qdisk %{buildroot}/usr/libexec/xapi-storage-script/datapath/rbd+qc
 
 
 %changelog
+* Sun Oct 07 2018 rposudnevskiy <ramzes_r@yahoo.com> - 3.0-1
+- Added requirements for glibc >= 2.17-222.el7 (Issue #88)
+
 * Sun Oct 07 2018 rposudnevskiy <ramzes_r@yahoo.com> - 3.0-1
 - Added Data interface
 
