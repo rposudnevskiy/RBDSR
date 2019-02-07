@@ -49,8 +49,3 @@ Temporary Items
 .idea
 *.komodoproject
 .komodotools
-
-datapath/rbd/ceph_utils.py
-datapath/rbd/qmp.py
-datapath/rbd/rbd_utils.py
-datapath/rbd/utils
