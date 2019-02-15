@@ -1,20 +1,11 @@
 #!/usr/bin/env python
 
-from time import time, sleep
-from json import dumps, loads
+from time import time
 from struct import pack, unpack
-
 from xapi.storage import log
-
-from tinydb import TinyDB, where
-from tinydb.storages import MemoryStorage
-
-from xapi.storage.libs.xcpng.meta import MetadataHandler as _MetadataHandler_
 from xapi.storage.libs.xcpng.meta import MetaDBOperations as _MetaDBOperations_
-
 from xapi.storage.libs.xcpng.utils import get_sr_name_by_uri, get_cluster_name_by_uri
-from xapi.storage.libs.xcpng.librbd.rbd_utils import ceph_cluster, \
-                                                     rbd_create, rbd_write, rbd_read, rbd_remove, \
+from xapi.storage.libs.xcpng.librbd.rbd_utils import ceph_cluster, rbd_create, rbd_write, rbd_read, rbd_remove, \
                                                      rbd_lock, rbd_unlock
 
 CEPH_CLUSTER_TAG = 'cluster'
@@ -29,15 +20,14 @@ class MetaDBOperations(_MetaDBOperations_):
         log.debug("%s: xcpng.librbd.meta.MetaDBOpeations.create: uri: %s" % (dbg, uri))
 
         cluster = ceph_cluster(dbg, get_cluster_name_by_uri(dbg, uri))
-        db = TinyDB(storage=MemoryStorage, default_table='sr')
+        data = '{"sr": {}}'
 
         try:
             cluster.connect()
-            rbd_create(dbg, cluster, get_sr_name_by_uri(dbg, uri), '__meta__', 8388608) # size = 8M
+            rbd_create(dbg, cluster, get_sr_name_by_uri(dbg, uri), '__meta__', 8388608)  # size = 8M
             rbd_create(dbg, cluster, get_sr_name_by_uri(dbg, uri), '__lock__', 0)
-            data = dumps(db._storage.read())
             length = len(data)
-            rbd_write(dbg, cluster, get_sr_name_by_uri(dbg, uri) , '__meta__', pack("!I%ss" % length, length, data), 0, length+4)
+            rbd_write(dbg, cluster, get_sr_name_by_uri(dbg, uri), '__meta__', pack("!I%ss" % length, length, data), 0, length+4)
         except Exception as e:
             log.debug("%s: xcpng.librbd.meta.MetaDBOpeations.create: Failed to create MetaDB: uri: %s"
                       % (dbg, uri))
@@ -66,15 +56,12 @@ class MetaDBOperations(_MetaDBOperations_):
         log.debug("%s: xcpng.libsbd.meta.MetaDBOpeations.load: uri: %s" % (dbg, uri))
 
         cluster = ceph_cluster(dbg, get_cluster_name_by_uri(dbg, uri))
-        db = TinyDB(storage=MemoryStorage, default_table='sr')
 
         try:
             cluster.connect()
             length = unpack('!I', rbd_read(dbg, cluster, get_sr_name_by_uri(dbg, uri), '__meta__', 0, 4))[0]
             data = unpack('!%ss' % length, rbd_read(dbg, cluster, get_sr_name_by_uri(dbg, uri), '__meta__', 4, length))[0]
-            log.debug("%s: xcpng.librbd.meta.MetaDBOpeations.load: data: %s" % (dbg, data   ))
-            db._storage.write(loads(data))
-            return db
+            return data
         except Exception as e:
             log.debug("%s: xcpng.librbd.meta.MetaDBOpeations.load: Failed to load MetaDB: uri: %s"
                       % (dbg, uri))
@@ -82,21 +69,19 @@ class MetaDBOperations(_MetaDBOperations_):
         finally:
             cluster.shutdown()
 
-    def dump(self, dbg, uri, db):
+    def dump(self, dbg, uri, json):
         log.debug("%s: xcpng.libsbd.meta.MetaDBOpeations.dump: uri: %s" % (dbg, uri))
 
         cluster = ceph_cluster(dbg, get_cluster_name_by_uri(dbg, uri))
 
         try:
-            data = dumps(db._storage.read())
-            length = len(data)
+            length = len(json)
             cluster.connect()
-            log.debug("%s: xcpng.librbd.meta.MetaDBOpeations.dump: data: %s" % (dbg, data))
             rbd_write(dbg,
                       cluster,
                       get_sr_name_by_uri(dbg, uri),
                       '__meta__',
-                      pack("!I%ss" % length, length, data),
+                      pack("!I%ss" % length, length, json),
                       0,
                       length + 4)
         except Exception as e:
@@ -141,9 +126,3 @@ class MetaDBOperations(_MetaDBOperations_):
         rbd_unlock(dbg, self.lh)
         self.lh[0].shutdown()
         self.lh = None
-
-
-class MetadataHandler(_MetadataHandler_):
-
-    def __init__(self):
-        self.MetaDBOpsHendler = MetaDBOperations()

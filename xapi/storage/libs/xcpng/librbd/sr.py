@@ -1,26 +1,20 @@
 #!/usr/bin/env python
 
-from os import system, path
-
 from xapi.storage import log
-
-from xapi.storage.libs.xcpng.sr import Implementation
 from xapi.storage.libs.xcpng.sr import SROperations as _SROperations_
-from xapi.storage.libs.xcpng.sr import SR as _SR_
-
 from xapi.storage.libs.xcpng.utils import POOL_PREFIX, SR_PATH_PREFIX, VDI_PREFIXES, \
                                           get_sr_type_by_uri, get_sr_uuid_by_uri, mkdir_p, get_vdi_type_by_uri, \
                                           get_sr_name_by_uri, get_cluster_name_by_uri, get_sr_uuid_by_name
-from xapi.storage.libs.xcpng.librbd.meta import MetadataHandler, CEPH_CLUSTER_TAG
+from xapi.storage.libs.xcpng.librbd.meta import CEPH_CLUSTER_TAG
 from xapi.storage.libs.xcpng.librbd.rbd_utils import get_config_files_list, pool_list, rbd_list, ceph_cluster
+
 
 class SROperations(_SROperations_):
 
     def __init__(self):
-        super(SROperations, self).__init__()
         self.DEFAULT_SR_NAME = '<Ceph RBD SR>'
         self.DEFAULT_SR_DESCRIPTION = '<Ceph RBD SR>'
-        self.MetadataHandler = MetadataHandler()
+        super(SROperations, self).__init__()
 
     def extend_uri(self, dbg, uri, configuration):
         log.debug("%s: xcpng.librbd.sr.SROperations.extend_uri: uri: %s configuration %s" % (dbg, uri, configuration))
@@ -29,29 +23,6 @@ class SROperations(_SROperations_):
             return "%s%s" % (uri, configuration[CEPH_CLUSTER_TAG])
         else:
             return uri
-
-    def sr_import(self, dbg, uri, configuration):
-        log.debug("%s: xcpng.librbd.sr.SROperations.sr_import: uri: %s configuration %s" % (dbg, uri, configuration))
-
-        cluster = ceph_cluster(dbg, get_cluster_name_by_uri(dbg, uri))
-        pool_name = get_sr_name_by_uri(dbg, uri)
-
-        try:
-            cluster.connect()
-            if not cluster.pool_exists(pool_name):
-                raise Exception("CEPH pool %s doesn\'t exist" % pool_name)
-        except Exception as e:
-            log.debug("%s: xcpng.librbd.sr.SROperations.get_vdi_list: uri: Failed to destroy SR: uri: %s"
-                      % dbg, uri)
-            raise Exception(e)
-        finally:
-            cluster.shutdown()
-
-        mkdir_p("%s/%s" % (SR_PATH_PREFIX, get_sr_uuid_by_uri(dbg, uri)))
-
-    def sr_export(self, dbg, uri):
-        #log.debug("%s: xcpng.librbd.sr.SROperations.sr_export: uri: %s" % (dbg, uri))
-        pass
 
     def create(self, dbg, uri, configuration):
         log.debug("%s: xcpng.librbd.sr.SROperations.create: uri: %s configuration %s" % (dbg, uri, configuration))
@@ -140,6 +111,29 @@ class SROperations(_SROperations_):
         finally:
             cluster.shutdown()
 
+    def sr_import(self, dbg, uri, configuration):
+        log.debug("%s: xcpng.librbd.sr.SROperations.sr_import: uri: %s configuration %s" % (dbg, uri, configuration))
+
+        cluster = ceph_cluster(dbg, get_cluster_name_by_uri(dbg, uri))
+        pool_name = get_sr_name_by_uri(dbg, uri)
+
+        try:
+            cluster.connect()
+            if not cluster.pool_exists(pool_name):
+                raise Exception("CEPH pool %s doesn\'t exist" % pool_name)
+        except Exception as e:
+            log.debug("%s: xcpng.librbd.sr.SROperations.get_vdi_list: uri: Failed to destroy SR: uri: %s"
+                      % dbg, uri)
+            raise Exception(e)
+        finally:
+            cluster.shutdown()
+
+        mkdir_p("%s/%s" % (SR_PATH_PREFIX, get_sr_uuid_by_uri(dbg, uri)))
+
+    def sr_export(self, dbg, uri):
+        # log.debug("%s: xcpng.librbd.sr.SROperations.sr_export: uri: %s" % (dbg, uri))
+        pass
+
     def get_free_space(self, dbg, uri):
         log.debug("%s: xcpng.librbd.sr.SROperations.get_free_space: uri: %s" % (dbg, uri))
 
@@ -171,12 +165,3 @@ class SROperations(_SROperations_):
             raise Exception(e)
         finally:
             cluster.shutdown()
-
-
-class SR(_SR_):
-
-    def __init__(self):
-        super(SR, self).__init__()
-        self.sr_type = 'rbd'
-        self.MetadataHandler = MetadataHandler()
-        self.SROpsHendler = SROperations()

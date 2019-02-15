@@ -177,8 +177,8 @@ def rbd_snapshot(dbg, cluster, pool, name, snapshot):
         ioctx.close()
 
 
-def if_rbd_exist(dbg, cluster, pool, name):
-    log.debug("%s: rbd_utils.if_image_exist: Cluster ID: %s Image: %s"
+def rbd_exists(dbg, cluster, pool, name):
+    log.debug("%s: rbd_utils.rbd_exist: Cluster ID: %s Image: %s"
               % (dbg, cluster.get_fsid(), name))
     ioctx = cluster.open_ioctx(pool)
     try:

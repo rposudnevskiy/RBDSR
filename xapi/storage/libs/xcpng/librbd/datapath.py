@@ -1,23 +1,16 @@
 #!/usr/bin/env python
 
 from os.path import exists
-
-from xapi.storage.libs.xcpng.datapath import DATAPATHES, Implementation
-from xapi.storage.libs.xcpng.datapath import QdiskDatapath as _QdiskDatapath_
-from xapi.storage.libs.xcpng.librbd.qemudisk import Qemudisk
-from xapi.storage.libs.xcpng.librbd.meta import MetadataHandler
-from xapi.storage.libs.xcpng.utils import call, _call, get_cluster_name_by_uri, get_sr_name_by_uri, get_vdi_name_by_uri
+from xapi.storage.libs.xcpng.datapath import DatapathOperations as _DatapathOperations_
+from xapi.storage.libs.xcpng.meta import IMAGE_UUID_TAG
+from xapi.storage.libs.xcpng.utils import call, _call, get_cluster_name_by_uri, get_sr_name_by_uri, VDI_PREFIXES, \
+                                          get_vdi_type_by_uri
 
 from xapi.storage import log
 
 NBDS_MAX = 32
 
-class QdiskDatapath(_QdiskDatapath_):
-
-    def __init__(self):
-        super(QdiskDatapath, self).__init__()
-        self.MetadataHandler = MetadataHandler()
-        self.qemudisk = Qemudisk
+class DatapathOperations(_DatapathOperations_):
 
     def _is_nbd_device_connected(self, dbg, nbd_device):
         call(dbg, ['/usr/sbin/modprobe', 'nbd', "nbds_max=%s" % NBDS_MAX])
@@ -43,24 +36,22 @@ class QdiskDatapath(_QdiskDatapath_):
                        '-c', nbd_dev,
                        '-f', 'raw',
                        self.gen_vol_uri(dbg, uri)])
-            image_meta = {'nbd_dev': nbd_dev}
-            self.MetadataHandler.update(dbg, uri, image_meta)
+            volume_meta = {'nbd_dev': nbd_dev}
+            self.MetadataHandler.update_vdi_meta(dbg, uri, volume_meta)
             self.blkdev = nbd_dev
-
-            super(QdiskDatapath, self).map_vol(dbg, uri, chained=False)
+            super(DatapathOperations, self).map_vol(dbg, uri, chained=False)
 
     def unmap_vol(self, dbg, uri, chained=False):
         if chained is False:
-            super(QdiskDatapath, self).unmap_vol(dbg, uri, chained=False)
-            image_meta = self.MetadataHandler.load(dbg, uri)
-            call(dbg, ['/lib64/qemu-dp/bin/qemu-nbd', '-d', image_meta['nbd_dev']])
-            image_meta = {'nbd_dev': None}
-            self.MetadataHandler.update(dbg, uri, image_meta)
+            super(DatapathOperations, self).unmap_vol(dbg, uri, chained=False)
+            volume_meta = self.MetadataHandler.get_vdi_meta(dbg, uri)
+            call(dbg, ['/lib64/qemu-dp/bin/qemu-nbd', '-d', volume_meta['nbd_dev']])
+            volume_meta = {'nbd_dev': None}
+            self.MetadataHandler.update_vdi_meta(dbg, uri, volume_meta)
 
     def gen_vol_uri(self, dbg, uri):
-        return "rbd:%s/%s:conf=/etc/ceph/%s.conf" % (get_sr_name_by_uri(dbg, uri),
-                                                     get_vdi_name_by_uri(dbg, uri),
-                                                     get_cluster_name_by_uri(dbg, uri),)
-
-
-DATAPATHES['qdisk'] = QdiskDatapath
+        volume_meta = self.MetadataHandler.get_vdi_meta(dbg, uri)
+        return "rbd:%s/%s%s:conf=/etc/ceph/%s.conf" % (get_sr_name_by_uri(dbg, uri),
+                                                       VDI_PREFIXES[get_vdi_type_by_uri(dbg, uri)],
+                                                       volume_meta[IMAGE_UUID_TAG],
+                                                       get_cluster_name_by_uri(dbg, uri))
