@@ -1,0 +1,12 @@
+{
+  "plugin": "rbd+qcow2+qdisk",
+  "name": "The RBD QEMU qdisk user-space datapath plugin",
+  "description": "This plugin manages and configures qdisk instances backend for rbd image in QCOW2 format built using librbd",
+  "vendor": "Roman V. Posudnevskiy",
+  "copyright": "(c) 2019 Roman V. Posudnevskiy",
+  "version": "3.0",
+  "required_api_version": "5.0",
+  "features": [],
+  "configuration": {},
+  "required_cluster_stack": []
+}
