@@ -8,5 +8,5 @@
   "required_api_version": "5.0",
   "features": [],
   "configuration": {},
-  "required_cluster_stack": []
+  "required_cluster_stack": ["consul"]
 }
