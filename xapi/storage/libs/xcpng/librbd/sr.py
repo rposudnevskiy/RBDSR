@@ -122,7 +122,7 @@ class SROperations(_SROperations_):
             if not cluster.pool_exists(pool_name):
                 raise Exception("CEPH pool %s doesn\'t exist" % pool_name)
         except Exception as e:
-            log.debug("%s: xcpng.librbd.sr.SROperations.get_vdi_list: uri: Failed to destroy SR: uri: %s"
+            log.debug("%s: xcpng.librbd.sr.SROperations.sr_import: uri: Failed to import SR: uri: %s"
                       % dbg, uri)
             raise Exception(e)
         finally:
