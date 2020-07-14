@@ -8,7 +8,7 @@ sh <(curl -s https://raw.githubusercontent.com/rposudnevskiy/xcpng-storage-libs/
 
 cd ~
 wget -q "$REPO/$PROJECT/archive/$BRANCH.zip" -O ~/$PROJECT-temp.zip
-unzip -qq ~/$PROJECT-temp.zip -d ~
-cd ~/$PROJECT-$BRANCH/install
+unzip -qq -o ~/$PROJECT-temp.zip -d ~
+cd ~/$PROJECT-$BRANCH
 
-sh ./$PROJECT.sh install $1
+sh ./install/$PROJECT.sh install $1
