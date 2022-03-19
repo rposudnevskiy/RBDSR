@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import traceback
+
 from xapi.storage import log
 from xapi.storage.libs.xcpng.sr import SROperations as _SROperations_
 from xapi.storage.libs.xcpng.utils import POOL_PREFIX, SR_PATH_PREFIX, VDI_PREFIXES, \
@@ -38,6 +40,7 @@ class SROperations(_SROperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.sr.SROperations.create: uri: Failed to create SR: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -53,6 +56,7 @@ class SROperations(_SROperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.sr.SROperations.destory: Failed to destroy SR: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -86,6 +90,7 @@ class SROperations(_SROperations_):
             except Exception as e:
                 log.debug("%s: xcpng.librbd.sr.SROperations.get_sr_list: uri: Failed to get SRs list: uri: %s"
                           % dbg, uri)
+                log.error(traceback.format_exc())
                 raise Exception(e)
             finally:
                 cluster.shutdown()
@@ -107,6 +112,7 @@ class SROperations(_SROperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.sr.SROperations.get_vdi_list: uri: Failed to get VDIs list: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -124,6 +130,7 @@ class SROperations(_SROperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.sr.SROperations.sr_import: uri: Failed to import SR: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -146,6 +153,7 @@ class SROperations(_SROperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.sr.SROperations.get_free_space: uri: Failed to get free space: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -162,6 +170,7 @@ class SROperations(_SROperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.sr.SROperations.get_size: uri: Failed to get size: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()

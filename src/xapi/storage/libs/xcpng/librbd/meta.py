@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import traceback
+
 from struct import pack, unpack
 from xapi.storage import log
 from xapi.storage.libs.xcpng.meta import MetaDBOperations as _MetaDBOperations_
@@ -29,6 +31,7 @@ class MetaDBOperations(_MetaDBOperations_):
         except Exception as e:
             log.error("%s: xcpng.librbd.meta.MetaDBOpeations.create: Failed to create MetaDB: uri: %s"
                       % (dbg, uri))
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -46,6 +49,7 @@ class MetaDBOperations(_MetaDBOperations_):
         except Exception as e:
             log.error("%s: xcpng.librbd.meta.MetaDBOpeations.destroy: Failed to destroy MetaDB: uri: %s"
                       % (dbg, uri))
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -63,6 +67,7 @@ class MetaDBOperations(_MetaDBOperations_):
         except Exception as e:
             log.error("%s: xcpng.librbd.meta.MetaDBOpeations.load: Failed to load MetaDB: uri: %s"
                       % (dbg, uri))
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -85,6 +90,7 @@ class MetaDBOperations(_MetaDBOperations_):
         except Exception as e:
             log.error("%s: xcpng.librbd.meta.MetaDBOpeations.dump: Failed to dump MetaDB: uri: %s"
                       % (dbg, uri))
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()

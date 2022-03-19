@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import traceback
+
 from time import time, sleep
 from xapi.storage.libs.xcpng.meta import LocksOpsMgr as _LocksOpsMgr_
 from xapi.storage.libs.xcpng.librbd.rbd_utils import ceph_cluster, rbd_lock, rbd_unlock, ImageBusy, ImageExists, \
@@ -54,6 +56,7 @@ class LocksOpsMgr(_LocksOpsMgr_):
         except Exception as e:
             log.error("%s: xcpng.librbd.meta.MetaDBOpeations.lock: Failed to lock: uri: %s"
                       % (dbg, uri))
+            log.error(traceback.format_exc())
             lh[0].shutdown()
             raise Exception(e)
 

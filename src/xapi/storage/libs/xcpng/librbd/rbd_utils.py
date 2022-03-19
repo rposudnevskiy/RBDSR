@@ -3,6 +3,7 @@
 from rbd import RBD, Image, ImageBusy, ImageExists
 from rados import Rados
 import os, fnmatch
+import traceback
 
 from xapi.storage import log
 
@@ -44,6 +45,7 @@ def rbd_list(dbg, cluster, pool):
         return rbds
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.get_rbd_list: Failed to get list of rbds for pool: %s " % (dbg, pool))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -57,6 +59,7 @@ def pool_list(dbg, cluster):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.get_pool_list: Failed to get list of pools for Cluster ID: %s" %
                   (dbg, cluster.get_fsid()))
+        log.error(traceback.format_exc())
         raise Exception(e)
 
 
@@ -70,6 +73,7 @@ def rbd_create(dbg, cluster, pool, name, size):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_create: Failed to create an image: Cluster ID: %s Pool %s Name: %s Size: %s"
                   % (dbg, cluster.get_fsid(), pool, name, size))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -85,6 +89,7 @@ def rbd_remove(dbg, cluster, pool, name):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_remove: Failed to remove an image: Cluster ID: %s Pool %s Name: %s"
                   % (dbg, cluster.get_fsid(), pool, name))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -101,6 +106,7 @@ def rbd_resize(dbg, cluster, pool, name, size):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_resize: Failed to resize an image: Cluster ID: %s Pool %s Name: %s Size: %s"
                   % (dbg, cluster.get_fsid(), pool, name, size))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -118,6 +124,7 @@ def rbd_utilization(dbg, cluster, pool, name):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_utilisation: Failed to get an image utilization: Cluster ID: %s Pool %s Name: %s"
                   % (dbg, cluster.get_fsid(), pool, name))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -135,6 +142,7 @@ def rbd_rename(dbg, cluster, pool, old_name, new_name):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_utilisation: Failed to get an image utilization: Cluster ID: %s Pool %s Old Name: %s New Name: %s"
                   % (dbg, cluster.get_fsid(), pool, old_name, new_name))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -155,6 +163,7 @@ def rbd_clone(dbg, cluster, parent_pool, parent, snapshot, clone_pool, clone):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_clone: Failed to make a clone: Cluster ID: %s Parent Pool: %s Parent: %s Snapshot: %s Clone Pool: %s Clone: %s"
               % (dbg, cluster.get_fsid(), parent_pool, parent, snapshot, clone_pool, clone))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         p_ioctx.close()
@@ -172,6 +181,7 @@ def rbd_snapshot(dbg, cluster, pool, name, snapshot):
     except Exception as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_clone: Failed to take a snapshot: Cluster ID: %s Pool: %s Name: %s Snapshot: %s"
                   % (dbg, cluster.get_fsid(), pool, name, snapshot))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -201,6 +211,7 @@ def rbd_lock(dbg, cluster, pool, name):
     except ImageBusy or ImageExists as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_lock: Failed to acquire exclusive lock: Cluster ID: %s Pool: %s Name: %s"
                   % (dbg, cluster.get_fsid(), pool, name))
+        log.error(traceback.format_exc())
         image.close()
         ioctx.close()
         raise Exception(e)
@@ -233,6 +244,7 @@ def rbd_read(dbg, cluster, pool, name, offset, length):
     except ImageBusy or ImageExists as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_read: Failed to read from the image: Cluster ID: %s Pool: %s Name: %s"
                   % (dbg, cluster.get_fsid(), pool, name))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()
@@ -248,6 +260,7 @@ def rbd_write(dbg, cluster, pool, name, data, offset, length):
     except ImageBusy or ImageExists as e:
         log.error("%s: xcpng.librbd.rbd_utils.rbd_lock: Failed to write to the image: Cluster ID: %s Pool: %s Name: %s"
                   % (dbg, cluster.get_fsid(), pool, name))
+        log.error(traceback.format_exc())
         raise Exception(e)
     finally:
         ioctx.close()

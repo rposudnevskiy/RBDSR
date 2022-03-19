@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import traceback
+
 from xapi.storage import log
 from xapi.storage.libs.xcpng.meta import IMAGE_UUID_TAG
 from xapi.storage.libs.xcpng.utils import get_cluster_name_by_uri, get_sr_name_by_uri, get_vdi_name_by_uri, \
@@ -26,6 +28,7 @@ class VolumeOperations(_VolumeOperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.volume.VolumeOperations.create: Failed to create volume: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -45,6 +48,7 @@ class VolumeOperations(_VolumeOperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.volume.VolumeOperations.create: Failed to create volume: uri: %s"
                       % dbg, uri)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -65,6 +69,7 @@ class VolumeOperations(_VolumeOperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.volume.VolumeOperations.resize: Failed to create volume: uri: %s new_size: %s"
                       % dbg, uri, new_size)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
@@ -84,6 +89,7 @@ class VolumeOperations(_VolumeOperations_):
         except Exception as e:
             log.debug("%s: xcpng.librbd.volume.VolumeOperations.resize: Failed to create volume: uri: %s new_size: %s"
                       % dbg, uri. new_size)
+            log.error(traceback.format_exc())
             raise Exception(e)
         finally:
             cluster.shutdown()
