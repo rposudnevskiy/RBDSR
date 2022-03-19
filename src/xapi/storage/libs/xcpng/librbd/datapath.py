@@ -32,7 +32,7 @@ class DatapathOperations(_DatapathOperations_):
         if chained is False:
             log.debug("%s: xcpng.librbd.datapath.QdiskDatapath.map_vol: uri: %s" % (dbg, uri))
             nbd_dev = self._find_unused_nbd_device(dbg)
-            call(dbg, ['/lib64/qemu-dp/bin/qemu-nbd',
+            call(dbg, ['/usr/lib64/qemu-dp-xcpng/bin/qemu-nbd',
                        '-c', nbd_dev,
                        '-f', 'raw',
                        self.gen_vol_uri(dbg, uri)])
@@ -43,9 +43,10 @@ class DatapathOperations(_DatapathOperations_):
 
     def unmap_vol(self, dbg, uri, chained=False):
         if chained is False:
+            log.debug("%s: xcpng.librbd.datapath.QdiskDatapath.unmap_vol: uri: %s" % (dbg, uri))
             super(DatapathOperations, self).unmap_vol(dbg, uri, chained=False)
             volume_meta = self.MetadataHandler.get_vdi_meta(dbg, uri)
-            call(dbg, ['/lib64/qemu-dp/bin/qemu-nbd', '-d', volume_meta['nbd_dev']])
+            call(dbg, ['/usr/lib64/qemu-dp-xcpng/bin/qemu-nbd', '-d', volume_meta['nbd_dev']])
             volume_meta = {'nbd_dev': None}
             self.MetadataHandler.update_vdi_meta(dbg, uri, volume_meta)
 
