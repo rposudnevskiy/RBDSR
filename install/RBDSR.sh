@@ -1,5 +1,5 @@
 #!/bin/bash
-DEFAULT_CEPH_VERSION="luminous"
+DEFAULT_CEPH_VERSION="nautilus"
 
 # Usage: installCephRepo <ceph-version>
 function installCephRepo {
@@ -127,9 +127,9 @@ function installFiles {
 
     copyFile "src/volume/org.xen.xapi.storage.rbdsr/plugin.json" "/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.json"
 
-    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/plugin.py plugin.py
-    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/sr.py sr.py
-    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/volume.py volume.py
+    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/plugin.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/plugin.py
+    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/sr.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/sr.py
+    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/volume.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/volume.py
 
     ln -s plugin.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.diagnostics
     ln -s plugin.py /usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.rbdsr/Plugin.Query
@@ -156,11 +156,11 @@ function installFiles {
     rm -rf /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk
     mkdir -p /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk
 
-    copyFile "src/datapath/rbd+raw+qdisk/plugin.json" "/usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/plugin.json"
+    copyFile "src/datapath/rbd+qcow2+qdisk/plugin.json" "/usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/plugin.json"
 
-    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/plugin.py plugin.py
-    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/datapath.py datapath.py
-    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/data.py data.py
+    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/plugin.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/plugin.py
+    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/datapath.py
+    ln -s /lib/python2.7/site-packages/xapi/storage/libs/xcpng/scripts/data.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/data.py
 
     ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/Datapath.activate
     ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/Datapath.attach
