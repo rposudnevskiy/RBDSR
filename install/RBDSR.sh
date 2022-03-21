@@ -3,8 +3,8 @@ DEFAULT_CEPH_VERSION="nautilus"
 
 # Usage: installCephRepo <ceph-version>
 function installCephRepo {
-    echo "Install new Repos"
-    yum install --enablerepo="extras,base" -y centos-release-ceph-$1.noarch
+    echo "Install Ceph Repo"
+    yum install --enablerepo="extras,base" -q -y centos-release-ceph-$1.noarch
     echo "centos" > /etc/yum/vars/contentdir
 }
 
@@ -14,22 +14,22 @@ function removeCephRepo {
 }
 
 # Usage: removeXCPngRepo
-function removeXCPngRepo {
-    rm -f /etc/yum.repos.d/xcp-ng.repo
-}
+#function removeXCPngRepo {
+#    rm -f /etc/yum.repos.d/xcp-ng.repo
+#}
 
 # Usage: installXCPngRepo
-function installXCPngRepo {
-    major_version=`cat /etc/centos-release | awk '{print $3}' | awk -F. '{print $1}'`
-    major_minor_version=`cat /etc/centos-release | awk '{print $3}' | awk -F. '{print $1"."$2}'`
-    cat << EOF >/etc/yum.repos.d/xcp-ng.repo
-[xcp-ng-extras_testing]
-name=XCP-ng Extras Testing Repository
-baseurl=https://updates.xcp-ng.org/${major_version}/${major_minor_version}/extras_testing/x86_64/
-enabled=0
-gpgcheck=0
-EOF
-}
+#function installXCPngRepo {
+#    major_version=`cat /etc/centos-release | awk '{print $3}' | awk -F. '{print $1}'`
+#    major_minor_version=`cat /etc/centos-release | awk '{print $3}' | awk -F. '{print $1"."$2}'`
+#    cat << EOF >/etc/yum.repos.d/xcp-ng.repo
+#[xcp-ng-extras_testing]
+#name=XCP-ng Extras Testing Repository
+#baseurl=https://updates.xcp-ng.org/${major_version}/${major_minor_version}/extras_testing/x86_64/
+#enabled=0
+#gpgcheck=0
+#EOF
+#}
 
 # Usage: confirmInstallation
 function confirmInstallation {
@@ -102,22 +102,20 @@ function unconfigureFirewall {
 
 function installCeph {
     echo "Install Ceph API"
-    yum install --enablerepo="extras,base" -y python-rbd rbd-nbd
+    yum install --enablerepo="extras,base" -q -y python-rbd rbd-nbd
 }
 
 function uninstallCeph {
     echo "Uninstall Ceph API"
-    yum erase -y python-rbd rbd-nbd
+    yum erase -q -y python-rbd rbd-nbd
 }
 
 function upgradeDeps {
-    yum install --enablerepo="xcp-ng-extras_testing*" -y qemu-dp
-    yum install --enablerepo="extras,base" -y glibc-2.17-222.el7
+    yum install --enablerepo="extras,base" -q -y glibc-2.17-222.el7
 }
 
 function downgradeDeps {
-    yum history undo -y `yum history packages-list glibc | head -4 | tail -1 | awk -F\| '{gsub(/ /, "", $0); print $1}'`
-    yum history undo -y `yum history packages-list qemu-dp | head -4 | tail -1 | awk -F\| '{gsub(/ /, "", $0); print $1}'`
+    yum history undo -q -y `yum history packages-list glibc | head -4 | tail -1 | awk -F\| '{gsub(/ /, "", $0); print $1}'`
 }
 
 function installFiles {
@@ -170,8 +168,8 @@ function installFiles {
     ln -s datapath.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/Datapath.open
     ln -s plugin.py /usr/libexec/xapi-storage-script/datapath/rbd+qcow2+qdisk/Plugin.Query
 
-    rm -rf /lib/python2.7/site-packages/xapi/storage/libs/librbd
-    mkdir /lib/python2.7/site-packages/xapi/storage/libs/librbd
+    rm -rf /lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd
+    mkdir /lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd
 
     copyFile "src/xapi/storage/libs/xcpng/librbd/__init__.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/__init__.py"
     copyFile "src/xapi/storage/libs/xcpng/librbd/datapath.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/datapath.py"
@@ -193,7 +191,6 @@ function install {
   installCephRepo $1
   installCeph
   installFiles
-  installXCPngRepo
   upgradeDeps
   configureFirewall
 }
@@ -201,7 +198,6 @@ function install {
 function deinstall {
   unconfigureFirewall
   downgradeDeps
-  removeXCPngRepo
   removeFiles
   uninstallCeph
   removeCephRepo $1
