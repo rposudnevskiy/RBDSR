@@ -175,7 +175,7 @@ function installFiles {
     copyFile "src/xapi/storage/libs/xcpng/librbd/datapath.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/datapath.py"
     copyFile "src/xapi/storage/libs/xcpng/librbd/locks.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/locks.py"
     copyFile "src/xapi/storage/libs/xcpng/librbd/meta.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/meta.py"
-    copyFile "src/xapi/storage/libs/xcpng/librbd/rbd_utils.py" "/lib/python2.7/site-packages/xapi/storage/xcpng/libs/librbd/rbd_utils.py"
+    copyFile "src/xapi/storage/libs/xcpng/librbd/rbd_utils.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/rbd_utils.py"
     copyFile "src/xapi/storage/libs/xcpng/librbd/sr.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/sr.py"
     copyFile "src/xapi/storage/libs/xcpng/librbd/volume.py" "/lib/python2.7/site-packages/xapi/storage/libs/xcpng/librbd/volume.py"
 }
